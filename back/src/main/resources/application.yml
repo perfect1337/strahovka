@@ -1,0 +1,50 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/strahovka
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        javax.persistence.validation.mode: none
+        hbm2ddl.auto: none
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    generate-ddl: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: false
+    clean-on-validation-error: true
+    repair-on-migrate: true
+    clean-disabled: false
+  sql:
+    init:
+      mode: never
+
+server:
+  port: 8081
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 10
+
+logging:
+  level:
+    org.springframework: INFO
+    org.hibernate: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+    com.strahovka: DEBUG
+
+jwt:
+  secret: your-secret-key-here-must-be-at-least-32-characters-long-and-secure
+  expiration: 86400000 # 24 hours in milliseconds
+
+cors:
+  allowed-origins: http://localhost:3000 
