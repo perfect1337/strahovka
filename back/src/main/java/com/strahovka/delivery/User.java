@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.ArrayList;
 
 @Data
 @NoArgsConstructor
@@ -39,6 +40,9 @@ public class User implements UserDetails {
     @NotBlank
     @Column(nullable = false)
     private String password;
+
+    @Column(name = "refresh_token")
+    private String refreshToken;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -69,10 +73,21 @@ public class User implements UserDetails {
         System.out.println("User email: " + email);
         System.out.println("Role from entity: " + role.name());
         
-        // The role enum already has the ROLE_ prefix, so we use it directly
+        // The role enum already has the ROLE_ prefix
         String authority = role.name();
         System.out.println("Creating authority: " + authority);
-        return List.of(new SimpleGrantedAuthority(authority));
+        
+        // Create a list of authorities
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority(authority));
+        
+        // Add level-based authorities
+        if (level != null) {
+            authorities.add(new SimpleGrantedAuthority("LEVEL_" + level.name()));
+        }
+        
+        System.out.println("Final authorities: " + authorities);
+        return authorities;
     }
 
     @Override

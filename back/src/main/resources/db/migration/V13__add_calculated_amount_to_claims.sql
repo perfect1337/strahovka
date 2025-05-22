@@ -1,0 +1,2 @@
+-- This migration is a placeholder as the column calculated_amount was already added to insurance_claims
+-- and the amount column was already made nullable in a previous migration 

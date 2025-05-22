@@ -42,6 +42,7 @@ public class JwtService {
         Map<String, Object> extraClaims = new HashMap<>();
         String roles = userDetails.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
+            .map(role -> role.replace("ROLE_", ""))  // Remove ROLE_ prefix for consistency
             .collect(Collectors.joining(","));
         
         System.out.println("Generating token for user: " + userDetails.getUsername());
@@ -100,10 +101,17 @@ public class JwtService {
                 } else {
                     roles = List.of(rolesStr);
                 }
+                // Add ROLE_ prefix back for Spring Security
+                roles = roles.stream()
+                    .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                    .collect(Collectors.toList());
                 System.out.println("Parsed roles from string: " + roles);
                 return roles;
             } else if (rolesObj instanceof List) {
-                List<String> roles = (List<String>) rolesObj;
+                List<String> roles = ((List<?>) rolesObj).stream()
+                    .map(Object::toString)
+                    .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                    .collect(Collectors.toList());
                 System.out.println("Extracted roles from list: " + roles);
                 return roles;
             }

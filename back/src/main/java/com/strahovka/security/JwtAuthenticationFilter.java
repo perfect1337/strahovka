@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,6 +22,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 
 @Component
 @RequiredArgsConstructor
@@ -41,6 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             System.out.println("\n=== Processing Request ===");
             System.out.println("Request URL: " + request.getRequestURI());
+            System.out.println("Method: " + request.getMethod());
             System.out.println("Auth Header present: " + (authHeader != null));
             
             // For OPTIONS requests (CORS preflight), just proceed
@@ -50,17 +54,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                System.out.println("No valid Authorization header found - proceeding with chain");
+            // Check for public paths that don't require authentication
+            if (isPublicPath(request.getRequestURI())) {
+                System.out.println("Public path detected, skipping authentication: " + request.getRequestURI());
                 filterChain.doFilter(request, response);
                 return;
             }
 
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                System.out.println("No valid Authorization header found - request URL: " + request.getRequestURI());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setHeader("X-Auth-Error", "Missing or invalid Authorization header");
+                return;
+            }
+
+            // Extract token and user info
             jwt = authHeader.substring(7);
+            System.out.println("JWT token found in request, length: " + jwt.length());
+            
             try {
                 userEmail = jwtService.extractUsername(jwt);
-                
-                System.out.println("JWT token: " + jwt.substring(0, Math.min(jwt.length(), 20)) + "...");
                 System.out.println("User email from token: " + userEmail);
 
                 if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -70,16 +83,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     System.out.println("User authorities: " + userDetails.getAuthorities());
 
                     if (jwtService.isTokenValid(jwt, userDetails)) {
-                        // Print the authorities of the user for debugging
-                        System.out.println("JWT Extraction - User Authorities before creating token:");
-                        userDetails.getAuthorities().forEach(auth -> {
-                            System.out.println("  - Authority: " + auth.getAuthority() + ", Class: " + auth.getClass().getName());
-                        });
-                        
-                        // Create authentication token with user's authorities
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
-                            jwt, // Store the token in the credentials field for debugging
+                            null,
                             userDetails.getAuthorities()
                         );
                         
@@ -87,31 +93,56 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                         
                         System.out.println("Authentication successful");
-                        System.out.println("Final authorities in SecurityContext: " + 
-                            SecurityContextHolder.getContext().getAuthentication().getAuthorities());
+                        filterChain.doFilter(request, response);
                     } else {
                         System.out.println("Token validation failed");
-                        System.out.println("Token details:");
-                        try {
-                            System.out.println("Expiration: " + jwtService.extractClaim(jwt, Claims::getExpiration));
-                            System.out.println("IssuedAt: " + jwtService.extractClaim(jwt, Claims::getIssuedAt));
-                            System.out.println("Subject: " + jwtService.extractClaim(jwt, Claims::getSubject));
-                            System.out.println("Roles: " + jwtService.extractRoles(jwt));
-                        } catch (Exception e) {
-                            System.out.println("Error extracting token details: " + e.getMessage());
-                        }
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setHeader("X-Auth-Error", "Token validation failed");
+                        return;
                     }
+                } else {
+                    System.out.println("No user email in token or authentication already exists");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setHeader("X-Auth-Error", "Invalid token");
+                    return;
                 }
+            } catch (ExpiredJwtException e) {
+                System.out.println("Token has expired: " + e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setHeader("X-Auth-Error", "Token expired");
+                return;
+            } catch (JwtException e) {
+                System.out.println("JWT error processing token: " + e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setHeader("X-Auth-Error", "Invalid token");
+                return;
             } catch (Exception e) {
                 System.out.println("Exception processing JWT token: " + e.getMessage());
-                e.printStackTrace();
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setHeader("X-Auth-Error", "Token processing error");
+                return;
             }
         } catch (Exception e) {
             System.out.println("Error in JWT filter: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            System.out.println("=== Request Processing Complete ===\n");
-            filterChain.doFilter(request, response);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setHeader("X-Auth-Error", "Internal authentication error");
+            return;
         }
+    }
+    
+    private boolean isPublicPath(String uri) {
+        return uri.startsWith("/api/auth/login") ||
+               uri.startsWith("/api/auth/register") ||
+               uri.startsWith("/api/auth/refresh-token") ||
+               uri.startsWith("/api/auth/validate") ||
+               uri.startsWith("/api/auth/test") ||
+               uri.startsWith("/api/auth/debug-token") ||
+               uri.startsWith("/api/auth/debug-login") ||
+               uri.startsWith("/api/auth/create-test-user") ||
+               uri.startsWith("/api/auth/me") ||
+               uri.startsWith("/api/debug/") ||
+               uri.equals("/api/insurance/packages") ||
+               uri.equals("/api/insurance/categories") ||
+               uri.equals("/error");
     }
 } 

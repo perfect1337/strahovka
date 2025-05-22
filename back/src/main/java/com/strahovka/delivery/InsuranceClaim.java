@@ -21,7 +21,7 @@ public class InsuranceClaim {
     @JoinColumn(name = "policy_id", nullable = false)
     private InsurancePolicy policy;
 
-    @Column(nullable = false)
+    @Column(name = "claim_date", nullable = false)
     private LocalDate claimDate;
 
     @Column(nullable = false, length = 1000)
@@ -34,7 +34,7 @@ public class InsuranceClaim {
     @Column(length = 1000)
     private String response;
 
-    @Column
+    @Column(name = "response_date")
     private LocalDate responseDate;
 
     @Column(precision = 10, scale = 2)
