@@ -3,8 +3,7 @@ import api from '../api';
 
 const AuthContext = createContext(null);
 
-// Just after the AuthContext initialization and before the AuthProvider
-// Add debug function
+// Debug function for auth storage
 const debugAuthStorage = () => {
   try {
     const token = localStorage.getItem('token');
@@ -25,151 +24,67 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Function to validate token against backend
+  const validateToken = async (token) => {
+    try {
+      const response = await api.get('/api/auth/me');
+      return { valid: true, userData: response.data };
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      return { valid: false, error };
+    }
+  };
+
   useEffect(() => {
-    // Debug auth storage on component mount
-    debugAuthStorage();
-    
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (token) {
-      if (storedUser) {
-        try {
-          // First try to use stored user data
-          const userData = JSON.parse(storedUser);
-          console.log('Using stored user data:', userData);
-          setUser(userData);
-          setLoading(false);
-        } catch (e) {
-          console.error('Error parsing stored user data:', e);
-          // If stored data is invalid, fetch from API
-          fetchUserData(token);
-        }
-      } else {
-        // No stored user data, fetch from API
-        fetchUserData(token);
-      }
-    } else {
-      setLoading(false);
-    }
-  }, []);
-  
-  const fetchUserData = (token) => {
-    console.log('Fetching user data with token:', token ? `${token.substring(0, 15)}...` : 'no token');
-    api.get('/api/auth/me')
-      .then(response => {
-        console.log('User data from /me:', response.data);
-        const userData = {
-          ...response.data,
-          role: response.data.role,
-          name: `${response.data.firstName} ${response.data.lastName}`.trim()
-        };
-        console.log('Setting user with data:', userData);
-        
-        // Store in localStorage
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        setUser(userData);
-
-        // Try to refresh the token after a successful user fetch
-        refreshToken(userData.email);
-      })
-      .catch(error => {
-        console.error('Error fetching user data:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      })
-      .finally(() => {
+    const initAuth = async () => {
+      debugAuthStorage();
+      
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (!token) {
+        console.log('No token found - user is not logged in');
         setLoading(false);
-      });
-  };
-
-  // Add token refresh function
-  const refreshToken = async (email) => {
-    if (!email) return;
-    
-    try {
-      console.log('Attempting to refresh token for:', email);
-      // Use the silent refresh endpoint if you have one, or simplify by re-authenticating
-      // This is a simplified example - in production you would use a proper refresh token flow
-      const response = await api.post('/api/auth/refresh-token', { email });
-      
-      if (response.data && response.data.token) {
-        console.log('Token refreshed successfully');
-        localStorage.setItem('token', response.data.token);
-        debugAuthStorage();
+        return;
       }
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      // Don't logout on refresh error, just log it
-    }
-  };
-
-  const register = async (email, password, firstName, lastName) => {
-    try {
-      console.log('Registering user:', { email, firstName, lastName });
       
-      const response = await api.post('/api/auth/register', {
-        email,
-        password,
-        firstName,
-        lastName
-      });
-
-      console.log('Registration response:', response.data);
-      
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+      // Always validate the token with the backend
+      try {
+        const { valid, userData } = await validateToken(token);
         
-        setUser({
-          email: response.data.email,
-          firstName: response.data.firstName,
-          lastName: response.data.lastName,
-          role: response.data.role
-        });
-        
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = 'Ошибка при регистрации';
-      
-      if (error.response) {
-        console.log('Error response:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        });
-
-        if (error.response.data) {
-          try {
-            const errorData = typeof error.response.data === 'string' 
-              ? JSON.parse(error.response.data) 
-              : error.response.data;
-            
-            if (errorData.message) {
-              errorMessage = errorData.message;
-            } else if (errorData.error) {
-              errorMessage = errorData.error;
+        if (valid && userData) {
+          console.log('Token is valid, setting user state', userData);
+          const formattedUser = {
+            ...userData,
+            name: `${userData.firstName} ${userData.lastName}`.trim()
+          };
+          
+          setUser(formattedUser);
+          
+          // Update stored user data if it's different
+          if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            if (JSON.stringify(parsedUser) !== JSON.stringify(formattedUser)) {
+              localStorage.setItem('user', JSON.stringify(formattedUser));
             }
-          } catch (e) {
-            console.log('Raw error response data:', error.response.data);
-            if (typeof error.response.data === 'string') {
-              errorMessage = error.response.data;
-            }
+          } else {
+            localStorage.setItem('user', JSON.stringify(formattedUser));
           }
+        } else {
+          // Token is invalid, clear storage
+          console.warn('Token validation failed, clearing auth data');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
         }
-
-        if (error.response.status === 403) {
-          errorMessage = 'Пользователь с таким email уже существует';
-        }
+      } catch (error) {
+        console.error('Error during auth initialization:', error);
+      } finally {
+        setLoading(false);
       }
-      
-      throw new Error(errorMessage);
-    }
-  };
+    };
+    
+    initAuth();
+  }, []);
 
   const login = async (email, password) => {
     try {
@@ -198,67 +113,77 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         
         console.log('User set after login:', userData);
+        debugAuthStorage();
         
         return true;
       }
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      
-      let errorMessage = 'Ошибка при входе';
-      
-      if (error.response) {
-        console.log('Error response:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        });
+      throw error;
+    }
+  };
 
-        if (error.response.data) {
-          try {
-            const errorData = typeof error.response.data === 'string' 
-              ? JSON.parse(error.response.data) 
-              : error.response.data;
-            
-            if (errorData.message) {
-              errorMessage = errorData.message;
-            } else if (errorData.error) {
-              errorMessage = errorData.error;
-            }
-          } catch (e) {
-            console.log('Raw error response data:', error.response.data);
-            if (typeof error.response.data === 'string') {
-              errorMessage = error.response.data;
-            }
-          }
-        }
+  const register = async (email, password, firstName, lastName) => {
+    try {
+      console.log('Registering user:', { email, firstName, lastName });
+      
+      const response = await api.post('/api/auth/register', {
+        email,
+        password,
+        firstName,
+        lastName
+      });
 
-        if (error.response.status === 403) {
-          errorMessage = 'Неверный email или пароль';
-        }
+      console.log('Register response:', response.data);
+      
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        
+        const userData = {
+          email: response.data.email,
+          firstName: response.data.firstName,
+          lastName: response.data.lastName,
+          role: response.data.role,
+          name: `${response.data.firstName} ${response.data.lastName}`.trim()
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        setUser(userData);
+        
+        console.log('User set after registration:', userData);
+        debugAuthStorage();
+        
+        return true;
       }
-      
-      throw new Error(errorMessage);
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     }
   };
 
   const logout = () => {
+    console.log('Logging out user');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-  };
-
-  const value = {
-    user,
-    loading,
-    register,
-    login,
-    logout
+    debugAuthStorage();
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        isAdmin: user?.role === 'ROLE_ADMIN',
+      }}
+    >
+      {children}
     </AuthContext.Provider>
   );
 };
@@ -269,4 +194,6 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}; 
+};
+
+export default AuthContext; 

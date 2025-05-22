@@ -113,7 +113,13 @@ public class InsuranceService {
         InsurancePolicy policy = policyRepository.findById(policyId)
             .orElseThrow(() -> new RuntimeException("Страховой полис не найден"));
         
-        policy.setStatus(PolicyStatus.SUSPENDED);
+        policy.setStatus(PolicyStatus.CANCELLED);
+        
+        // Update user's policy count and level when cancelling
+        User user = policy.getUser();
+        user.decrementPolicyCount();
+        userRepository.save(user);
+        
         return policyRepository.save(policy);
     }
 
@@ -142,13 +148,14 @@ public class InsuranceService {
     }
 
     @Transactional
-    public InsuranceClaim processClaim(Long claimId, String response, ClaimStatus status) {
+    public InsuranceClaim processClaim(Long claimId, String response, ClaimStatus status, BigDecimal calculatedAmount) {
         InsuranceClaim claim = claimRepository.findById(claimId)
             .orElseThrow(() -> new RuntimeException("Страховой случай не найден"));
         
         claim.setResponse(response);
         claim.setStatus(status);
         claim.setResponseDate(LocalDate.now());
+        claim.setCalculatedAmount(calculatedAmount);
         
         return claimRepository.save(claim);
     }

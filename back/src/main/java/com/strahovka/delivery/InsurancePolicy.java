@@ -1,6 +1,8 @@
 package com.strahovka.delivery;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -17,13 +19,28 @@ public class InsurancePolicy {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @NotBlank(message = "Название полиса обязательно")
+    @Column(nullable = false)
+    private String name;
 
-    @ManyToOne
+    @NotBlank(message = "Описание полиса обязательно")
+    @Column(nullable = false, length = 1000)
+    private String description;
+
+    @NotNull(message = "Цена обязательна")
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private InsuranceCategory category;
+
+    @Column(nullable = false)
+    private boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(nullable = false)
     private LocalDate startDate;
@@ -35,20 +52,26 @@ public class InsurancePolicy {
     @Column(nullable = false)
     private PolicyStatus status = PolicyStatus.ACTIVE;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String details;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
-
-    @Column(precision = 10, scale = 2)
-    private BigDecimal cashbackAmount;
+    @Column(nullable = false)
+    private BigDecimal cashback = BigDecimal.ZERO;
 
     public void calculateCashback() {
-        if (price != null && user != null && user.getLevel() != null) {
-            BigDecimal cashbackPercent = BigDecimal.valueOf(user.getLevel().getCashbackPercentage())
-                .divide(BigDecimal.valueOf(100));
-            this.cashbackAmount = price.multiply(cashbackPercent);
+        if (user != null && user.getLevel() != null) {
+            switch (user.getLevel()) {
+                case GOLD:
+                    this.cashback = price.multiply(new BigDecimal("0.10")); // 10% cashback
+                    break;
+                case SILVER:
+                    this.cashback = price.multiply(new BigDecimal("0.05")); // 5% cashback
+                    break;
+                case WOODEN:
+                default:
+                    this.cashback = price.multiply(new BigDecimal("0.02")); // 2% cashback
+                    break;
+            }
         }
     }
 } 

@@ -68,6 +68,8 @@ public class User implements UserDetails {
         System.out.println("=== User Authorities ===");
         System.out.println("User email: " + email);
         System.out.println("Role from entity: " + role.name());
+        
+        // The role enum already has the ROLE_ prefix, so we use it directly
         String authority = role.name();
         System.out.println("Creating authority: " + authority);
         return List.of(new SimpleGrantedAuthority(authority));

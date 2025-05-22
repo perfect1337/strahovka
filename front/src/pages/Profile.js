@@ -14,16 +14,36 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
   Snackbar,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Card,
+  CardContent,
+  Chip,
+  Avatar,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import {
+  Person as PersonIcon,
+  Email as EmailIcon,
+  Security as SecurityIcon,
+  Assignment as AssignmentIcon,
+  LocalHospital as ClaimIcon,
+} from '@mui/icons-material';
 
 const Profile = () => {
   const [policies, setPolicies] = useState([]);
@@ -37,6 +57,13 @@ const Profile = () => {
   const [isRenewing, setIsRenewing] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [tabValue, setTabValue] = useState(0);
+  const [activePolicies, setActivePolicies] = useState([]);
+  const [completedPolicies, setCompletedPolicies] = useState([]);
+  const [activeClaims, setActiveClaims] = useState([]);
+  const [completedClaims, setCompletedClaims] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -57,6 +84,35 @@ const Profile = () => {
       fetchUserData();
     }
   }, [user]);
+
+  useEffect(() => {
+    fetchPolicies();
+    fetchClaims();
+  }, []);
+
+  const fetchPolicies = async () => {
+    try {
+      const response = await api.get('/api/policies/user');
+      setActivePolicies(response.data.filter(policy => policy.status === 'ACTIVE'));
+      setCompletedPolicies(response.data.filter(policy => policy.status === 'COMPLETED'));
+    } catch (error) {
+      console.error('Error fetching policies:', error);
+    }
+  };
+
+  const fetchClaims = async () => {
+    try {
+      const response = await api.get('/api/claims/user');
+      setActiveClaims(response.data.filter(claim => 
+        ['PENDING', 'IN_PROGRESS', 'NEED_INFO'].includes(claim.status)
+      ));
+      setCompletedClaims(response.data.filter(claim => 
+        ['APPROVED', 'REJECTED'].includes(claim.status)
+      ));
+    } catch (error) {
+      console.error('Error fetching claims:', error);
+    }
+  };
 
   const handleChangePassword = () => {
     navigate('/change-password');
@@ -105,121 +161,301 @@ const Profile = () => {
     }
   };
 
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Grid container spacing={4}>
-        {/* Информация о пользователе */}
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              Профиль пользователя
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  const handleTerminateClick = (policy) => {
+    setSelectedPolicy(policy);
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setSelectedPolicy(null);
+  };
+
+  const handleTerminateConfirm = async () => {
+    try {
+      await api.post(`/api/policies/${selectedPolicy.id}/terminate`);
+      fetchPolicies();
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error terminating policy:', error);
+    }
+  };
+
+  const renderUserInfo = () => (
+    <Card sx={{ mb: 4, borderRadius: 2, boxShadow: 3 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <Avatar
+            sx={{
+              width: 80,
+              height: 80,
+              bgcolor: 'primary.main',
+              fontSize: '2rem',
+              mr: 2
+            }}
+          >
+            {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography variant="h5" gutterBottom>
+              {user?.firstName} {user?.lastName}
             </Typography>
-            <Typography variant="body1" paragraph>
-              Имя: {user?.name}
-            </Typography>
-            <Typography variant="body1" paragraph>
-              Email: {user?.email}
-            </Typography>
-            <Button
-              variant="contained"
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
+              <Typography variant="body1" color="text.secondary">
+                {user?.email}
+              </Typography>
+            </Box>
+            <Chip
+              label={user?.level || 'BRONZE'}
               color="primary"
-              fullWidth
-              onClick={handleChangePassword}
-            >
-              Сменить пароль
-            </Button>
-          </Paper>
-        </Grid>
+              variant="outlined"
+              size="small"
+            />
+          </Box>
+        </Box>
+        <Button
+          variant="outlined"
+          startIcon={<SecurityIcon />}
+          onClick={handleChangePassword}
+          sx={{ mt: 2 }}
+        >
+          Сменить пароль
+        </Button>
+      </CardContent>
+    </Card>
+  );
 
-        {/* Активные полисы */}
-        <Grid item xs={12} md={8}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              Активные страховые полисы
-            </Typography>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-            <List>
-              {policies.map((policy) => (
-                <React.Fragment key={policy.id}>
-                  <ListItem
-                    secondaryAction={
-                      <Button 
-                        variant="outlined" 
-                        color="primary"
-                        onClick={() => handleOpenRenewalDialog(policy)}
-                      >
-                        Продлить
-                      </Button>
-                    }
-                  >
-                    <ListItemText
-                      primary={policy.category.name}
-                      secondary={`Статус: ${policy.status}, Действует до: ${new Date(policy.endDate).toLocaleDateString()}`}
+  const renderPoliciesTab = () => (
+    <Box sx={{ mt: 3 }}>
+      <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
+        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+          <AssignmentIcon sx={{ mr: 1 }} />
+          Активные полисы
+        </Typography>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Тип</TableCell>
+                <TableCell>Дата начала</TableCell>
+                <TableCell>Дата окончания</TableCell>
+                <TableCell>Действия</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activePolicies.map((policy) => (
+                <TableRow key={policy.id}>
+                  <TableCell>{policy.id}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={policy.type}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
                     />
-                  </ListItem>
-                  <Divider />
-                </React.Fragment>
+                  </TableCell>
+                  <TableCell>{new Date(policy.startDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(policy.endDate).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="small"
+                      onClick={() => handleTerminateClick(policy)}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Прервать
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-              {policies.length === 0 && (
-                <Typography variant="body1" color="textSecondary">
-                  У вас пока нет активных страховых полисов
-                </Typography>
-              )}
-            </List>
-          </Paper>
-        </Grid>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
-        {/* Заявки на страховые случаи */}
-        <Grid item xs={12}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              Заявки на страховые случаи
-            </Typography>
-            <List>
-              {claims.map((claim) => (
-                <React.Fragment key={claim.id}>
-                  <ListItem>
-                    <ListItemText
-                      primary={`Полис: ${claim.policy.category.name}`}
-                      secondary={
-                        <>
-                          <Typography component="span" variant="body2">
-                            Статус: {claim.status}
-                          </Typography>
-                          <br />
-                          <Typography component="span" variant="body2">
-                            Дата: {new Date(claim.claimDate).toLocaleDateString()}
-                          </Typography>
-                          {claim.adminResponse && (
-                            <>
-                              <br />
-                              <Typography component="span" variant="body2">
-                                Ответ: {claim.adminResponse}
-                              </Typography>
-                            </>
-                          )}
-                        </>
+      <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3 }}>
+        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+          <AssignmentIcon sx={{ mr: 1 }} />
+          Завершенные полисы
+        </Typography>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Тип</TableCell>
+                <TableCell>Дата начала</TableCell>
+                <TableCell>Дата окончания</TableCell>
+                <TableCell>Статус</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {completedPolicies.map((policy) => (
+                <TableRow key={policy.id}>
+                  <TableCell>{policy.id}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={policy.type}
+                      size="small"
+                      color="default"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{new Date(policy.startDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(policy.endDate).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={policy.status}
+                      size="small"
+                      color={policy.status === 'COMPLETED' ? 'success' : 'default'}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
+  );
+
+  const renderClaimsTab = () => (
+    <Box sx={{ mt: 3 }}>
+      <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
+        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+          <ClaimIcon sx={{ mr: 1 }} />
+          Активные страховые случаи
+        </Typography>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Дата создания</TableCell>
+                <TableCell>Тип страховки</TableCell>
+                <TableCell>Описание</TableCell>
+                <TableCell>Статус</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activeClaims.map((claim) => (
+                <TableRow key={claim.id}>
+                  <TableCell>{claim.id}</TableCell>
+                  <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={claim.insuranceType}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{claim.description}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={claim.status}
+                      size="small"
+                      color={
+                        claim.status === 'IN_PROGRESS' ? 'warning' :
+                        claim.status === 'NEED_INFO' ? 'info' : 'default'
                       }
                     />
-                  </ListItem>
-                  <Divider />
-                </React.Fragment>
+                  </TableCell>
+                </TableRow>
               ))}
-              {claims.length === 0 && (
-                <Typography variant="body1" color="textSecondary">
-                  У вас пока нет заявок на страховые случаи
-                </Typography>
-              )}
-            </List>
-          </Paper>
-        </Grid>
-      </Grid>
-      
-      {/* Диалог продления полиса */}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3 }}>
+        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+          <ClaimIcon sx={{ mr: 1 }} />
+          Завершенные страховые случаи
+        </Typography>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Дата создания</TableCell>
+                <TableCell>Тип страховки</TableCell>
+                <TableCell>Описание</TableCell>
+                <TableCell>Статус</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {completedClaims.map((claim) => (
+                <TableRow key={claim.id}>
+                  <TableCell>{claim.id}</TableCell>
+                  <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={claim.insuranceType}
+                      size="small"
+                      color="default"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{claim.description}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={claim.status}
+                      size="small"
+                      color={
+                        claim.status === 'APPROVED' ? 'success' :
+                        claim.status === 'REJECTED' ? 'error' : 'default'
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
+  );
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      {renderUserInfo()}
+
+      <Paper sx={{ borderRadius: 2, boxShadow: 3, mb: 4 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              minHeight: 64,
+            }
+          }}
+        >
+          <Tab
+            label="Мои полисы"
+            icon={<AssignmentIcon />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Страховые случаи"
+            icon={<ClaimIcon />}
+            iconPosition="start"
+          />
+        </Tabs>
+      </Paper>
+
+      {tabValue === 0 ? renderPoliciesTab() : renderClaimsTab()}
+
       <Dialog open={openRenewalDialog} onClose={handleCloseRenewalDialog}>
         <DialogTitle>Продление полиса</DialogTitle>
         <DialogContent>
@@ -270,6 +506,21 @@ const Profile = () => {
         onClose={() => setRenewalSuccess(false)}
         message="Полис успешно продлен!"
       />
+
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>Подтверждение прерывания</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы уверены, что хотите прервать действие этого полиса? Это действие нельзя отменить.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Отмена</Button>
+          <Button onClick={handleTerminateConfirm} color="error" variant="contained">
+            Прервать
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

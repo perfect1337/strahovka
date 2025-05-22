@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
@@ -35,4 +36,10 @@ public class InsuranceClaim {
 
     @Column
     private LocalDate responseDate;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal amount;
+
+    @Column(name = "calculated_amount", precision = 10, scale = 2)
+    private BigDecimal calculatedAmount;
 } 

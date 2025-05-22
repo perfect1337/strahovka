@@ -9,34 +9,37 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const CreateClaim = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [categories, setCategories] = useState([]);
   const [policies, setPolicies] = useState([]);
   const [formData, setFormData] = useState({
     policyId: '',
     description: '',
     incidentDate: null,
-    amount: '',
   });
+  const [files, setFiles] = useState([]);
+  const [uploadError, setUploadError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [categoriesResponse, policiesResponse] = await Promise.all([
-          api.get('/api/insurance/categories'),
-          api.get('/api/insurance/policies'),
-        ]);
-        setCategories(categoriesResponse.data);
+        const policiesResponse = await api.get('/api/insurance/policies');
         setPolicies(policiesResponse.data);
       } catch (err) {
         setError('Ошибка при загрузке данных. Пожалуйста, попробуйте позже.');
@@ -66,15 +69,47 @@ const CreateClaim = () => {
     }));
   };
 
+  const handleFileChange = (event) => {
+    const newFiles = Array.from(event.target.files);
+    setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    event.target.value = null; // Reset input
+  };
+
+  const handleRemoveFile = (index) => {
+    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setUploadError('');
 
     try {
-      await api.post('/api/claims', {
-        ...formData,
+      // First create the claim
+      const claimResponse = await api.post('/api/insurance/claims', {
+        policyId: formData.policyId,
+        description: formData.description,
         incidentDate: formData.incidentDate.toISOString(),
       });
+
+      // Then upload files if any
+      if (files.length > 0) {
+        const claimId = claimResponse.data.id;
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append('file', file);
+          try {
+            await api.post(`/api/insurance/claims/${claimId}/attachments`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+          } catch (uploadErr) {
+            setUploadError(`Ошибка при загрузке файла ${file.name}: ${uploadErr.message}`);
+          }
+        }
+      }
+
       navigate('/profile');
     } catch (err) {
       setError(err.response?.data?.message || 'Ошибка при создании заявки');
@@ -99,6 +134,12 @@ const CreateClaim = () => {
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {uploadError && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {uploadError}
           </Alert>
         )}
 
@@ -146,19 +187,44 @@ const CreateClaim = () => {
             )}
           />
 
-          <TextField
-            fullWidth
-            label="Сумма ущерба"
-            name="amount"
-            type="number"
-            value={formData.amount}
-            onChange={handleChange}
-            required
-            margin="normal"
-            InputProps={{
-              inputProps: { min: 0, step: 0.01 }
-            }}
-          />
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <input
+              accept="image/*,.pdf,.doc,.docx"
+              style={{ display: 'none' }}
+              id="file-upload"
+              type="file"
+              multiple
+              onChange={handleFileChange}
+            />
+            <label htmlFor="file-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<CloudUploadIcon />}
+                fullWidth
+              >
+                Прикрепить файлы
+              </Button>
+            </label>
+          </Box>
+
+          {files.length > 0 && (
+            <List>
+              {files.map((file, index) => (
+                <ListItem key={index}>
+                  <ListItemText
+                    primary={file.name}
+                    secondary={`${(file.size / 1024).toFixed(2)} KB`}
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton edge="end" onClick={() => handleRemoveFile(index)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          )}
 
           <Button
             type="submit"

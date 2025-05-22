@@ -32,6 +32,8 @@ import java.io.IOException;
 
 import java.util.Arrays;
 import java.util.List;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @EnableWebSecurity
@@ -52,30 +54,48 @@ public class SecurityConfig {
                 System.out.println("Setting up authorization rules");
                 auth
                     .requestMatchers(
-                        "/api/auth/register",
-                        "/api/auth/login",
-                        "/api/auth/me",
-                        "/api/auth/refresh-token",
+                        "/api/auth/**",
                         "/api/insurance/packages",
                         "/api/insurance/categories",
-                        "/api/insurance/applications/**"
+                        "/api/debug/**"
                     ).permitAll()
-                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                    .requestMatchers("/api/insurance/claims/pending").hasRole("ADMIN")
+                    .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                    .requestMatchers("/api/insurance/claims/pending").hasAuthority("ROLE_ADMIN")
+                    .requestMatchers("/api/insurance/claims/{claimId}/process").hasAuthority("ROLE_ADMIN")
                     .requestMatchers(
-                        "/api/insurance/policies",
-                        "/api/insurance/policies/**", 
-                        "/api/insurance/claims", 
+                        "/api/insurance/policies/**",
                         "/api/insurance/claims/**",
                         "/api/users/**"
-                    ).hasAnyRole("USER", "ADMIN")
+                    ).hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                     .anyRequest().authenticated();
                 System.out.println("Authorization rules configured");
             })
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .exceptionHandling(handler -> handler
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(handling -> handling
+                .authenticationEntryPoint((request, response, ex) -> {
+                    System.out.println("\n=== Authentication Failure ===");
+                    System.out.println("Request URL: " + request.getRequestURI());
+                    System.out.println("Method: " + request.getMethod());
+                    System.out.println("Headers:");
+                    request.getHeaderNames().asIterator().forEachRemaining(name -> {
+                        System.out.println("  " + name + ": " + request.getHeader(name));
+                    });
+                    System.out.println("Error message: " + ex.getMessage());
+                    
+                    // Set CORS headers
+                    response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+                    response.setHeader("Access-Control-Allow-Credentials", "true");
+                    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                    response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept");
+                    response.setContentType("application/json;charset=UTF-8");
+                    
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("{\"message\": \"Authentication failed: " + ex.getMessage() + "\"}");
+                })
                 .accessDeniedHandler((request, response, ex) -> {
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
                     System.out.println("\n=== Access Denied ===");
@@ -84,6 +104,7 @@ public class SecurityConfig {
                     System.out.println("Authorities: " + (auth != null ? auth.getAuthorities() : "null"));
                     System.out.println("Error message: " + ex.getMessage());
                     
+                    // Set CORS headers
                     response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
                     response.setHeader("Access-Control-Allow-Credentials", "true");
                     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -91,11 +112,9 @@ public class SecurityConfig {
                     response.setContentType("application/json;charset=UTF-8");
                     
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.getWriter().write("Access Denied: " + ex.getMessage());
+                    response.getWriter().write("{\"message\": \"Access Denied: " + ex.getMessage() + "\"}");
                 })
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            );
 
         System.out.println("Security configuration completed");
         return http.build();
@@ -113,9 +132,17 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -132,5 +159,19 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                    .allowedOrigins("http://localhost:3000")
+                    .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                    .allowedHeaders("Authorization", "Content-Type", "X-Requested-With", "Accept")
+                    .allowCredentials(true);
+            }
+        };
     }
 } 

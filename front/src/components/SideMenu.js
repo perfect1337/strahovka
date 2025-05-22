@@ -20,25 +20,27 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { checkIfAdmin } from '../utils/roleUtils';
 
 const SideMenu = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const isAdmin = user && checkIfAdmin(user.role);
-  console.log('SideMenu isAdmin check:', { role: user?.role, isAdmin });
+  const isAdmin = user?.role === 'ROLE_ADMIN';
+  const isModerator = user?.role === 'ROLE_MODERATOR';
 
-  const menuItems = [
-    { text: 'Создать заявку', icon: <AssignmentIcon />, path: '/create-claim' },
+  const commonMenuItems = [
     { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
     { text: 'Страховые полисы', icon: <SecurityIcon />, path: '/insurance' },
+    { text: 'Страховые случаи', icon: <ClaimsIcon />, path: '/claims' },
     { text: 'Сменить пароль', icon: <VpnKeyIcon />, path: '/change-password' },
   ];
   
   const adminMenuItems = [
     { text: 'Админ-панель', icon: <AdminIcon />, path: '/admin' },
-    { text: 'Страховые случаи', icon: <ClaimsIcon />, path: '/admin/claims' },
+  ];
+
+  const moderatorMenuItems = [
+    { text: 'Управление заявками', icon: <ClaimsIcon />, path: '/admin/claims' },
   ];
 
   return (
@@ -50,13 +52,12 @@ const SideMenu = () => {
         '& .MuiDrawer-paper': {
           width: 240,
           boxSizing: 'border-box',
-          marginTop: '64px', // Высота AppBar
         },
       }}
     >
-      <Box sx={{ overflow: 'auto' }}>
+      <Box sx={{ overflow: 'auto', mt: 8 }}>
         <List>
-          {menuItems.map((item) => (
+          {commonMenuItems.map((item) => (
             <ListItem
               button
               key={item.text}
@@ -68,16 +69,21 @@ const SideMenu = () => {
           ))}
         </List>
         
-        {isAdmin && (
+        {(isAdmin || isModerator) && (
           <>
             <Divider />
-            <Box sx={{ p: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Администрирование
-              </Typography>
-            </Box>
             <List>
-              {adminMenuItems.map((item) => (
+              {isAdmin && adminMenuItems.map((item) => (
+                <ListItem
+                  button
+                  key={item.text}
+                  onClick={() => navigate(item.path)}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </ListItem>
+              ))}
+              {isModerator && moderatorMenuItems.map((item) => (
                 <ListItem
                   button
                   key={item.text}

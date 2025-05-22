@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography, Paper, Alert, List, ListItem, ListItemText } from '@mui/material';
-import { useAuth } from '../context/AuthContext';
+import { Box, Button, Typography, Paper, List, ListItem, ListItemText, CircularProgress, Alert } from '@mui/material';
 import api from '../api';
 
 /**
@@ -8,115 +7,123 @@ import api from '../api';
  * Should only be used in development environments
  */
 const AuthDebugger = () => {
-  const { user } = useAuth();
-  const [testResults, setTestResults] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
 
   const runTest = async () => {
-    setLoading(true);
+    setTesting(true);
+    setResults(null);
     setError(null);
+    
     try {
-      const results = await api.testConnection();
-      setTestResults(results);
-    } catch (error) {
-      setError(error.message);
+      // Debug current auth state
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      // Check backend debug endpoint
+      let debugInfo = null;
+      try {
+        const debugResponse = await api.get('/api/auth/debug-token');
+        debugInfo = debugResponse.data;
+      } catch (err) {
+        debugInfo = {
+          error: err.message,
+          status: err.response?.status,
+          data: err.response?.data
+        };
+      }
+      
+      // Test connection
+      const testResults = await api.testConnection();
+      
+      setResults({
+        token: token ? {
+          value: `${token.substring(0, 20)}...`,
+          length: token.length
+        } : null,
+        user: user ? JSON.parse(user) : null,
+        debugInfo,
+        testResults
+      });
+    } catch (err) {
+      setError(err.message);
     } finally {
-      setLoading(false);
+      setTesting(false);
     }
   };
-
-  const clearStorage = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.reload();
-  };
-
+  
   return (
-    <Paper 
-      elevation={3} 
-      sx={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        right: 0, 
-        width: '350px', 
-        p: 2, 
-        m: 2, 
-        zIndex: 9999,
-        opacity: 0.9,
-        maxHeight: '80vh',
-        overflow: 'auto',
-        borderTop: '4px solid #f50057'
-      }}
-    >
-      <Typography variant="h6" gutterBottom>Auth Debugger</Typography>
-      
-      <Typography variant="subtitle2">Current User:</Typography>
-      <Box sx={{ mb: 2, fontSize: '0.75rem', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>
-        {user ? JSON.stringify(user, null, 2) : 'Not logged in'}
-      </Box>
-      
-      <Typography variant="subtitle2">Token in LocalStorage:</Typography>
-      <Box sx={{ mb: 2, fontSize: '0.75rem', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>
-        {localStorage.getItem('token') 
-          ? `${localStorage.getItem('token').substring(0, 20)}...` 
-          : 'No token found'}
-      </Box>
-      
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+    <Box sx={{ mt: 2, mb: 4 }}>
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h5" gutterBottom>Auth Debugger</Typography>
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        )}
+        
         <Button 
           variant="contained" 
-          size="small" 
-          onClick={runTest} 
-          disabled={loading}
-          color="primary"
+          onClick={runTest}
+          disabled={testing}
+          sx={{ mb: 3 }}
         >
-          {loading ? 'Testing...' : 'Test Connection'}
+          {testing ? <CircularProgress size={24} /> : 'Run Diagnostics'}
         </Button>
-        <Button 
-          variant="outlined" 
-          size="small" 
-          onClick={clearStorage}
-          color="error"
-        >
-          Clear Storage
-        </Button>
-      </Box>
-      
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      
-      {testResults && (
-        <>
-          <Typography variant="subtitle2">Test Results:</Typography>
-          <List dense>
-            {testResults.steps.map((step, index) => (
-              <ListItem key={index} dense divider>
-                <ListItemText 
-                  primary={step.step} 
-                  secondary={step.message}
-                  primaryTypographyProps={{ 
-                    color: step.success ? 'success.main' : 'error.main',
-                    variant: 'body2',
-                    fontWeight: 'bold'
-                  }}
-                  secondaryTypographyProps={{ 
-                    variant: 'caption' 
-                  }}
-                />
-              </ListItem>
-            ))}
-          </List>
-        </>
-      )}
-      
-      <Typography variant="caption" sx={{ mt: 2, display: 'block', color: 'text.secondary' }}>
-        * Debug mode - remove in production
-      </Typography>
-    </Paper>
+        
+        {results && (
+          <Box>
+            <Typography variant="h6" gutterBottom>Current User:</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mb: 2, whiteSpace: 'pre-wrap' }}>
+              {results.user ? JSON.stringify(results.user, null, 2) : 'Not logged in'}
+            </Paper>
+            
+            <Typography variant="h6" gutterBottom>Token in LocalStorage:</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mb: 2, whiteSpace: 'pre-wrap' }}>
+              {results.token ? `${results.token.value} (${results.token.length} characters)` : 'No token found'}
+            </Paper>
+            
+            <Typography variant="h6" gutterBottom>Backend Auth Info:</Typography>
+            <Paper variant="outlined" sx={{ p: 2, mb: 2, whiteSpace: 'pre-wrap' }}>
+              {JSON.stringify(results.debugInfo, null, 2)}
+            </Paper>
+            
+            <Typography variant="h6" gutterBottom>Test Results:</Typography>
+            <List sx={{ bgcolor: 'background.paper' }}>
+              {results.testResults.steps.map((step, index) => (
+                <ListItem key={index} divider>
+                  <ListItemText
+                    primary={`${step.step}: ${step.success ? '✅' : '❌'}`}
+                    secondary={step.message}
+                  />
+                </ListItem>
+              ))}
+            </List>
+            
+            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+              <Button 
+                variant="outlined" 
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  runTest();
+                }}
+                color="error"
+              >
+                Clear Auth Data
+              </Button>
+              
+              <Button 
+                variant="outlined"
+                onClick={() => window.location.href = '/login'}
+              >
+                Go to Login
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </Paper>
+    </Box>
   );
 };
 

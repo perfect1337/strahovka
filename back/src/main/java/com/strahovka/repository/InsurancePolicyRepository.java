@@ -9,6 +9,6 @@ import java.util.List;
 
 @Repository
 public interface InsurancePolicyRepository extends JpaRepository<InsurancePolicy, Long> {
-    List<InsurancePolicy> findByUser(User user);
+    List<InsurancePolicy> findByActiveTrue();
     List<InsurancePolicy> findByUserOrderByStartDateDesc(User user);
 } 

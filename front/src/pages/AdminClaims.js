@@ -28,6 +28,7 @@ const AdminClaims = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [response, setResponse] = useState('');
   const [status, setStatus] = useState('');
+  const [calculatedAmount, setCalculatedAmount] = useState('');
 
   useEffect(() => {
     // Only fetch claims if user is admin
@@ -54,12 +55,14 @@ const AdminClaims = () => {
           params: {
             response,
             status,
+            calculatedAmount: parseFloat(calculatedAmount)
           }
         }
       );
       setOpenDialog(false);
       setResponse('');
       setStatus('');
+      setCalculatedAmount('');
       fetchClaims();
     } catch (error) {
       console.error('Error processing claim:', error);
@@ -144,6 +147,18 @@ const AdminClaims = () => {
             value={response}
             onChange={(e) => setResponse(e.target.value)}
             margin="normal"
+          />
+
+          <TextField
+            margin="dense"
+            label="Рассчетная сумма выплаты"
+            type="number"
+            fullWidth
+            value={calculatedAmount}
+            onChange={(e) => setCalculatedAmount(e.target.value)}
+            InputProps={{
+              inputProps: { min: 0, step: 0.01 }
+            }}
           />
         </DialogContent>
         <DialogActions>
