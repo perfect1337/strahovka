@@ -27,8 +27,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import AddIcon from '@mui/icons-material/Add';
 
-const InsurancePackages = () => {
+const InsurancePackages = ({ adminView = false }) => {
   const [tabValue, setTabValue] = useState(0);
   const [packages, setPackages] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -54,17 +55,26 @@ const InsurancePackages = () => {
 
   const fetchPackages = async () => {
     try {
-      const response = await api.get('/insurance/packages');
-      setPackages(response.data);
+      const packagesResponse = await api.get('/api/insurance/packages');
+      setPackages(packagesResponse.data);
     } catch (error) {
       console.error('Error fetching packages:', error);
+      // If unauthorized and not in admin view, try fetching public packages
+      if (error.response?.status === 401 && !adminView) {
+        try {
+          const publicResponse = await api.get('/api/insurance/packages/public');
+          setPackages(publicResponse.data);
+        } catch (publicError) {
+          console.error('Error fetching public packages:', publicError);
+        }
+      }
     }
   };
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/insurance/categories');
-      setCategories(response.data);
+      const categoriesResponse = await api.get('/api/insurance/categories');
+      setCategories(categoriesResponse.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -127,11 +137,23 @@ const InsurancePackages = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить этот пакет?')) {
       try {
-        await api.delete(`/insurance/packages/${id}`);
+        await api.delete(`/api/insurance/packages/${id}`);
         fetchPackages();
       } catch (error) {
         console.error('Error deleting package:', error);
       }
+    }
+  };
+
+  const handleToggleActive = async (pkg) => {
+    try {
+      await api.put(`/api/insurance/packages/${pkg.id}`, {
+        ...pkg,
+        active: !pkg.active
+      });
+      fetchPackages();
+    } catch (error) {
+      console.error('Error toggling package status:', error);
     }
   };
 
@@ -147,7 +169,27 @@ const InsurancePackages = () => {
     <Grid container spacing={3}>
       {packages.map((pkg) => (
         <Grid item xs={12} sm={6} md={4} key={pkg.id}>
-          <Card>
+          <Card sx={{ 
+            opacity: pkg.active ? 1 : 0.7,
+            position: 'relative'
+          }}>
+            {!pkg.active && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  bgcolor: 'error.main',
+                  color: 'white',
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 1,
+                  fontSize: '0.75rem',
+                }}
+              >
+                Неактивен
+              </Box>
+            )}
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 {pkg.name}
@@ -175,13 +217,22 @@ const InsurancePackages = () => {
               </Box>
             </CardContent>
             <CardActions>
-              <Button size="small" color="primary" onClick={() => handleCreatePolicy(pkg, 'package')}>
-                Оформить
-              </Button>
-              {isAdmin && (
+              {!adminView && pkg.active && (
+                <Button size="small" color="primary" onClick={() => handleCreatePolicy(pkg, 'package')}>
+                  Оформить
+                </Button>
+              )}
+              {adminView && (
                 <>
                   <Button size="small" onClick={() => handleOpenDialog(pkg)}>
                     Редактировать
+                  </Button>
+                  <Button 
+                    size="small" 
+                    color={pkg.active ? "warning" : "success"}
+                    onClick={() => handleToggleActive(pkg)}
+                  >
+                    {pkg.active ? 'Деактивировать' : 'Активировать'}
                   </Button>
                   <Button size="small" color="error" onClick={() => handleDelete(pkg.id)}>
                     Удалить
@@ -344,34 +395,37 @@ const InsurancePackages = () => {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: adminView ? 0 : 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Страховые продукты</Typography>
-        {isAdmin && tabValue === 0 && (
+        {!adminView && <Typography variant="h4">Страховые продукты</Typography>}
+        {(isAdmin || adminView) && tabValue === 0 && (
           <Button
             variant="contained"
             color="primary"
             onClick={() => handleOpenDialog()}
+            startIcon={<AddIcon />}
           >
             Добавить пакет
           </Button>
         )}
       </Box>
 
-      <Paper sx={{ mb: 3 }}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          indicatorColor="primary"
-          textColor="primary"
-          centered
-        >
-          <Tab label="Страховые пакеты" />
-          <Tab label="Отдельные полисы" />
-        </Tabs>
-      </Paper>
+      {!adminView && (
+        <Paper sx={{ mb: 3 }}>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            indicatorColor="primary"
+            textColor="primary"
+            centered
+          >
+            <Tab label="Страховые пакеты" />
+            <Tab label="Отдельные полисы" />
+          </Tabs>
+        </Paper>
+      )}
 
-      {tabValue === 0 ? renderPackages() : renderPolicies()}
+      {(!adminView && tabValue === 0) || adminView ? renderPackages() : renderPolicies()}
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
@@ -385,6 +439,7 @@ const InsurancePackages = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               margin="normal"
+              required
             />
             <TextField
               fullWidth
@@ -394,6 +449,7 @@ const InsurancePackages = () => {
               margin="normal"
               multiline
               rows={4}
+              required
             />
             <TextField
               fullWidth
@@ -402,6 +458,10 @@ const InsurancePackages = () => {
               onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
               margin="normal"
               type="number"
+              required
+              InputProps={{
+                inputProps: { min: 0 }
+              }}
             />
             <TextField
               fullWidth
@@ -412,7 +472,7 @@ const InsurancePackages = () => {
               type="number"
               inputProps={{ min: 0, max: 100 }}
             />
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth margin="normal" required>
               <InputLabel>Категории</InputLabel>
               <Select
                 multiple
@@ -441,7 +501,12 @@ const InsurancePackages = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Отмена</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained" 
+            color="primary"
+            disabled={!formData.name || !formData.description || !formData.basePrice || formData.categories.length === 0}
+          >
             {selectedPackage ? 'Сохранить' : 'Создать'}
           </Button>
         </DialogActions>

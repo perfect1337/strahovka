@@ -35,7 +35,7 @@ public class InsurancePackage {
     private String description;
 
     @NotNull(message = "Базовая цена обязательна")
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(name = "baseprice", nullable = false, precision = 10, scale = 2)
     private BigDecimal basePrice;
 
     @Min(value = 0, message = "Скидка не может быть меньше 0%")

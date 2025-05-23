@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Logging in user:', { email });
       
-      const response = await api.post('/auth/login', {
+      const response = await api.post('/api/auth/login', {
         email,
         password
       });
@@ -74,8 +74,34 @@ export const AuthProvider = ({ children }) => {
     setUser(updatedUser);
   };
 
+  const register = async (email, password, firstName, lastName) => {
+    try {
+      console.log('Registering user:', { email, firstName, lastName });
+      
+      const response = await api.post('/api/auth/register', {
+        email,
+        password,
+        firstName,
+        lastName
+      });
+
+      const { accessToken, refreshToken, ...userData } = response.data;
+      
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
+      
+      return true;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, updateUserInfo }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, updateUserInfo, register }}>
       {children}
     </AuthContext.Provider>
   );

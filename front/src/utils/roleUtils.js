@@ -16,6 +16,19 @@ export const checkIfAdmin = (role) => {
 };
 
 /**
+ * Checks if a user has moderator role, accounting for different formats (MODERATOR, ROLE_MODERATOR)
+ * @param {string} role - The user role to check
+ * @returns {boolean} - True if the user has moderator privileges
+ */
+export const checkIfModerator = (role) => {
+  if (!role) return false;
+  return role === 'MODERATOR' || 
+         role === 'ROLE_MODERATOR' || 
+         role.includes('MODERATOR') || 
+         role.includes('ROLE_MODERATOR');
+};
+
+/**
  * Checks if a user has a specific role, accounting for the "ROLE_" prefix
  * @param {string} userRole - The user's role
  * @param {string} requiredRole - The role to check for

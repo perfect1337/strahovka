@@ -4,61 +4,53 @@ import com.strahovka.delivery.InsurancePackage;
 import com.strahovka.repository.InsurancePackageRepository;
 import com.strahovka.repository.InsuranceCategoryRepository;
 import com.strahovka.delivery.InsuranceCategory;
+import com.strahovka.service.InsurancePackageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
 
 import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/insurance/packages")
+@RequestMapping("/api/insurance")
+@RequiredArgsConstructor
 public class InsurancePackageController {
+    private final InsurancePackageService insurancePackageService;
 
-    @Autowired
-    private InsurancePackageRepository packageRepository;
-
-    @Autowired
-    private InsuranceCategoryRepository categoryRepository;
-
-    @GetMapping
+    @GetMapping("/packages")
     public ResponseEntity<List<InsurancePackage>> getAllPackages() {
-        return ResponseEntity.ok(packageRepository.findAll());
+        return ResponseEntity.ok(insurancePackageService.getAllActivePackages());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/packages/public")
+    public ResponseEntity<List<InsurancePackage>> getPublicPackages() {
+        return ResponseEntity.ok(insurancePackageService.getAllActivePackages());
+    }
+
+    @GetMapping("/packages/{id}")
     public ResponseEntity<InsurancePackage> getPackageById(@PathVariable Long id) {
-        return packageRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.ok(insurancePackageService.getPackageById(id));
     }
 
-    @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<InsurancePackage> createPackage(@Valid @RequestBody InsurancePackage insurancePackage) {
-        return ResponseEntity.ok(packageRepository.save(insurancePackage));
+    @PostMapping("/packages")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InsurancePackage> createPackage(@RequestBody InsurancePackage insurancePackage) {
+        return ResponseEntity.ok(insurancePackageService.createPackage(insurancePackage));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<InsurancePackage> updatePackage(
-            @PathVariable Long id,
-            @Valid @RequestBody InsurancePackage insurancePackage) {
-        if (!packageRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        insurancePackage.setId(id);
-        return ResponseEntity.ok(packageRepository.save(insurancePackage));
+    @PutMapping("/packages/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<InsurancePackage> updatePackage(@PathVariable Long id, @RequestBody InsurancePackage insurancePackage) {
+        return ResponseEntity.ok(insurancePackageService.updatePackage(id, insurancePackage));
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @DeleteMapping("/packages/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deletePackage(@PathVariable Long id) {
-        if (!packageRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        packageRepository.deleteById(id);
+        insurancePackageService.deletePackage(id);
         return ResponseEntity.ok().build();
     }
 } 

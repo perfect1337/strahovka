@@ -44,120 +44,65 @@ import {
   Assignment as AssignmentIcon,
   LocalHospital as ClaimIcon,
 } from '@mui/icons-material';
+import { formatDate } from '../utils/dateUtils';
 
 const Profile = () => {
+  const [userData, setUserData] = useState(null);
   const [policies, setPolicies] = useState([]);
-  const [claims, setClaims] = useState([]);
-  const [error, setError] = useState('');
-  const [renewalPolicy, setRenewalPolicy] = useState(null);
-  const [renewalDuration, setRenewalDuration] = useState(1);
-  const [openRenewalDialog, setOpenRenewalDialog] = useState(false);
-  const [renewalSuccess, setRenewalSuccess] = useState(false);
-  const [renewalError, setRenewalError] = useState('');
-  const [isRenewing, setIsRenewing] = useState(false);
+  const [applications, setApplications] = useState({
+    kasko: [],
+    osago: [],
+    travel: [],
+    health: [],
+    property: []
+  });
+  const [tabValue, setTabValue] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
-  const [activePolicies, setActivePolicies] = useState([]);
-  const [completedPolicies, setCompletedPolicies] = useState([]);
-  const [activeClaims, setActiveClaims] = useState([]);
-  const [completedClaims, setCompletedClaims] = useState([]);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedPolicy, setSelectedPolicy] = useState(null);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const [policiesResponse, claimsResponse] = await Promise.all([
-          api.get('/insurance/policies/user'),
-          api.get('/insurance/claims/user')
-        ]);
-        setPolicies(policiesResponse.data);
-        setClaims(claimsResponse.data);
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setError('Ошибка при загрузке данных');
-      }
-    };
-
-    if (user) {
-      fetchUserData();
-    }
-  }, [user]);
-
-  useEffect(() => {
+    fetchUserData();
     fetchPolicies();
-    fetchClaims();
+    fetchAllApplications();
   }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const response = await api.get('/api/users/profile');
+      setUserData(response.data);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
 
   const fetchPolicies = async () => {
     try {
-      const response = await api.get('/insurance/policies/user');
-      setActivePolicies(response.data.filter(policy => policy.status === 'ACTIVE'));
-      setCompletedPolicies(response.data.filter(policy => policy.status === 'COMPLETED'));
+      const response = await api.get('/api/insurance/policies/user');
+      setPolicies(response.data);
     } catch (error) {
       console.error('Error fetching policies:', error);
     }
   };
 
-  const fetchClaims = async () => {
+  const fetchAllApplications = async () => {
     try {
-      const response = await api.get('/insurance/claims/user');
-      setActiveClaims(response.data.filter(claim => 
-        ['PENDING', 'IN_PROGRESS', 'NEED_INFO'].includes(claim.status)
-      ));
-      setCompletedClaims(response.data.filter(claim => 
-        ['APPROVED', 'REJECTED'].includes(claim.status)
-      ));
-    } catch (error) {
-      console.error('Error fetching claims:', error);
-    }
-  };
+      const [kasko, osago, travel, health, property] = await Promise.all([
+        api.get('/api/insurance/applications/user/kasko'),
+        api.get('/api/insurance/applications/user/osago'),
+        api.get('/api/insurance/applications/user/travel'),
+        api.get('/api/insurance/applications/user/health'),
+        api.get('/api/insurance/applications/user/property')
+      ]);
 
-  const handleChangePassword = () => {
-    navigate('/change-password');
-  };
-
-  const handleOpenRenewalDialog = (policy) => {
-    setRenewalPolicy(policy);
-    setRenewalDuration(1);
-    setRenewalError('');
-    setOpenRenewalDialog(true);
-  };
-
-  const handleCloseRenewalDialog = () => {
-    setOpenRenewalDialog(false);
-    setRenewalPolicy(null);
-  };
-
-  const handleRenewalDurationChange = (event) => {
-    setRenewalDuration(event.target.value);
-  };
-
-  const handleRenewPolicy = async () => {
-    if (!renewalPolicy) return;
-    
-    setIsRenewing(true);
-    setRenewalError('');
-    
-    try {
-      await api.post(`/insurance/policies/${renewalPolicy.id}/renew`, null, {
-        params: {
-          durationInYears: renewalDuration
-        }
+      setApplications({
+        kasko: kasko.data,
+        osago: osago.data,
+        travel: travel.data,
+        health: health.data,
+        property: property.data
       });
-      
-      // Update the policies list with the renewed policy
-      const updatedPolicies = await api.get(`/insurance/policies`);
-      setPolicies(updatedPolicies.data);
-      
-      setRenewalSuccess(true);
-      handleCloseRenewalDialog();
     } catch (error) {
-      console.error('Error renewing policy:', error);
-      setRenewalError('Ошибка при продлении полиса. Пожалуйста, попробуйте позже.');
-    } finally {
-      setIsRenewing(false);
+      console.error('Error fetching applications:', error);
     }
   };
 
@@ -165,362 +110,204 @@ const Profile = () => {
     setTabValue(newValue);
   };
 
-  const handleTerminateClick = (policy) => {
-    setSelectedPolicy(policy);
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setSelectedPolicy(null);
-  };
-
-  const handleTerminateConfirm = async () => {
-    try {
-      await api.post(`/insurance/policies/${selectedPolicy.id}/terminate`);
-      fetchPolicies();
-      handleCloseDialog();
-    } catch (error) {
-      console.error('Error terminating policy:', error);
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'PENDING':
+        return 'warning';
+      case 'APPROVED':
+        return 'success';
+      case 'REJECTED':
+        return 'error';
+      case 'IN_REVIEW':
+        return 'info';
+      default:
+        return 'default';
     }
   };
 
-  const renderUserInfo = () => (
-    <Card sx={{ mb: 4, borderRadius: 2, boxShadow: 3 }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Avatar
-            sx={{
-              width: 80,
-              height: 80,
-              bgcolor: 'primary.main',
-              fontSize: '2rem',
-              mr: 2
-            }}
-          >
-            {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase()}
-          </Avatar>
-          <Box>
-            <Typography variant="h5" gutterBottom>
-              {user?.firstName} {user?.lastName}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
-              <Typography variant="body1" color="text.secondary">
-                {user?.email}
-              </Typography>
-            </Box>
-            <Chip
-              label={user?.level || 'BRONZE'}
-              color="primary"
-              variant="outlined"
-              size="small"
-            />
-          </Box>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<SecurityIcon />}
-          onClick={handleChangePassword}
-          sx={{ mt: 2 }}
-        >
-          Сменить пароль
-        </Button>
-      </CardContent>
-    </Card>
-  );
+  const renderApplicationsTable = (applications, type) => {
+    const getSpecificFields = (app) => {
+      switch (type) {
+        case 'kasko':
+          return (
+            <>
+              <TableCell>{app.carMake} {app.carModel}</TableCell>
+              <TableCell>{app.vinNumber}</TableCell>
+            </>
+          );
+        case 'osago':
+          return (
+            <>
+              <TableCell>{app.carMake} {app.carModel}</TableCell>
+              <TableCell>{app.licensePlate}</TableCell>
+            </>
+          );
+        case 'travel':
+          return (
+            <>
+              <TableCell>{app.destinationCountry}</TableCell>
+              <TableCell>{formatDate(app.travelStartDate)} - {formatDate(app.travelEndDate)}</TableCell>
+            </>
+          );
+        case 'health':
+          return (
+            <>
+              <TableCell>{app.snils}</TableCell>
+              <TableCell>{app.preferredClinic || 'Не указана'}</TableCell>
+            </>
+          );
+        case 'property':
+          return (
+            <>
+              <TableCell>{app.propertyType}</TableCell>
+              <TableCell>{app.address}</TableCell>
+            </>
+          );
+        default:
+          return null;
+      }
+    };
 
-  const renderPoliciesTab = () => (
-    <Box sx={{ mt: 3 }}>
-      <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
-        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-          <AssignmentIcon sx={{ mr: 1 }} />
-          Активные полисы
-        </Typography>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Тип</TableCell>
-                <TableCell>Дата начала</TableCell>
-                <TableCell>Дата окончания</TableCell>
-                <TableCell>Действия</TableCell>
+    return (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Дата подачи</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell>Сумма</TableCell>
+              {type === 'kasko' && (
+                <>
+                  <TableCell>Автомобиль</TableCell>
+                  <TableCell>VIN</TableCell>
+                </>
+              )}
+              {type === 'osago' && (
+                <>
+                  <TableCell>Автомобиль</TableCell>
+                  <TableCell>Гос. номер</TableCell>
+                </>
+              )}
+              {type === 'travel' && (
+                <>
+                  <TableCell>Страна</TableCell>
+                  <TableCell>Период поездки</TableCell>
+                </>
+              )}
+              {type === 'health' && (
+                <>
+                  <TableCell>СНИЛС</TableCell>
+                  <TableCell>Клиника</TableCell>
+                </>
+              )}
+              {type === 'property' && (
+                <>
+                  <TableCell>Тип недвижимости</TableCell>
+                  <TableCell>Адрес</TableCell>
+                </>
+              )}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {applications.map((app) => (
+              <TableRow key={app.id}>
+                <TableCell>{formatDate(app.applicationDate)}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={app.status}
+                    color={getStatusColor(app.status)}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  {app.calculatedAmount 
+                    ? `${app.calculatedAmount} ₽`
+                    : 'Ожидает расчета'}
+                </TableCell>
+                {getSpecificFields(app)}
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {activePolicies.map((policy) => (
-                <TableRow key={policy.id}>
-                  <TableCell>{policy.id}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={policy.type}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>{new Date(policy.startDate).toLocaleDateString()}</TableCell>
-                  <TableCell>{new Date(policy.endDate).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      size="small"
-                      onClick={() => handleTerminateClick(policy)}
-                      sx={{ borderRadius: 2 }}
-                    >
-                      Прервать
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            ))}
+            {applications.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  Нет заявок
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
+
+  if (!userData) {
+    return <Typography>Loading...</Typography>;
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Профиль пользователя
+        </Typography>
+        <Typography>Email: {userData.email}</Typography>
+        <Typography>Имя: {userData.firstName}</Typography>
+        <Typography>Фамилия: {userData.lastName}</Typography>
       </Paper>
 
-      <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3 }}>
-        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-          <AssignmentIcon sx={{ mr: 1 }} />
-          Завершенные полисы
-        </Typography>
-        <TableContainer>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="Активные полисы" />
+          <Tab label="КАСКО" />
+          <Tab label="ОСАГО" />
+          <Tab label="Путешествия" />
+          <Tab label="Здоровье" />
+          <Tab label="Недвижимость" />
+        </Tabs>
+      </Box>
+
+      {tabValue === 0 && (
+        <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Тип</TableCell>
+                <TableCell>Тип страхования</TableCell>
                 <TableCell>Дата начала</TableCell>
                 <TableCell>Дата окончания</TableCell>
                 <TableCell>Статус</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {completedPolicies.map((policy) => (
+              {policies.map((policy) => (
                 <TableRow key={policy.id}>
-                  <TableCell>{policy.id}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={policy.type}
-                      size="small"
-                      color="default"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>{new Date(policy.startDate).toLocaleDateString()}</TableCell>
-                  <TableCell>{new Date(policy.endDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{policy.name}</TableCell>
+                  <TableCell>{formatDate(policy.startDate)}</TableCell>
+                  <TableCell>{formatDate(policy.endDate)}</TableCell>
                   <TableCell>
                     <Chip
                       label={policy.status}
+                      color={policy.status === 'ACTIVE' ? 'success' : 'default'}
                       size="small"
-                      color={policy.status === 'COMPLETED' ? 'success' : 'default'}
                     />
                   </TableCell>
                 </TableRow>
               ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-    </Box>
-  );
-
-  const renderClaimsTab = () => (
-    <Box sx={{ mt: 3 }}>
-      <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 3 }}>
-        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-          <ClaimIcon sx={{ mr: 1 }} />
-          Активные страховые случаи
-        </Typography>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Дата создания</TableCell>
-                <TableCell>Тип страховки</TableCell>
-                <TableCell>Описание</TableCell>
-                <TableCell>Статус</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {activeClaims.map((claim) => (
-                <TableRow key={claim.id}>
-                  <TableCell>{claim.id}</TableCell>
-                  <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={claim.insuranceType}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>{claim.description}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={claim.status}
-                      size="small"
-                      color={
-                        claim.status === 'IN_PROGRESS' ? 'warning' :
-                        claim.status === 'NEED_INFO' ? 'info' : 'default'
-                      }
-                    />
+              {policies.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} align="center">
+                    Нет активных полисов
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
-
-      <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3 }}>
-        <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
-          <ClaimIcon sx={{ mr: 1 }} />
-          Завершенные страховые случаи
-        </Typography>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Дата создания</TableCell>
-                <TableCell>Тип страховки</TableCell>
-                <TableCell>Описание</TableCell>
-                <TableCell>Статус</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {completedClaims.map((claim) => (
-                <TableRow key={claim.id}>
-                  <TableCell>{claim.id}</TableCell>
-                  <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={claim.insuranceType}
-                      size="small"
-                      color="default"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>{claim.description}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={claim.status}
-                      size="small"
-                      color={
-                        claim.status === 'APPROVED' ? 'success' :
-                        claim.status === 'REJECTED' ? 'error' : 'default'
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-    </Box>
-  );
-
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {renderUserInfo()}
-
-      <Paper sx={{ borderRadius: 2, boxShadow: 3, mb: 4 }}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          variant="fullWidth"
-          sx={{
-            borderBottom: 1,
-            borderColor: 'divider',
-            '& .MuiTab-root': {
-              minHeight: 64,
-            }
-          }}
-        >
-          <Tab
-            label="Мои полисы"
-            icon={<AssignmentIcon />}
-            iconPosition="start"
-          />
-          <Tab
-            label="Страховые случаи"
-            icon={<ClaimIcon />}
-            iconPosition="start"
-          />
-        </Tabs>
-      </Paper>
-
-      {tabValue === 0 ? renderPoliciesTab() : renderClaimsTab()}
-
-      <Dialog open={openRenewalDialog} onClose={handleCloseRenewalDialog}>
-        <DialogTitle>Продление полиса</DialogTitle>
-        <DialogContent>
-          {renewalError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {renewalError}
-            </Alert>
-          )}
-          <Typography variant="body1" gutterBottom>
-            Полис: {renewalPolicy?.category?.name}
-          </Typography>
-          <Typography variant="body2" color="textSecondary" gutterBottom>
-            Действует до: {renewalPolicy ? new Date(renewalPolicy.endDate).toLocaleDateString() : ''}
-          </Typography>
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>Срок продления</InputLabel>
-              <Select
-                value={renewalDuration}
-                onChange={handleRenewalDurationChange}
-                label="Срок продления"
-              >
-                <MenuItem value={1}>1 год</MenuItem>
-                <MenuItem value={2}>2 года</MenuItem>
-                <MenuItem value={3}>3 года</MenuItem>
-                <MenuItem value={5}>5 лет</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseRenewalDialog}>Отмена</Button>
-          <Button 
-            onClick={handleRenewPolicy} 
-            color="primary" 
-            variant="contained" 
-            disabled={isRenewing}
-          >
-            {isRenewing ? 'Обработка...' : 'Продлить'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* Уведомление об успешном продлении */}
-      <Snackbar
-        open={renewalSuccess}
-        autoHideDuration={6000}
-        onClose={() => setRenewalSuccess(false)}
-        message="Полис успешно продлен!"
-      />
-
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Подтверждение прерывания</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Вы уверены, что хотите прервать действие этого полиса? Это действие нельзя отменить.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Отмена</Button>
-          <Button onClick={handleTerminateConfirm} color="error" variant="contained">
-            Прервать
-          </Button>
-        </DialogActions>
-      </Dialog>
+      )}
+      {tabValue === 1 && renderApplicationsTable(applications.kasko, 'kasko')}
+      {tabValue === 2 && renderApplicationsTable(applications.osago, 'osago')}
+      {tabValue === 3 && renderApplicationsTable(applications.travel, 'travel')}
+      {tabValue === 4 && renderApplicationsTable(applications.health, 'health')}
+      {tabValue === 5 && renderApplicationsTable(applications.property, 'property')}
     </Container>
   );
 };

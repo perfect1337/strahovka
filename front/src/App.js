@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthProvider } from './context/AuthContext';
+import 'antd/dist/reset.css';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -21,11 +22,13 @@ import PrivateRoute from './components/PrivateRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreatePolicy from './pages/CreatePolicy';
 import OsagoForm from './pages/forms/OsagoForm';
-import KaskoForm from './pages/forms/KaskoForm';
+import KaskoForm from './components/forms/KaskoForm';
 import TravelForm from './pages/forms/TravelForm';
 import HealthForm from './pages/forms/HealthForm';
 import RealEstateForm from './pages/forms/RealEstateForm';
 import ApartmentForm from './pages/forms/ApartmentForm';
+import ModeratorClaims from './pages/ModeratorClaims';
+import ApplicationsList from './pages/ApplicationsList';
 
 const theme = createTheme({
   palette: {
@@ -51,6 +54,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/categories" element={<InsuranceCategories />} />
+                <Route path="/insurance/packages" element={<InsurancePackages />} />
                 <Route
                   path="/profile"
                   element={
@@ -102,9 +106,17 @@ function App() {
                 <Route
                   path="/admin/claims"
                   element={
-                    <PrivateRoute requiredRole="ADMIN">
+                    <ProtectedRoute adminOnly>
                       <AdminClaims />
-                    </PrivateRoute>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/moderator/claims"
+                  element={
+                    <ProtectedRoute moderatorOnly>
+                      <ModeratorClaims />
+                    </ProtectedRoute>
                   }
                 />
                 <Route
@@ -161,6 +173,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <ApartmentForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/applications"
+                  element={
+                    <ProtectedRoute roles={['ROLE_ADMIN', 'ROLE_MODERATOR']}>
+                      <ApplicationsList />
                     </ProtectedRoute>
                   }
                 />

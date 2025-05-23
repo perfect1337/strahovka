@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/users")
@@ -19,8 +20,25 @@ public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @GetMapping("/profile")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
+    public ResponseEntity<?> getProfile(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("email", user.getEmail());
+        profile.put("firstName", user.getFirstName());
+        profile.put("lastName", user.getLastName());
+        profile.put("role", user.getRole().name());
+        profile.put("level", user.getLevel().name());
+        profile.put("policyCount", user.getPolicyCount());
+
+        return ResponseEntity.ok(profile);
+    }
+
     @PostMapping("/change-password")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request) {
         String currentPassword = request.get("currentPassword");
         String newPassword = request.get("newPassword");

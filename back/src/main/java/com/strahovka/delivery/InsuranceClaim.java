@@ -2,18 +2,13 @@ package com.strahovka.delivery;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.ArrayList;
 
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "insurance_claims")
 public class InsuranceClaim {
@@ -21,22 +16,31 @@ public class InsuranceClaim {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "policy_id", nullable = false)
     private InsurancePolicy policy;
 
-    @Column(name = "claim_date", nullable = false)
-    private LocalDate claimDate;
-
-    @Column(name = "description", nullable = false, length = 1000)
+    @Column(nullable = false)
     private String description;
 
-    @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ClaimStatus status = ClaimStatus.PENDING;
 
-    @Column(name = "response")
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "processed_at")
+    private LocalDateTime processedAt;
+
+    @Column(name = "processed_by")
+    private String processedBy;
+
+    @Column(columnDefinition = "TEXT")
     private String response;
+
+    @Column(name = "claim_date")
+    private LocalDate claimDate;
 
     @Column(name = "response_date")
     private LocalDate responseDate;

@@ -3,16 +3,21 @@ package com.strahovka.controller;
 import com.strahovka.delivery.*;
 import com.strahovka.service.InsuranceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.Authentication;
 import com.strahovka.repository.UserRepository;
+import com.strahovka.repository.InsuranceClaimRepository;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/insurance")
@@ -20,6 +25,7 @@ import java.math.BigDecimal;
 public class InsuranceController {
     private final InsuranceService insuranceService;
     private final UserRepository userRepository;
+    private final InsuranceClaimRepository claimRepository;
 
     @GetMapping("/categories")
     public ResponseEntity<List<InsuranceCategory>> getAllCategories() {
@@ -100,15 +106,29 @@ public class InsuranceController {
     }
 
     @PostMapping("/claims/{claimId}/process")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     public ResponseEntity<InsuranceClaim> processClaim(
             @PathVariable Long claimId,
-            @RequestParam String resolution,
-            @RequestParam ClaimStatus status,
-            @RequestParam BigDecimal amount) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Processing claim - Admin: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        return ResponseEntity.ok(insuranceService.processClaim(claimId, resolution, status, amount));
+            @RequestBody Map<String, String> request) {
+        
+        String status = request.get("status");
+        String response = request.get("response");
+        BigDecimal amount = request.get("amount") != null ? new BigDecimal(request.get("amount")) : null;
+        
+        InsuranceClaim claim = claimRepository.findById(claimId)
+            .orElseThrow(() -> new RuntimeException("Claim not found"));
+            
+        claim.setStatus(ClaimStatus.valueOf(status));
+        claim.setResponse(response);
+        claim.setProcessedAt(LocalDateTime.now());
+        claim.setProcessedBy(SecurityContextHolder.getContext().getAuthentication().getName());
+        claim.setResponseDate(LocalDate.now());
+        
+        if (amount != null) {
+            claim.setCalculatedAmount(amount);
+        }
+        
+        return ResponseEntity.ok(claimRepository.save(claim));
     }
 
     @GetMapping("/claims/pending")
@@ -117,5 +137,24 @@ public class InsuranceController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         System.out.println("Getting pending claims - Admin: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
         return ResponseEntity.ok(insuranceService.getPendingClaims());
+    }
+
+    @GetMapping("/claims/all")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    public ResponseEntity<Page<InsuranceClaim>> getAllClaims(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status) {
+        
+        PageRequest pageRequest = PageRequest.of(page, size);
+        Page<InsuranceClaim> claims;
+        
+        if (status != null && !status.equals("ALL")) {
+            claims = claimRepository.findByStatus(ClaimStatus.valueOf(status), pageRequest);
+        } else {
+            claims = claimRepository.findAll(pageRequest);
+        }
+        
+        return ResponseEntity.ok(claims);
     }
 } 

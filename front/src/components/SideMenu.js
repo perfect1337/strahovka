@@ -17,16 +17,18 @@ import {
   VpnKey as VpnKeyIcon,
   AdminPanelSettings as AdminIcon,
   MedicalServices as ClaimsIcon,
+  SupervisorAccount as ModeratorIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { checkIfAdmin, checkIfModerator } from '../utils/roleUtils';
 
 const SideMenu = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const isAdmin = user?.role === 'ROLE_ADMIN';
-  const isModerator = user?.role === 'ROLE_MODERATOR';
+  const isAdmin = user && checkIfAdmin(user.role);
+  const isModerator = user && (checkIfModerator(user.role) || checkIfAdmin(user.role));
 
   const commonMenuItems = [
     { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
@@ -40,7 +42,7 @@ const SideMenu = () => {
   ];
 
   const moderatorMenuItems = [
-    { text: 'Управление заявками', icon: <ClaimsIcon />, path: '/admin/claims' },
+    { text: 'Управление заявками', icon: <ModeratorIcon />, path: '/moderator/claims' },
   ];
 
   return (

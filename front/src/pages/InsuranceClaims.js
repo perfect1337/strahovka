@@ -58,7 +58,7 @@ const InsuranceClaims = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await api.get('/insurance/claims/user', {
+      const response = await api.get('/api/insurance/claims/user', {
         params: {
           page,
           size: rowsPerPage,
@@ -75,7 +75,7 @@ const InsuranceClaims = () => {
 
   const fetchPolicies = async () => {
     try {
-      const response = await api.get('/insurance/policies/user');
+      const response = await api.get('/api/insurance/policies');
       setPolicies(response.data.filter(policy => policy.status === 'ACTIVE'));
     } catch (error) {
       console.error('Error fetching policies:', error);

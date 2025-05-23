@@ -1,172 +1,147 @@
 package com.strahovka.controller;
 
-import com.strahovka.delivery.User;
+import com.strahovka.delivery.*;
+import com.strahovka.service.InsuranceApplicationService;
 import com.strahovka.repository.UserRepository;
+import com.strahovka.dto.KaskoApplicationRequest;
+import com.strahovka.service.KaskoApplicationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/insurance/applications")
 @RequiredArgsConstructor
 public class InsuranceApplicationController {
+    private final InsuranceApplicationService applicationService;
     private final UserRepository userRepository;
-
-    @PostMapping("/health")
-    public ResponseEntity<?> createHealthApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
-        }
-        
-        // Здесь должна быть логика обработки заявки на страхование здоровья
-        // Для демонстрации просто логируем
-        System.out.println("Получена заявка на страхование здоровья: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", ФИО: " + application.get("fio") + 
-                           ", Дата рождения: " + application.get("birthDate"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на страхование здоровья принята"));
-    }
+    private final KaskoApplicationService kaskoApplicationService;
 
     @PostMapping("/kasko")
-    public ResponseEntity<?> createKaskoApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<?> createKaskoApplication(
+            @Valid @RequestBody KaskoApplicationRequest request,
+            BindingResult bindingResult,
+            Authentication authentication) {
         
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
+        if (bindingResult.hasErrors()) {
+            List<String> errors = bindingResult.getAllErrors()
+                    .stream()
+                    .map(error -> error.getDefaultMessage())
+                    .collect(Collectors.toList());
+            return ResponseEntity.badRequest().body(errors);
         }
-        
-        // Здесь должна быть логика обработки заявки на КАСКО
-        System.out.println("Получена заявка на КАСКО: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", Модель: " + application.get("carModel") + 
-                           ", VIN: " + application.get("vin"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на КАСКО принята"));
+
+        KaskoApplication application = kaskoApplicationService.createApplication(
+                request, authentication.getName());
+        return ResponseEntity.ok(application);
     }
 
     @PostMapping("/osago")
-    public ResponseEntity<?> createOsagoApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
-        }
-        
-        // Здесь должна быть логика обработки заявки на ОСАГО
-        System.out.println("Получена заявка на ОСАГО: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", Модель: " + application.get("carModel") + 
-                           ", Стаж: " + application.get("driverExp"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на ОСАГО принята"));
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<OsagoApplication> createOsagoApplication(
+            @RequestBody OsagoApplication application,
+            Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        application.setUser(user);
+        return ResponseEntity.ok(applicationService.createOsagoApplication(application));
     }
 
-    @PostMapping("/realestate")
-    public ResponseEntity<?> createRealEstateApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
-        }
-        
-        // Здесь должна быть логика обработки заявки на страхование недвижимости
-        System.out.println("Получена заявка на страхование недвижимости: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", Адрес: " + application.get("address") + 
-                           ", Площадь: " + application.get("area"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на страхование недвижимости принята"));
-    }
-
-    @PostMapping("/other")
-    public ResponseEntity<?> createOtherApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
-        }
-        
-        // Здесь должна быть логика обработки заявки на прочие виды страхования
-        System.out.println("Получена заявка на прочее страхование: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", Название: " + application.get("title"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка принята"));
-    }
-    
     @PostMapping("/travel")
-    public ResponseEntity<?> createTravelApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
-        }
-        
-        // Здесь должна быть логика обработки заявки на страхование путешествий
-        System.out.println("Получена заявка на страхование путешествий: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", ФИО: " + application.get("fio") + 
-                           ", Страна: " + application.get("country") + 
-                           ", Цель поездки: " + application.get("purpose"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на страхование путешествий принята"));
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<TravelApplication> createTravelApplication(
+            @RequestBody TravelApplication application,
+            Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        application.setUser(user);
+        return ResponseEntity.ok(applicationService.createTravelApplication(application));
     }
-    
-    @PostMapping("/apartment")
-    public ResponseEntity<?> createApartmentApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
-        }
-        
-        // Здесь должна быть логика обработки заявки на страхование квартиры
-        System.out.println("Получена заявка на страхование квартиры: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", Адрес: " + application.get("address") + 
-                           ", Площадь: " + application.get("area") + 
-                           ", Тип квартиры: " + application.get("apartmentType"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на страхование квартиры принята"));
+
+    @PostMapping("/health")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<HealthApplication> createHealthApplication(
+            @RequestBody HealthApplication application,
+            Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        application.setUser(user);
+        return ResponseEntity.ok(applicationService.createHealthApplication(application));
     }
-    
-    @PostMapping("/mortgage")
-    public ResponseEntity<?> createMortgageApplication(@RequestBody Map<String, String> application) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = null;
-        
-        if (!"anonymousUser".equals(username)) {
-            user = userRepository.findByEmail(username)
-                .orElse(null);
+
+    @PostMapping("/property")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<PropertyApplication> createPropertyApplication(
+            @RequestBody PropertyApplication application,
+            Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        application.setUser(user);
+        return ResponseEntity.ok(applicationService.createPropertyApplication(application));
+    }
+
+    @GetMapping("/user/kasko")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<List<KaskoApplication>> getUserKaskoApplications(Authentication authentication) {
+        List<KaskoApplication> applications = kaskoApplicationService.getUserApplications(authentication.getName());
+        return ResponseEntity.ok(applications);
+    }
+
+    @GetMapping("/user/kasko/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<?> getUserKaskoApplication(@PathVariable Long id, Authentication authentication) {
+        try {
+            return ResponseEntity.ok(applicationService.getKaskoApplication(id, authentication));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        
-        // Здесь должна быть логика обработки заявки на ипотечное страхование
-        System.out.println("Получена заявка на ипотечное страхование: " + application);
-        System.out.println("От пользователя: " + (user != null ? user.getEmail() : "Анонимный") + 
-                           ", Адрес: " + application.get("propertyAddress") + 
-                           ", Банк: " + application.get("bankName") + 
-                           ", Сумма кредита: " + application.get("loanAmount"));
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Заявка на ипотечное страхование принята"));
+    }
+
+    @GetMapping("/user/osago")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<List<OsagoApplication>> getUserOsagoApplications(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(applicationService.getUserOsagoApplications(user));
+    }
+
+    @GetMapping("/user/travel")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<List<TravelApplication>> getUserTravelApplications(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(applicationService.getUserTravelApplications(user));
+    }
+
+    @GetMapping("/user/health")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<List<HealthApplication>> getUserHealthApplications(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(applicationService.getUserHealthApplications(user));
+    }
+
+    @GetMapping("/user/property")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<List<PropertyApplication>> getUserPropertyApplications(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(applicationService.getUserPropertyApplications(user));
+    }
+
+    @GetMapping("/user/all")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<List<BaseApplication>> getAllUserApplications(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(applicationService.getAllUserApplications(user));
     }
 } 

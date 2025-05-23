@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8081/api',
+  baseURL: 'http://localhost:8081',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -22,17 +22,17 @@ const refreshAuthToken = async () => {
     const response = await axios.post('http://localhost:8081/api/auth/refresh-token', {
       email: user.email,
       refreshToken: refreshToken
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
     });
 
-    const { accessToken, refreshToken: newRefreshToken } = response.data;
+    const { accessToken, refreshToken: newRefreshToken, ...userData } = response.data;
     
+    // Update tokens in localStorage
     localStorage.setItem('token', accessToken);
     localStorage.setItem('refreshToken', newRefreshToken);
-    localStorage.setItem('user', JSON.stringify({ ...user, ...response.data }));
+    
+    // Update user data in localStorage
+    const updatedUser = { ...user, ...userData, accessToken, refreshToken: newRefreshToken };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
     
     return accessToken;
   } catch (error) {
@@ -70,6 +70,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
+        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
