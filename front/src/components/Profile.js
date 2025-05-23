@@ -10,8 +10,10 @@ const UserLevelCard = ({ level, policyCount }) => {
         return { color: '#C0C0C0', cashback: 10, name: 'Серебряный' };
       case 'BRONZE':
         return { color: '#CD7F32', cashback: 5, name: 'Бронзовый' };
+      case 'WOODEN':
+        return { color: '#8B4513', cashback: 2, name: 'Деревянный' };
       default:
-        return { color: 'transparent', cashback: 0, name: 'Прозрачный' };
+        return { color: '#8B4513', cashback: 2, name: 'Деревянный' };
     }
   };
 
@@ -39,12 +41,13 @@ const UserLevelCard = ({ level, policyCount }) => {
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          Количество активных страховок: {policyCount}
+          Количество активных страховок: {policyCount || 0}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Кешбэк с каждой оплаты: {levelInfo.cashback}%
         </Typography>
-        {level === 'NONE' && (
+        
+        {(!policyCount || policyCount === 0) && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             Оформите первую страховку, чтобы получить бронзовый уровень и кешбэк 5%
           </Typography>

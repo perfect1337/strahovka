@@ -15,6 +15,7 @@ const debugAuthStorage = () => {
       tokenPreview: token ? `${token.substring(0, 20)}...` : null,
       hasRefreshToken: !!refreshToken,
       refreshTokenLength: refreshToken ? refreshToken.length : 0,
+      refreshTokenPreview: refreshToken ? `${refreshToken.substring(0, 20)}...` : null,
       hasUser: !!user,
       user: user ? JSON.parse(user) : null
     });
@@ -23,210 +24,201 @@ const debugAuthStorage = () => {
   }
 };
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
-  
-  // Initialize auth state from localStorage
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        console.log("Initializing auth state");
-        
-        const userFromStorage = localStorage.getItem('user');
-        const token = localStorage.getItem('token');
-        const refreshToken = localStorage.getItem('refreshToken');
-        
-        // Debug auth storage
-        debugAuthStorage();
-        
-        if (!userFromStorage || !token || !refreshToken) {
-          console.log("Missing auth data, clearing state");
-          clearAuthData();
-          return;
-        }
 
-        const userData = JSON.parse(userFromStorage);
-        console.log("Found user in storage:", userData.email);
-        setUser(userData);
+  const validateToken = async (token) => {
+    if (!token) {
+      return { valid: false, userData: null };
+    }
+
+    try {
+      const response = await api.get('/auth/me');
+      return { valid: true, userData: response.data };
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return { valid: false, userData: null };
+    }
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refreshToken');
+      const storedUser = localStorage.getItem('user');
+
+      if (!token || !refreshToken || !storedUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { valid, userData } = await validateToken(token);
         
-        // Validate the token with a quick API call
-        try {
-          console.log("Validating token...");
-          const response = await api.get('/api/auth/validate');
-          console.log("Token validation response:", response.data);
+        if (valid && userData) {
+          console.log('Token is valid, setting user state', userData);
+          const formattedUser = {
+            ...userData,
+            level: userData.level,
+            policyCount: userData.policyCount,
+            name: `${userData.firstName} ${userData.lastName}`.trim()
+          };
           
-          // Update user data if it has changed
-          if (response.data && response.data.user) {
-            console.log("Updating user data from validation response");
-            setUser(response.data.user);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-          }
-          console.log("Token is valid");
-        } catch (error) {
-          console.log("Token validation failed, attempting refresh", error);
-          
-          if (!refreshToken) {
-            console.log("No refresh token available, clearing auth state");
-            clearAuthData();
-            return;
-          }
-          
+          setUser(formattedUser);
+          localStorage.setItem('user', JSON.stringify(formattedUser));
+        } else {
+          // Token is invalid, try to refresh
           try {
-            // Attempt token refresh
-            console.log("Attempting token refresh with refreshToken");
-            const refreshResponse = await api.post('/api/auth/refresh-token', { 
-              refreshToken: refreshToken 
+            const response = await api.post('/auth/refresh-token', {
+              email: JSON.parse(storedUser).email,
+              refreshToken: refreshToken
             });
-            
-            if (refreshResponse.data?.token) {
-              console.log("Token refresh successful");
-              localStorage.setItem('token', refreshResponse.data.token);
+
+            if (response.data && response.data.token && response.data.refreshToken) {
+              localStorage.setItem('token', response.data.token);
+              localStorage.setItem('refreshToken', response.data.refreshToken);
               
-              if (refreshResponse.data.refreshToken) {
-                localStorage.setItem('refreshToken', refreshResponse.data.refreshToken);
-              }
+              const updatedUser = {
+                email: response.data.email,
+                firstName: response.data.firstName,
+                lastName: response.data.lastName,
+                role: response.data.role,
+                level: response.data.level,
+                policyCount: response.data.policyCount,
+                name: `${response.data.firstName} ${response.data.lastName}`.trim()
+              };
               
-              if (refreshResponse.data.user) {
-                setUser(refreshResponse.data.user);
-                localStorage.setItem('user', JSON.stringify(refreshResponse.data.user));
-              }
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              setUser(updatedUser);
             } else {
-              console.log("No token in refresh response");
-              clearAuthData();
+              throw new Error('Invalid refresh token response');
             }
           } catch (refreshError) {
-            console.log("Token refresh failed, clearing auth state", refreshError);
-            clearAuthData();
+            console.error('Token refresh failed:', refreshError);
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            setUser(null);
           }
         }
       } catch (error) {
-        console.error("Error initializing auth state:", error);
-        clearAuthData();
+        console.error('Error during auth initialization:', error);
       } finally {
         setLoading(false);
-        setInitialized(true);
       }
     };
 
-    // Helper function to clear auth data
-    const clearAuthData = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      setUser(null);
-      setLoading(false);
-      setInitialized(true);
-    };
-    
-    initializeAuth();
+    initAuth();
   }, []);
-  
+
   const login = async (email, password) => {
     try {
-      console.log('Attempting login for:', email);
-      const response = await api.post('/api/auth/login', { email, password });
+      console.log('Logging in user:', { email });
       
-      console.log('Login response received:', response.status);
-      console.log('Response data structure:', Object.keys(response.data));
+      const response = await api.post('/auth/login', {
+        email,
+        password
+      });
+
+      console.log('Login response:', response.data);
       
-      // Extract token, refreshToken and user data from response
-      const { token, refreshToken, user } = response.data;
-      
-      // Better validation with detailed logging
-      if (!token) {
-        console.error('No token in response');
-        throw new Error('Invalid response: missing token');
+      if (response.data.token && response.data.refreshToken) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+        
+        const userData = {
+          email: response.data.email,
+          firstName: response.data.firstName,
+          lastName: response.data.lastName,
+          role: response.data.role,
+          level: response.data.level,
+          policyCount: response.data.policyCount,
+          name: `${response.data.firstName} ${response.data.lastName}`.trim()
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        
+        return true;
       }
-      
-      if (!refreshToken) {
-        console.error('No refresh token in response');
-        throw new Error('Invalid response: missing refresh token');
-      }
-      
-      if (!user) {
-        console.error('No user object in response');
-        throw new Error('Invalid response: missing user data');
-      }
-      
-      console.log('Token length:', token.length);
-      console.log('Refresh token length:', refreshToken.length);
-      console.log('User data received:', user.email);
-      
-      // Store auth data
-      localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      console.log("Login successful:", user.email);
-      debugAuthStorage();
-      
-      // Update state
-      setUser(user);
-      
-      return user;
+      return false;
     } catch (error) {
-      console.error("Login error:", error.response?.data || error.message);
+      console.error('Login error:', error);
       throw error;
     }
   };
-  
-  const logout = async () => {
+
+  const register = async (email, password, firstName, lastName) => {
     try {
-      // Call logout endpoint if token exists
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          await api.post('/api/auth/logout');
-          console.log("Logout API call successful");
-        } catch (error) {
-          console.log("Error calling logout API:", error);
-          // Continue with local logout even if API fails
-        }
+      console.log('Registering user:', { email, firstName, lastName });
+      
+      const response = await api.post('/auth/register', {
+        email,
+        password,
+        firstName,
+        lastName
+      });
+
+      console.log('Register response:', response.data);
+      
+      if (response.data.token && response.data.refreshToken) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+        
+        const userData = {
+          email: response.data.email,
+          firstName: response.data.firstName,
+          lastName: response.data.lastName,
+          role: response.data.role,
+          level: response.data.level,
+          policyCount: response.data.policyCount,
+          name: `${response.data.firstName} ${response.data.lastName}`.trim()
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        
+        return true;
       }
-    } finally {
-      // Clear local storage and state regardless of API response
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      setUser(null);
-      console.log("Local logout complete");
-      debugAuthStorage();
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     }
   };
-  
-  const register = async (userData) => {
-    const response = await api.post('/api/auth/register', userData);
-    return response.data;
-  };
-  
-  const updateUserState = (userData) => {
-    if (userData) {
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-    }
+
+  const logout = () => {
+    console.log('Logging out user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    setUser(null);
+    debugAuthStorage();
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        loading,
-        initialized,
         login,
-        logout,
         register,
-        updateUserState
+        logout,
+        loading,
+        isAdmin: user?.role === 'ROLE_ADMIN',
       }}
     >
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export default AuthContext; 

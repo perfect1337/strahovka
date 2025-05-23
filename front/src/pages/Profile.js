@@ -68,90 +68,49 @@ const Profile = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        // Check if user exists and token is available
-        const token = localStorage.getItem('token');
-        if (!user || !token) {
-          console.log('User or token not available, skipping API calls');
-          setError('Пожалуйста, войдите в систему');
-          return;
-        }
-
-        console.log('Fetching user data with token...');
         const [policiesResponse, claimsResponse] = await Promise.all([
           api.get(`/api/insurance/policies`),
           api.get(`/api/insurance/claims`)
         ]);
-        setPolicies(policiesResponse.data || []);
-        setClaims(claimsResponse.data || []);
-        setError('');
+        setPolicies(policiesResponse.data);
+        setClaims(claimsResponse.data);
       } catch (error) {
         console.error('Error fetching user data:', error);
-        if (error.response?.status === 401) {
-          setError('Ошибка аутентификации. Пожалуйста, войдите в систему заново.');
-        } else {
-          setError('Ошибка при загрузке данных');
-        }
+        setError('Ошибка при загрузке данных');
       }
     };
 
-    fetchUserData();
+    if (user) {
+      fetchUserData();
+    }
   }, [user]);
 
   useEffect(() => {
-    const loadUserSpecificData = async () => {
-      try {
-        // Check if user exists and token is available
-        const token = localStorage.getItem('token');
-        if (!user || !token) {
-          console.log('User or token not available, skipping API calls');
-          return;
-        }
-
-        console.log('Loading user-specific data...');
-        await Promise.all([
-          fetchPolicies(),
-          fetchClaims()
-        ]);
-      } catch (error) {
-        console.error('Error loading user-specific data:', error);
-      }
-    };
-    
-    loadUserSpecificData();
-  }, [user]);
+    fetchPolicies();
+    fetchClaims();
+  }, []);
 
   const fetchPolicies = async () => {
     try {
-      console.log('Fetching user policies...');
-      const response = await api.get('/api/insurance/policies');
-      setActivePolicies(response.data.filter(policy => policy.status === 'ACTIVE') || []);
-      setCompletedPolicies(response.data.filter(policy => policy.status === 'COMPLETED') || []);
-      return response.data;
+      const response = await api.get('/api/policies/user');
+      setActivePolicies(response.data.filter(policy => policy.status === 'ACTIVE'));
+      setCompletedPolicies(response.data.filter(policy => policy.status === 'COMPLETED'));
     } catch (error) {
       console.error('Error fetching policies:', error);
-      setActivePolicies([]);
-      setCompletedPolicies([]);
-      throw error;
     }
   };
 
   const fetchClaims = async () => {
     try {
-      console.log('Fetching user claims...');
-      const response = await api.get('/api/insurance/claims');
-      const data = response.data || [];
-      setActiveClaims(data.filter(claim => 
+      const response = await api.get('/api/claims/user');
+      setActiveClaims(response.data.filter(claim => 
         ['PENDING', 'IN_PROGRESS', 'NEED_INFO'].includes(claim.status)
-      ) || []);
-      setCompletedClaims(data.filter(claim => 
+      ));
+      setCompletedClaims(response.data.filter(claim => 
         ['APPROVED', 'REJECTED'].includes(claim.status)
-      ) || []);
-      return response.data;
+      ));
     } catch (error) {
       console.error('Error fetching claims:', error);
-      setActiveClaims([]);
-      setCompletedClaims([]);
-      throw error;
     }
   };
 

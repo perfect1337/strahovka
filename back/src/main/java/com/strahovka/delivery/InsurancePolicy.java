@@ -4,12 +4,14 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
@@ -60,18 +62,9 @@ public class InsurancePolicy {
 
     public void calculateCashback() {
         if (user != null && user.getLevel() != null) {
-            switch (user.getLevel()) {
-                case GOLD:
-                    this.cashback = price.multiply(new BigDecimal("0.10")); // 10% cashback
-                    break;
-                case SILVER:
-                    this.cashback = price.multiply(new BigDecimal("0.05")); // 5% cashback
-                    break;
-                case WOODEN:
-                default:
-                    this.cashback = price.multiply(new BigDecimal("0.02")); // 2% cashback
-                    break;
-            }
+            BigDecimal cashbackPercentage = BigDecimal.valueOf(user.getLevel().getCashbackPercentage())
+                .divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP);
+            this.cashback = price.multiply(cashbackPercentage);
         }
     }
 } 

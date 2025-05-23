@@ -8,11 +8,15 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
@@ -39,13 +43,13 @@ public class InsurancePackage {
     @Column(nullable = false)
     private int discount = 0;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "package_categories",
         joinColumns = @JoinColumn(name = "package_id"),
         inverseJoinColumns = @JoinColumn(name = "category_id")
     )
-    private List<InsuranceCategory> categories;
+    private Set<InsuranceCategory> categories = new HashSet<>();
 
     @Column(nullable = false)
     private boolean active = true;

@@ -23,7 +23,6 @@ import {
   Tab,
   Paper,
   CardMedia,
-  Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -35,8 +34,6 @@ const InsurancePackages = () => {
   const [categories, setCategories] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const navigate = useNavigate();
@@ -56,27 +53,20 @@ const InsurancePackages = () => {
   }, []);
 
   const fetchPackages = async () => {
-    setLoading(true);
     try {
       const response = await api.get('/api/insurance/packages');
-      setPackages(response.data || []);
-      setError(null);
+      setPackages(response.data);
     } catch (error) {
       console.error('Error fetching packages:', error);
-      setPackages([]);
-      setError('Failed to load insurance packages');
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchCategories = async () => {
     try {
       const response = await api.get('/api/insurance/categories');
-      setCategories(Array.isArray(response.data) ? response.data : []);
+      setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      setCategories([]);
     }
   };
 
@@ -91,7 +81,7 @@ const InsurancePackages = () => {
         description: pkg.description,
         basePrice: pkg.basePrice.toString(),
         discount: pkg.discount,
-        categories: pkg.categories && Array.isArray(pkg.categories) ? pkg.categories.map(c => c.id) : [],
+        categories: pkg.categories.map(c => c.id),
         active: pkg.active
       });
       setSelectedPackage(pkg);
@@ -153,63 +143,57 @@ const InsurancePackages = () => {
     }
   };
 
-  const renderPackages = () => {
-    if (loading) return <Typography>Loading packages...</Typography>;
-    if (error) return <Alert severity="error">{error}</Alert>;
-    if (packages.length === 0) return <Typography>No insurance packages found.</Typography>;
-
-    return (
-      <Grid container spacing={3}>
-        {packages.map((pkg) => (
-          <Grid item xs={12} sm={6} md={4} key={pkg.id}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {pkg.name}
+  const renderPackages = () => (
+    <Grid container spacing={3}>
+      {packages.map((pkg) => (
+        <Grid item xs={12} sm={6} md={4} key={pkg.id}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                {pkg.name}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                {pkg.description}
+              </Typography>
+              <Typography variant="h6" color="primary">
+                {pkg.basePrice.toLocaleString('ru-RU')} ₽
+              </Typography>
+              {pkg.discount > 0 && (
+                <Typography variant="body2" color="error">
+                  Скидка: {pkg.discount}%
                 </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
-                  {pkg.description}
-                </Typography>
-                <Typography variant="h6" color="primary">
-                  {pkg.basePrice.toLocaleString('ru-RU')} ₽
-                </Typography>
-                {pkg.discount > 0 && (
-                  <Typography variant="body2" color="error">
-                    Скидка: {pkg.discount}%
-                  </Typography>
-                )}
-                <Box mt={1}>
-                  {pkg.categories && Array.isArray(pkg.categories) && pkg.categories.map((category) => (
-                    <Chip
-                      key={category.id}
-                      label={category.name}
-                      size="small"
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                </Box>
-              </CardContent>
-              <CardActions>
-                <Button size="small" color="primary" onClick={() => handleCreatePolicy(pkg, 'package')}>
-                  Оформить
-                </Button>
-                {isAdmin && (
-                  <>
-                    <Button size="small" onClick={() => handleOpenDialog(pkg)}>
-                      Редактировать
-                    </Button>
-                    <Button size="small" color="error" onClick={() => handleDelete(pkg.id)}>
-                      Удалить
-                    </Button>
-                  </>
-                )}
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
+              )}
+              <Box mt={1}>
+                {pkg.categories.map((category) => (
+                  <Chip
+                    key={category.id}
+                    label={category.name}
+                    size="small"
+                    sx={{ mr: 0.5, mb: 0.5 }}
+                  />
+                ))}
+              </Box>
+            </CardContent>
+            <CardActions>
+              <Button size="small" color="primary" onClick={() => handleCreatePolicy(pkg, 'package')}>
+                Оформить
+              </Button>
+              {isAdmin && (
+                <>
+                  <Button size="small" onClick={() => handleOpenDialog(pkg)}>
+                    Редактировать
+                  </Button>
+                  <Button size="small" color="error" onClick={() => handleDelete(pkg.id)}>
+                    Удалить
+                  </Button>
+                </>
+              )}
+            </CardActions>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  );
 
   const renderPolicies = () => (
     <Grid container spacing={3}>
@@ -440,13 +424,13 @@ const InsurancePackages = () => {
                     {selected.map((value) => (
                       <Chip
                         key={value}
-                        label={(categories.find(c => c.id === value) || {}).name || value}
+                        label={categories.find(c => c.id === value)?.name}
                       />
                     ))}
                   </Box>
                 )}
               >
-                {Array.isArray(categories) && categories.map((category) => (
+                {categories.map((category) => (
                   <MenuItem key={category.id} value={category.id}>
                     {category.name}
                   </MenuItem>
