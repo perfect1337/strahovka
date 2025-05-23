@@ -185,10 +185,14 @@ public class JwtService {
             .getBody();
     }
 
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
     public boolean isTokenExpired(String token) {
         try {
-            final Date expiration = extractClaim(token, Claims::getExpiration);
-            return expiration.before(new Date());
+            Date expiration = extractExpiration(token);
+            return expiration != null && expiration.before(new Date());
         } catch (ExpiredJwtException e) {
             System.out.println("Token is expired: " + e.getMessage());
             return true;

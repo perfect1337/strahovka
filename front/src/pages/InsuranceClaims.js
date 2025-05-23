@@ -58,7 +58,7 @@ const InsuranceClaims = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await api.get('/api/claims/user', {
+      const response = await api.get('/insurance/claims/user', {
         params: {
           page,
           size: rowsPerPage,
@@ -75,7 +75,7 @@ const InsuranceClaims = () => {
 
   const fetchPolicies = async () => {
     try {
-      const response = await api.get('/api/policies/user');
+      const response = await api.get('/insurance/policies/user');
       setPolicies(response.data.filter(policy => policy.status === 'ACTIVE'));
     } catch (error) {
       console.error('Error fetching policies:', error);
@@ -133,7 +133,7 @@ const InsuranceClaims = () => {
         formData.append('documents', file);
       });
 
-      await api.post('/api/claims', formData, {
+      await api.post('/insurance/claims', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

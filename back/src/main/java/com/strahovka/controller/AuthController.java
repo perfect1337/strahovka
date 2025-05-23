@@ -60,7 +60,7 @@ public class AuthController {
         userRepository.save(user);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("token", token);
+        response.put("accessToken", token);
         response.put("refreshToken", refreshToken);
         response.put("email", user.getEmail());
         response.put("firstName", user.getFirstName());
@@ -82,7 +82,9 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(email, password)
             );
 
-            User user = (User) authentication.getPrincipal();
+            User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
             String token = jwtService.generateToken(user);
             String refreshToken = UUID.randomUUID().toString();
             
@@ -92,7 +94,7 @@ public class AuthController {
             userRepository.save(user);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("token", token);
+            response.put("accessToken", token);
             response.put("refreshToken", refreshToken);
             response.put("email", user.getEmail());
             response.put("firstName", user.getFirstName());
@@ -167,7 +169,7 @@ public class AuthController {
             System.out.println("New tokens generated successfully");
             
             Map<String, Object> response = new HashMap<>();
-            response.put("token", newToken);
+            response.put("accessToken", newToken);
             response.put("refreshToken", newRefreshToken);
             response.put("email", user.getEmail());
             response.put("firstName", user.getFirstName());

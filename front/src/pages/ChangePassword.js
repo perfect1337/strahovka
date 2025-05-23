@@ -8,8 +8,8 @@ import {
   Alert,
   Box,
 } from '@mui/material';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import api from '../api';
 
 const ChangePassword = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -30,18 +30,10 @@ const ChangePassword = () => {
     }
 
     try {
-      await axios.post(
-        'http://localhost:8080/api/users/change-password',
-        {
-          currentPassword,
-          newPassword,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      await api.post('/api/users/change-password', {
+        currentPassword,
+        newPassword,
+      });
       setSuccess(true);
       setTimeout(() => navigate('/profile'), 2000);
     } catch (error) {

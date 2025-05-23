@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EntityScan(basePackages = "com.strahovka.delivery")
 @EnableJpaRepositories(basePackages = "com.strahovka.repository")
-public class StrahovkaApplication {
+public class    StrahovkaApplication {
     public static void main(String[] args) {
         SpringApplication.run(StrahovkaApplication.class, args);
     }

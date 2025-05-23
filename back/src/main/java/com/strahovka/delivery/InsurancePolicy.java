@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 
 @Data
@@ -22,49 +23,52 @@ public class InsurancePolicy {
     private Long id;
 
     @NotBlank(message = "Название полиса обязательно")
-    @Column(nullable = false)
+    @Column(name = "policy_name", nullable = false, length = 255)
     private String name;
 
     @NotBlank(message = "Описание полиса обязательно")
-    @Column(nullable = false, length = 1000)
+    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
 
     @NotNull(message = "Цена обязательна")
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
+    @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_category"))
     private InsuranceCategory category;
 
-    @Column(nullable = false)
+    @Column(name = "active", nullable = false)
     private boolean active = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_user"))
     private User user;
 
-    @Column(nullable = false)
+    @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(nullable = false)
+    @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false, length = 20)
     private PolicyStatus status = PolicyStatus.ACTIVE;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "details", columnDefinition = "TEXT")
     private String details;
 
-    @Column(nullable = false)
+    @Column(name = "cashback", nullable = false, precision = 10, scale = 2)
     private BigDecimal cashback = BigDecimal.ZERO;
 
+    @PrePersist
+    @PreUpdate
     public void calculateCashback() {
-        if (user != null && user.getLevel() != null) {
+        if (user != null && user.getLevel() != null && price != null) {
             BigDecimal cashbackPercentage = BigDecimal.valueOf(user.getLevel().getCashbackPercentage())
-                .divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP);
-            this.cashback = price.multiply(cashbackPercentage);
+                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            this.cashback = price.multiply(cashbackPercentage)
+                    .setScale(2, RoundingMode.HALF_UP);
         }
     }
-} 
+}

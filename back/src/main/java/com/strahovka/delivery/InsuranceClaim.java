@@ -25,23 +25,23 @@ public class InsuranceClaim {
     @JoinColumn(name = "policy_id", nullable = false)
     private InsurancePolicy policy;
 
-    @Column(nullable = false)
+    @Column(name = "claim_date", nullable = false)
     private LocalDate claimDate;
 
-    @Column(nullable = false, length = 1000)
+    @Column(name = "description", nullable = false, length = 1000)
     private String description;
 
+    @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private ClaimStatus status = ClaimStatus.PENDING;
 
-    @Column(length = 1000)
+    @Column(name = "response")
     private String response;
 
-    @Column
+    @Column(name = "response_date")
     private LocalDate responseDate;
 
-    @Column(precision = 10, scale = 2)
+    @Column(name = "calculated_amount", precision = 10, scale = 2)
     private BigDecimal calculatedAmount;
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)

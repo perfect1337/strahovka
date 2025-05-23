@@ -54,7 +54,7 @@ const InsurancePackages = () => {
 
   const fetchPackages = async () => {
     try {
-      const response = await api.get('/api/insurance/packages');
+      const response = await api.get('/insurance/packages');
       setPackages(response.data);
     } catch (error) {
       console.error('Error fetching packages:', error);
@@ -63,7 +63,7 @@ const InsurancePackages = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/api/insurance/categories');
+      const response = await api.get('/insurance/categories');
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -112,9 +112,9 @@ const InsurancePackages = () => {
       };
 
       if (selectedPackage) {
-        await api.put(`/api/insurance/packages/${selectedPackage.id}`, data);
+        await api.put(`/insurance/packages/${selectedPackage.id}`, data);
       } else {
-        await api.post('/api/insurance/packages', data);
+        await api.post('/insurance/packages', data);
       }
 
       handleCloseDialog();
@@ -127,7 +127,7 @@ const InsurancePackages = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить этот пакет?')) {
       try {
-        await api.delete(`/api/insurance/packages/${id}`);
+        await api.delete(`/insurance/packages/${id}`);
         fetchPackages();
       } catch (error) {
         console.error('Error deleting package:', error);

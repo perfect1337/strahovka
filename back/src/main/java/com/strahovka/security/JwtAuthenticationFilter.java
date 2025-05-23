@@ -45,6 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // For OPTIONS requests (CORS preflight), just proceed
             if (request.getMethod().equals("OPTIONS")) {
                 response.setStatus(HttpServletResponse.SC_OK);
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -53,85 +54,80 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             System.out.println("Request URL: " + request.getRequestURI());
             System.out.println("Request Method: " + request.getMethod());
             System.out.println("Auth Header present: " + (authHeader != null));
-            System.out.println("Auth Header: " + (authHeader != null ? authHeader.substring(0, Math.min(authHeader.length(), 20)) + "..." : "null"));
+            System.out.println("Auth Header: " + authHeader);
 
             // Skip authentication for public endpoints
             if (isPublicEndpoint(request.getRequestURI())) {
-                System.out.println("Public endpoint - proceeding with chain");
+                System.out.println("Public endpoint detected, skipping authentication");
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // Check if authentication is required
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 System.out.println("No valid Authorization header found");
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "No valid Authorization header found");
                 return;
             }
 
-            try {
-                final String token = authHeader.substring(7);
-                String userEmail = jwtService.extractUsername(token);
+            final String token = authHeader.substring(7);
+            final String userEmail = jwtService.extractUsername(token);
 
-                if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
-                    User user = userRepository.findByEmail(userEmail)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
+            System.out.println("Extracted email from token: " + userEmail);
 
-                    // Check if the token matches the stored access token
-                    if (!token.equals(user.getAccessToken())) {
-                        System.out.println("Token mismatch");
-                        sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
-                        return;
-                    }
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+                User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-                    if (jwtService.isTokenValid(token, userDetails)) {
-                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
-                        );
-                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authToken);
-                        System.out.println("Authentication successful");
-                        System.out.println("Final authorities in SecurityContext: " + 
-                            SecurityContextHolder.getContext().getAuthentication().getAuthorities());
-                    }
+                System.out.println("Found user: " + user.getEmail());
+                System.out.println("Stored access token: " + user.getAccessToken());
+                System.out.println("Received token: " + token);
+
+                // Validate token
+                System.out.println("\n=== Token Validation ===");
+                System.out.println("Token username: " + userEmail);
+                System.out.println("UserDetails username: " + userDetails.getUsername());
+                System.out.println("Token expiration: " + jwtService.extractExpiration(token));
+                System.out.println("Current time: " + new java.util.Date());
+                System.out.println("Token roles: " + jwtService.extractClaim(token, claims -> claims.get("roles", String.class)));
+
+                if (jwtService.isTokenValid(token, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    System.out.println("Authentication successful for user: " + userEmail);
+                    System.out.println("Authorities: " + userDetails.getAuthorities());
+                    filterChain.doFilter(request, response);
+                } else {
+                    System.out.println("Token validation failed for user: " + userEmail);
+                    sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token validation failed");
                 }
-
+            } else {
                 filterChain.doFilter(request, response);
-            } catch (ExpiredJwtException e) {
-                System.out.println("Token expired: " + e.getMessage());
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
-            } catch (SignatureException e) {
-                System.out.println("Invalid token signature: " + e.getMessage());
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
-            } catch (MalformedJwtException e) {
-                System.out.println("Malformed token: " + e.getMessage());
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Malformed token");
-            } catch (Exception e) {
-                System.out.println("Error processing token: " + e.getMessage());
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Error processing token");
             }
         } catch (Exception e) {
-            System.out.println("Error in JWT filter: " + e.getMessage());
+            System.out.println("Error in JwtAuthenticationFilter: " + e.getMessage());
             e.printStackTrace();
-            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication error: " + e.getMessage());
+            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication failed: " + e.getMessage());
         }
     }
 
     private boolean isPublicEndpoint(String uri) {
-        return uri.contains("/api/auth/login") ||
-               uri.contains("/api/auth/register") ||
-               uri.contains("/api/auth/refresh-token") ||
-               uri.contains("/api/insurance/packages") ||
-               uri.contains("/api/insurance/categories") ||
-               uri.contains("/api/debug/");
+        return uri.contains("/auth/login") ||
+               uri.contains("/auth/register") ||
+               uri.contains("/auth/refresh-token") ||
+               uri.contains("/insurance/packages") ||
+               uri.contains("/insurance/categories") ||
+               uri.contains("/debug");
     }
 
     private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
         response.setStatus(status);
-        response.setContentType("application/json");
+        response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write("{\"message\": \"" + message + "\"}");
     }
 } 

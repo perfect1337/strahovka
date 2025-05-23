@@ -39,7 +39,7 @@ const AdminClaims = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await api.get('/api/insurance/claims/pending');
+      const response = await api.get('/insurance/claims/pending');
       setClaims(response.data);
     } catch (error) {
       console.error('Error fetching claims:', error);
@@ -49,7 +49,7 @@ const AdminClaims = () => {
   const handleProcessClaim = async () => {
     try {
       await api.post(
-        `/api/insurance/claims/${selectedClaim.id}/process`,
+        `/insurance/claims/${selectedClaim.id}/process`,
         null,
         {
           params: {

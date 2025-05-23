@@ -69,8 +69,8 @@ const Profile = () => {
     const fetchUserData = async () => {
       try {
         const [policiesResponse, claimsResponse] = await Promise.all([
-          api.get(`/api/insurance/policies`),
-          api.get(`/api/insurance/claims`)
+          api.get('/insurance/policies/user'),
+          api.get('/insurance/claims/user')
         ]);
         setPolicies(policiesResponse.data);
         setClaims(claimsResponse.data);
@@ -92,7 +92,7 @@ const Profile = () => {
 
   const fetchPolicies = async () => {
     try {
-      const response = await api.get('/api/policies/user');
+      const response = await api.get('/insurance/policies/user');
       setActivePolicies(response.data.filter(policy => policy.status === 'ACTIVE'));
       setCompletedPolicies(response.data.filter(policy => policy.status === 'COMPLETED'));
     } catch (error) {
@@ -102,7 +102,7 @@ const Profile = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await api.get('/api/claims/user');
+      const response = await api.get('/insurance/claims/user');
       setActiveClaims(response.data.filter(claim => 
         ['PENDING', 'IN_PROGRESS', 'NEED_INFO'].includes(claim.status)
       ));
@@ -141,14 +141,14 @@ const Profile = () => {
     setRenewalError('');
     
     try {
-      await api.post(`/api/insurance/policies/${renewalPolicy.id}/renew`, null, {
+      await api.post(`/insurance/policies/${renewalPolicy.id}/renew`, null, {
         params: {
           durationInYears: renewalDuration
         }
       });
       
       // Update the policies list with the renewed policy
-      const updatedPolicies = await api.get(`/api/insurance/policies`);
+      const updatedPolicies = await api.get(`/insurance/policies`);
       setPolicies(updatedPolicies.data);
       
       setRenewalSuccess(true);
@@ -177,7 +177,7 @@ const Profile = () => {
 
   const handleTerminateConfirm = async () => {
     try {
-      await api.post(`/api/policies/${selectedPolicy.id}/terminate`);
+      await api.post(`/insurance/policies/${selectedPolicy.id}/terminate`);
       fetchPolicies();
       handleCloseDialog();
     } catch (error) {

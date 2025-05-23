@@ -28,7 +28,7 @@ const AdminPanel = () => {
 
   const fetchModerators = async () => {
     try {
-      const response = await api.get('/api/admin/moderators');
+      const response = await api.get('/admin/moderators');
       setModerators(response.data);
     } catch (error) {
       console.error('Error fetching moderators:', error);
@@ -55,7 +55,7 @@ const AdminPanel = () => {
 
   const handleCreateModerator = async () => {
     try {
-      await api.post('/api/admin/moderators', {
+      await api.post('/admin/moderators', {
         ...newModerator,
         role: 'ROLE_MODERATOR',
       });
@@ -69,7 +69,7 @@ const AdminPanel = () => {
   const handleRemoveModerator = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить этого модератора?')) {
       try {
-        await api.delete(`/api/admin/moderators/${id}`);
+        await api.delete(`/admin/moderators/${id}`);
         fetchModerators();
       } catch (error) {
         console.error('Error removing moderator:', error);
