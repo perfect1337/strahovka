@@ -1,5 +1,7 @@
 package com.strahovka.delivery;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,6 +19,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Entity
 @Table(name = "insurance_policies")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class InsurancePolicy {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,6 +39,7 @@ public class InsurancePolicy {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_category"))
+    @JsonIgnoreProperties({"packages", "hibernateLazyInitializer", "handler"})
     private InsuranceCategory category;
 
     @Column(name = "active", nullable = false)
@@ -43,6 +47,7 @@ public class InsurancePolicy {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_user"))
+    @JsonIgnoreProperties({"policies", "hibernateLazyInitializer", "handler"})
     private User user;
 
     @Column(name = "start_date", nullable = false)

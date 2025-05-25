@@ -1,5 +1,6 @@
 package com.strahovka.delivery;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Builder;
@@ -17,6 +18,7 @@ import jakarta.validation.constraints.NotNull;
 @AllArgsConstructor
 @Entity
 @Table(name = "insurance_categories")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class InsuranceCategory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,5 +37,6 @@ public class InsuranceCategory {
     private BigDecimal basePrice;
 
     @ManyToMany(mappedBy = "categories")
+    @JsonIgnoreProperties({"categories", "hibernateLazyInitializer", "handler"})
     private Set<InsurancePackage> packages = new HashSet<>();
 } 

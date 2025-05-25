@@ -196,7 +196,7 @@ const ModeratorClaims = () => {
                 <TableRow key={claim.id}>
                   <TableCell>{claim.id}</TableCell>
                   <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{claim.user.firstName} {claim.user.lastName}</TableCell>
+                  <TableCell>{claim.policy.user.firstName} {claim.policy.user.lastName}</TableCell>
                   <TableCell>
                     <Chip
                       label={claim.policy.type}
@@ -252,7 +252,7 @@ const ModeratorClaims = () => {
                 Информация о заявке:
               </Typography>
               <Typography variant="body2" paragraph>
-                <strong>Клиент:</strong> {selectedClaim.user.firstName} {selectedClaim.user.lastName}
+                <strong>Клиент:</strong> {selectedClaim.policy.user.firstName} {selectedClaim.policy.user.lastName}
               </Typography>
               <Typography variant="body2" paragraph>
                 <strong>Тип страховки:</strong> {selectedClaim.policy.type}

@@ -58,4 +58,8 @@ public class KaskoApplication extends BaseApplication {
 
     @Column(name = "previous_insurance_number")
     private String previousInsuranceNumber;
+
+    @OneToOne
+    @JoinColumn(name = "policy_id")
+    private InsurancePolicy policy;
 } 

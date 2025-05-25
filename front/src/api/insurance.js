@@ -14,6 +14,9 @@ api.interceptors.request.use(request => {
     if (token) {
         request.headers.Authorization = `Bearer ${token}`;
     }
+    console.log('Found user:', localStorage.getItem('email'));
+    console.log('Stored access token:', token);
+    console.log('Request headers:', request.headers);
     return request;
 });
 
@@ -35,7 +38,8 @@ api.interceptors.response.use(
             console.error('API Error:', {
                 status: error.response.status,
                 data: error.response.data,
-                message: error.message
+                message: error.message,
+                headers: error.response.headers
             });
         }
         throw error;
@@ -65,4 +69,16 @@ export const getKaskoApplications = async () => {
 export const getApplicationById = async (id, type) => {
     const response = await api.get(`/api/insurance/applications/user/${type}/${id}`);
     return response.data;
-}; 
+};
+
+export const processKaskoPayment = async (applicationId) => {
+    try {
+        const response = await api.post(`/api/insurance/applications/kasko/${applicationId}/pay`);
+        return response.data;
+    } catch (error) {
+        console.error('KASKO payment error:', error);
+        throw error;
+    }
+};
+
+export default api; 

@@ -122,9 +122,9 @@ const InsurancePackages = ({ adminView = false }) => {
       };
 
       if (selectedPackage) {
-        await api.put(`/insurance/packages/${selectedPackage.id}`, data);
+        await api.put(`/api/insurance/packages/${selectedPackage.id}`, data);
       } else {
-        await api.post('/insurance/packages', data);
+        await api.post('/api/insurance/packages', data);
       }
 
       handleCloseDialog();

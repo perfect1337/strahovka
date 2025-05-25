@@ -133,7 +133,7 @@ const InsuranceClaims = () => {
         formData.append('documents', file);
       });
 
-      await api.post('/insurance/claims', formData, {
+      await api.post('/api/insurance/claims', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

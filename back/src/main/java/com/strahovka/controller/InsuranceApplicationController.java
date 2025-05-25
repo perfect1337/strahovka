@@ -88,6 +88,19 @@ public class InsuranceApplicationController {
         return ResponseEntity.ok(applicationService.createPropertyApplication(application));
     }
 
+    @PostMapping("/kasko/{id}/pay")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<?> processKaskoPayment(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            KaskoApplication application = kaskoApplicationService.processPayment(id, authentication.getName());
+            return ResponseEntity.ok(application);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/user/kasko")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<List<KaskoApplication>> getUserKaskoApplications(Authentication authentication) {

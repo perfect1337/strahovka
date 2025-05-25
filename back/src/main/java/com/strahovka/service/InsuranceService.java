@@ -7,10 +7,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -41,15 +45,12 @@ public class InsuranceService {
         policy.setCategory(category);
         policy.setStartDate(LocalDate.now());
         policy.setEndDate(endDate);
-        policy.setStatus(PolicyStatus.ACTIVE);
+        policy.setStatus(PolicyStatus.PENDING_PAYMENT);
         policy.setDetails(details);
         policy.setPrice(category.getBasePrice());
         policy.calculateCashback();
 
-        // Update user's policy count and level
-        user.incrementPolicyCount();
-        userRepository.save(user);
-
+        // Don't increment policy count until payment is successful
         return policyRepository.save(policy);
     }
 
@@ -71,7 +72,7 @@ public class InsuranceService {
                 policy.setCategory(category);
                 policy.setStartDate(LocalDate.now());
                 policy.setEndDate(endDate);
-                policy.setStatus(PolicyStatus.ACTIVE);
+                policy.setStatus(PolicyStatus.PENDING_PAYMENT);
                 policy.setDetails(details);
                 
                 // Calculate price with discount
@@ -86,10 +87,7 @@ public class InsuranceService {
             })
             .collect(Collectors.toList());
 
-        // Update user's policy count and level
-        user.incrementPolicyCount();
-        userRepository.save(user);
-
+        // Don't increment policy count until payment is successful
         return policyRepository.saveAll(policies);
     }
 
@@ -98,7 +96,7 @@ public class InsuranceService {
             return basePrice;
         }
         BigDecimal discount = basePrice.multiply(BigDecimal.valueOf(discountPercent))
-            .divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP);
+            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         return basePrice.subtract(discount);
     }
 
@@ -113,7 +111,9 @@ public class InsuranceService {
         InsurancePolicy policy = policyRepository.findById(policyId)
             .orElseThrow(() -> new RuntimeException("Страховой полис не найден"));
         
-        policy.setStatus(PolicyStatus.CANCELLED);
+        policy.setStatus(PolicyStatus.INACTIVE);
+        policy.setActive(false);
+        policy.setEndDate(LocalDate.now());
         
         // Update user's policy count and level when cancelling
         User user = policy.getUser();
@@ -162,5 +162,80 @@ public class InsuranceService {
 
     public List<InsuranceClaim> getPendingClaims() {
         return claimRepository.findByStatus(ClaimStatus.PENDING);
+    }
+
+    @Transactional
+    public InsurancePolicy processPayment(Long policyId, User user) {
+        InsurancePolicy policy = policyRepository.findById(policyId)
+            .orElseThrow(() -> new RuntimeException("Policy not found"));
+
+        if (!policy.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized access to policy");
+        }
+
+        if (policy.getStatus() != PolicyStatus.PENDING_PAYMENT) {
+            throw new RuntimeException("Policy is not in pending payment status");
+        }
+
+        policy.setStatus(PolicyStatus.ACTIVE);
+        
+        // Increment user's policy count after successful payment
+        user.incrementPolicyCount();
+        userRepository.save(user);
+
+        return policyRepository.save(policy);
+    }
+
+    @Transactional
+    public Map<String, Object> cancelPolicy(Long policyId) {
+        InsurancePolicy policy = policyRepository.findById(policyId)
+            .orElseThrow(() -> new RuntimeException("Страховой полис не найден"));
+        
+        if (policy.getStatus() != PolicyStatus.ACTIVE) {
+            throw new RuntimeException("Можно остановить только активный полис");
+        }
+
+        // Рассчитываем сумму возврата
+        BigDecimal refundAmount = calculateRefundAmount(policy);
+        
+        // Обновляем статус полиса
+        policy.setStatus(PolicyStatus.INACTIVE);
+        policy.setActive(false);
+        policy.setEndDate(LocalDate.now());
+        
+        // Обновляем количество полисов пользователя
+        User user = policy.getUser();
+        user.decrementPolicyCount();
+        userRepository.save(user);
+        
+        // Сохраняем изменения полиса
+        policyRepository.save(policy);
+        
+        // Возвращаем информацию о возврате
+        Map<String, Object> result = new HashMap<>();
+        result.put("policy", policy);
+        result.put("refundAmount", refundAmount);
+        return result;
+    }
+
+    private BigDecimal calculateRefundAmount(InsurancePolicy policy) {
+        // Получаем общую длительность полиса в днях
+        long totalDays = ChronoUnit.DAYS.between(policy.getStartDate(), policy.getEndDate());
+        // Получаем количество оставшихся дней
+        long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), policy.getEndDate());
+        
+        // Если срок полиса уже истек
+        if (remainingDays <= 0) {
+            return BigDecimal.ZERO;
+        }
+        
+        // Рассчитываем процент возврата
+        BigDecimal refundPercentage = BigDecimal.valueOf(remainingDays)
+            .divide(BigDecimal.valueOf(totalDays), 4, RoundingMode.HALF_UP);
+        
+        // Рассчитываем сумму возврата
+        return policy.getPrice()
+            .multiply(refundPercentage)
+            .setScale(2, RoundingMode.HALF_UP);
     }
 } 

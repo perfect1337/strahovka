@@ -12,7 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.Authentication;
 import com.strahovka.repository.UserRepository;
 import com.strahovka.repository.InsuranceClaimRepository;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.math.BigDecimal;
@@ -89,10 +90,32 @@ public class InsuranceController {
     @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<InsuranceClaim> createClaim(
             @RequestParam Long policyId,
-            @RequestParam String description) {
+            @RequestParam String description,
+            @RequestParam(required = false) List<MultipartFile> documents) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         System.out.println("Creating claim - User: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        return ResponseEntity.ok(insuranceService.createClaim(policyId, description));
+        
+        InsuranceClaim claim = insuranceService.createClaim(policyId, description);
+        
+        // Handle document uploads if provided
+        if (documents != null && !documents.isEmpty()) {
+            for (MultipartFile document : documents) {
+                try {
+                    ClaimAttachment attachment = new ClaimAttachment();
+                    attachment.setClaim(claim);
+                    attachment.setFileName(document.getOriginalFilename());
+                    attachment.setFileType(document.getContentType());
+                    attachment.setFileSize(document.getSize());
+                    attachment.setFileData(document.getBytes());
+                    claim.getAttachments().add(attachment);
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to process document: " + document.getOriginalFilename(), e);
+                }
+            }
+            claim = claimRepository.save(claim);
+        }
+        
+        return ResponseEntity.ok(claim);
     }
 
     @GetMapping("/claims")

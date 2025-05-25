@@ -37,13 +37,15 @@ public class InsurancePackageController {
 
     @PostMapping("/packages")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<InsurancePackage> createPackage(@RequestBody InsurancePackage insurancePackage) {
+    public ResponseEntity<InsurancePackage> createPackage(@Valid @RequestBody InsurancePackage insurancePackage) {
         return ResponseEntity.ok(insurancePackageService.createPackage(insurancePackage));
     }
 
     @PutMapping("/packages/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<InsurancePackage> updatePackage(@PathVariable Long id, @RequestBody InsurancePackage insurancePackage) {
+    public ResponseEntity<InsurancePackage> updatePackage(
+            @PathVariable Long id,
+            @Valid @RequestBody InsurancePackage insurancePackage) {
         return ResponseEntity.ok(insurancePackageService.updatePackage(id, insurancePackage));
     }
 

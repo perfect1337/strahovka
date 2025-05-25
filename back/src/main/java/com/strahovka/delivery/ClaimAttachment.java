@@ -1,17 +1,16 @@
 package com.strahovka.delivery;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
 
 @Data
-@Builder
+@Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
 @Table(name = "claim_attachments")
 public class ClaimAttachment {
     @Id
@@ -20,21 +19,22 @@ public class ClaimAttachment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "claim_id", nullable = false)
+    @JsonIgnore
     private InsuranceClaim claim;
 
-    @Column(nullable = false)
+    @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @Column(nullable = false)
+    @Column(name = "file_type", nullable = false)
     private String fileType;
 
-    @Column(nullable = false)
+    @Column(name = "file_size", nullable = false)
     private long fileSize;
 
     @Lob
-    @Column(nullable = false)
+    @Column(name = "file_data", nullable = false)
     private byte[] fileData;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 } 

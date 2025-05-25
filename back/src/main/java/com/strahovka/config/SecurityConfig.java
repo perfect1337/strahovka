@@ -38,12 +38,23 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                    "/api/auth/**",
+                    "/api/auth/**"
+                ).permitAll()
+                .requestMatchers(
                     "/api/insurance/packages",
                     "/api/insurance/categories"
                 ).permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/users/profile").hasAnyRole("USER", "ADMIN", "MODERATOR")
+                .requestMatchers(
+                    "/api/insurance/packages/**",
+                    "/api/insurance/categories/**",
+                    "/api/admin/**"
+                ).hasRole("ADMIN")
+                .requestMatchers(
+                    "/api/users/profile",
+                    "/api/insurance/applications/**",
+                    "/api/insurance/policies/**",
+                    "/api/insurance/claims/user/**"
+                ).hasAnyRole("USER", "ADMIN", "MODERATOR")
                 .requestMatchers("/api/insurance/claims/all").hasAnyRole("ADMIN", "MODERATOR")
                 .requestMatchers("/api/insurance/claims/process/**").hasAnyRole("ADMIN", "MODERATOR")
                 .anyRequest().authenticated()
@@ -80,9 +91,10 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("authorization", "content-type", "x-auth-token"));
-        configuration.setExposedHeaders(Arrays.asList("x-auth-token"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

@@ -45,6 +45,7 @@ import {
   LocalHospital as ClaimIcon,
 } from '@mui/icons-material';
 import { formatDate } from '../utils/dateUtils';
+import { processKaskoPayment } from '../api/insurance';
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
@@ -59,6 +60,11 @@ const Profile = () => {
   const [tabValue, setTabValue] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -110,135 +116,159 @@ const Profile = () => {
     setTabValue(newValue);
   };
 
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'PENDING_PAYMENT':
+        return 'Ожидает оплаты';
+      case 'ACTIVE':
+        return 'Активен';
+      case 'INACTIVE':
+        return 'Остановлен';
+      case 'COMPLETED':
+        return 'Завершен';
+      case 'CANCELLED':
+        return 'Отменен';
+      case 'PENDING':
+        return 'На рассмотрении';
+      case 'APPROVED':
+        return 'Одобрен';
+      case 'REJECTED':
+        return 'Отклонен';
+      default:
+        return status;
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
+      case 'PENDING_PAYMENT':
+        return 'warning';
+      case 'ACTIVE':
+        return 'success';
+      case 'INACTIVE':
+        return 'error';
+      case 'COMPLETED':
+        return 'info';
+      case 'CANCELLED':
+        return 'error';
       case 'PENDING':
         return 'warning';
       case 'APPROVED':
         return 'success';
       case 'REJECTED':
         return 'error';
-      case 'IN_REVIEW':
-        return 'info';
       default:
         return 'default';
     }
   };
 
-  const renderApplicationsTable = (applications, type) => {
-    const getSpecificFields = (app) => {
-      switch (type) {
-        case 'kasko':
-          return (
-            <>
-              <TableCell>{app.carMake} {app.carModel}</TableCell>
-              <TableCell>{app.vinNumber}</TableCell>
-            </>
-          );
-        case 'osago':
-          return (
-            <>
-              <TableCell>{app.carMake} {app.carModel}</TableCell>
-              <TableCell>{app.licensePlate}</TableCell>
-            </>
-          );
-        case 'travel':
-          return (
-            <>
-              <TableCell>{app.destinationCountry}</TableCell>
-              <TableCell>{formatDate(app.travelStartDate)} - {formatDate(app.travelEndDate)}</TableCell>
-            </>
-          );
-        case 'health':
-          return (
-            <>
-              <TableCell>{app.snils}</TableCell>
-              <TableCell>{app.preferredClinic || 'Не указана'}</TableCell>
-            </>
-          );
-        case 'property':
-          return (
-            <>
-              <TableCell>{app.propertyType}</TableCell>
-              <TableCell>{app.address}</TableCell>
-            </>
-          );
-        default:
-          return null;
-      }
-    };
-
-    return (
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Дата подачи</TableCell>
-              <TableCell>Статус</TableCell>
-              <TableCell>Сумма</TableCell>
-              {type === 'kasko' && (
-                <>
-                  <TableCell>Автомобиль</TableCell>
-                  <TableCell>VIN</TableCell>
-                </>
-              )}
-              {type === 'osago' && (
-                <>
-                  <TableCell>Автомобиль</TableCell>
-                  <TableCell>Гос. номер</TableCell>
-                </>
-              )}
-              {type === 'travel' && (
-                <>
-                  <TableCell>Страна</TableCell>
-                  <TableCell>Период поездки</TableCell>
-                </>
-              )}
-              {type === 'health' && (
-                <>
-                  <TableCell>СНИЛС</TableCell>
-                  <TableCell>Клиника</TableCell>
-                </>
-              )}
-              {type === 'property' && (
-                <>
-                  <TableCell>Тип недвижимости</TableCell>
-                  <TableCell>Адрес</TableCell>
-                </>
-              )}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {applications.map((app) => (
-              <TableRow key={app.id}>
-                <TableCell>{formatDate(app.applicationDate)}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={app.status}
-                    color={getStatusColor(app.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {app.calculatedAmount 
-                    ? `${app.calculatedAmount} ₽`
-                    : 'Ожидает расчета'}
-                </TableCell>
-                {getSpecificFields(app)}
-              </TableRow>
-            ))}
-            {applications.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  Нет заявок
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
+  const handlePayment = async (applicationId) => {
+    try {
+      setLoading(true);
+      await processKaskoPayment(applicationId);
+      setSuccess('Полис успешно оплачен');
+      // Refresh data
+      fetchPolicies();
+      fetchAllApplications();
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      setError('Ошибка при обработке платежа: ' + (error.response?.data || error.message));
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleCancelPolicy = async (policy) => {
+    setSelectedPolicy(policy);
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancelPolicy = async () => {
+    try {
+      setLoading(true);
+      const response = await api.post(`/api/insurance/policies/${selectedPolicy.id}/cancel`);
+      const { refundAmount } = response.data;
+      
+      setSuccess(`Полис успешно остановлен. Сумма возврата: ${refundAmount.toLocaleString('ru-RU')} ₽`);
+      // Принудительно обновляем данные
+      await Promise.all([
+        fetchPolicies(),
+        fetchAllApplications()
+      ]);
+    } catch (error) {
+      console.error('Error cancelling policy:', error);
+      setError('Ошибка при отмене полиса: ' + (error.response?.data || error.message));
+    } finally {
+      setLoading(false);
+      setCancelDialogOpen(false);
+      setSelectedPolicy(null);
+    }
+  };
+
+  const renderApplicationsTable = (applications, type) => (
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Тип страхования</TableCell>
+            <TableCell>Дата подачи</TableCell>
+            <TableCell>Дата окончания</TableCell>
+            <TableCell>Статус</TableCell>
+            <TableCell>Сумма</TableCell>
+            <TableCell>Действия</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {applications.map((app) => (
+            <TableRow key={app.id}>
+              <TableCell>{app.policy?.name || `${type.toUpperCase()}`}</TableCell>
+              <TableCell>{formatDate(app.applicationDate)}</TableCell>
+              <TableCell>{app.policy ? formatDate(app.policy.endDate) : '-'}</TableCell>
+              <TableCell>
+                <Chip
+                  label={getStatusText(app.policy?.status || app.status)}
+                  color={getStatusColor(app.policy?.status || app.status)}
+                  size="small"
+                />
+              </TableCell>
+              <TableCell>{app.calculatedAmount?.toLocaleString('ru-RU')} ₽</TableCell>
+              <TableCell>
+                {app.status === 'PENDING' && app.policy?.status === 'PENDING_PAYMENT' && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    onClick={() => handlePayment(app.id)}
+                    disabled={loading}
+                  >
+                    Оплатить
+                  </Button>
+                )}
+                {app.policy?.status === 'ACTIVE' && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={() => handleCancelPolicy(app.policy)}
+                    disabled={loading}
+                  >
+                    Остановить
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+          {applications.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} align="center">
+                Нет заявок
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
 
   if (!userData) {
     return <Typography>Loading...</Typography>;
@@ -246,18 +276,39 @@ const Profile = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Профиль пользователя
+          Личный кабинет
         </Typography>
-        <Typography>Email: {userData.email}</Typography>
-        <Typography>Имя: {userData.firstName}</Typography>
-        <Typography>Фамилия: {userData.lastName}</Typography>
-      </Paper>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+            {error}
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+            {success}
+          </Alert>
+        )}
+
+        <Paper sx={{ mb: 3, p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Профиль пользователя
+          </Typography>
+          {userData && (
+            <>
+              <Typography>Email: {userData.email}</Typography>
+              <Typography>Имя: {userData.firstName}</Typography>
+              <Typography>Фамилия: {userData.lastName}</Typography>
+            </>
+          )}
+        </Paper>
+      </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="Активные полисы" />
           <Tab label="КАСКО" />
           <Tab label="ОСАГО" />
           <Tab label="Путешествия" />
@@ -266,48 +317,32 @@ const Profile = () => {
         </Tabs>
       </Box>
 
-      {tabValue === 0 && (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Тип страхования</TableCell>
-                <TableCell>Дата начала</TableCell>
-                <TableCell>Дата окончания</TableCell>
-                <TableCell>Статус</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {policies.map((policy) => (
-                <TableRow key={policy.id}>
-                  <TableCell>{policy.name}</TableCell>
-                  <TableCell>{formatDate(policy.startDate)}</TableCell>
-                  <TableCell>{formatDate(policy.endDate)}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={policy.status}
-                      color={policy.status === 'ACTIVE' ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {policies.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    Нет активных полисов
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-      {tabValue === 1 && renderApplicationsTable(applications.kasko, 'kasko')}
-      {tabValue === 2 && renderApplicationsTable(applications.osago, 'osago')}
-      {tabValue === 3 && renderApplicationsTable(applications.travel, 'travel')}
-      {tabValue === 4 && renderApplicationsTable(applications.health, 'health')}
-      {tabValue === 5 && renderApplicationsTable(applications.property, 'property')}
+      {tabValue === 0 && renderApplicationsTable(applications.kasko, 'kasko')}
+      {tabValue === 1 && renderApplicationsTable(applications.osago, 'osago')}
+      {tabValue === 2 && renderApplicationsTable(applications.travel, 'travel')}
+      {tabValue === 3 && renderApplicationsTable(applications.health, 'health')}
+      {tabValue === 4 && renderApplicationsTable(applications.property, 'property')}
+
+      <Dialog
+        open={cancelDialogOpen}
+        onClose={() => setCancelDialogOpen(false)}
+      >
+        <DialogTitle>Подтверждение остановки полиса</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы уверены, что хотите остановить действие полиса? 
+            Вам будет возвращена часть стоимости полиса пропорционально оставшемуся сроку действия.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)}>
+            Отмена
+          </Button>
+          <Button onClick={confirmCancelPolicy} color="error" variant="contained">
+            Остановить полис
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

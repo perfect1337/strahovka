@@ -1,5 +1,6 @@
 package com.strahovka.delivery;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -21,6 +22,7 @@ import java.util.HashSet;
 @AllArgsConstructor
 @Entity
 @Table(name = "insurance_packages")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class InsurancePackage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,6 +51,7 @@ public class InsurancePackage {
         joinColumns = @JoinColumn(name = "package_id"),
         inverseJoinColumns = @JoinColumn(name = "category_id")
     )
+    @JsonIgnoreProperties({"packages", "hibernateLazyInitializer", "handler"})
     private Set<InsuranceCategory> categories = new HashSet<>();
 
     @Column(nullable = false)

@@ -6,6 +6,7 @@ import com.strahovka.delivery.User;
 import com.strahovka.repository.InsurancePolicyRepository;
 import com.strahovka.repository.UserRepository;
 import com.strahovka.repository.InsuranceClaimRepository;
+import com.strahovka.service.InsuranceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/insurance")
@@ -28,6 +30,9 @@ public class InsurancePolicyController {
 
     @Autowired
     private InsuranceClaimRepository claimRepository;
+
+    @Autowired
+    private InsuranceService insuranceService;
 
     @GetMapping("/policies/user")
     @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
@@ -87,5 +92,32 @@ public class InsurancePolicyController {
         }
         policyRepository.deleteById(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/policies/{id}/pay")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
+    public ResponseEntity<InsurancePolicy> processPayment(@PathVariable Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+            
+        return ResponseEntity.ok(insuranceService.processPayment(id, user));
+    }
+
+    @PostMapping("/policies/{id}/cancel")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
+    public ResponseEntity<?> cancelPolicy(@PathVariable Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+            
+        try {
+            Map<String, Object> result = insuranceService.cancelPolicy(id);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 } 
