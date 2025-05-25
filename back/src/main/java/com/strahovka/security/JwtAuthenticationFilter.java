@@ -101,6 +101,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                     System.out.println("Authentication successful for user: " + userEmail);
                     System.out.println("Authorities: " + userDetails.getAuthorities());
+                    System.out.println("Request URI: " + request.getRequestURI());
+                    System.out.println("User roles from token: " + jwtService.extractRoles(token));
+                    System.out.println("User roles from userDetails: " + userDetails.getAuthorities());
                     filterChain.doFilter(request, response);
                 } else {
                     System.out.println("Token validation failed for user: " + userEmail);

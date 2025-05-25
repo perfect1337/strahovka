@@ -25,7 +25,7 @@ public class InsuranceApplicationController {
     private final KaskoApplicationService kaskoApplicationService;
 
     @PostMapping("/kasko")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> createKaskoApplication(
             @Valid @RequestBody KaskoApplicationRequest request,
             BindingResult bindingResult,
@@ -45,7 +45,7 @@ public class InsuranceApplicationController {
     }
 
     @PostMapping("/osago")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<OsagoApplication> createOsagoApplication(
             @RequestBody OsagoApplication application,
             Authentication authentication) {
@@ -56,7 +56,7 @@ public class InsuranceApplicationController {
     }
 
     @PostMapping("/travel")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<TravelApplication> createTravelApplication(
             @RequestBody TravelApplication application,
             Authentication authentication) {
@@ -67,7 +67,7 @@ public class InsuranceApplicationController {
     }
 
     @PostMapping("/health")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<HealthApplication> createHealthApplication(
             @RequestBody HealthApplication application,
             Authentication authentication) {
@@ -78,7 +78,7 @@ public class InsuranceApplicationController {
     }
 
     @PostMapping("/property")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<PropertyApplication> createPropertyApplication(
             @RequestBody PropertyApplication application,
             Authentication authentication) {
@@ -89,7 +89,7 @@ public class InsuranceApplicationController {
     }
 
     @PostMapping("/kasko/{id}/pay")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> processKaskoPayment(
             @PathVariable Long id,
             Authentication authentication) {
@@ -102,14 +102,14 @@ public class InsuranceApplicationController {
     }
 
     @GetMapping("/user/kasko")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<KaskoApplication>> getUserKaskoApplications(Authentication authentication) {
         List<KaskoApplication> applications = kaskoApplicationService.getUserApplications(authentication.getName());
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/user/kasko/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> getUserKaskoApplication(@PathVariable Long id, Authentication authentication) {
         try {
             return ResponseEntity.ok(applicationService.getKaskoApplication(id, authentication));
@@ -119,7 +119,7 @@ public class InsuranceApplicationController {
     }
 
     @GetMapping("/user/osago")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<OsagoApplication>> getUserOsagoApplications(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName())
             .orElseThrow(() -> new RuntimeException("User not found"));
@@ -127,7 +127,7 @@ public class InsuranceApplicationController {
     }
 
     @GetMapping("/user/travel")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<TravelApplication>> getUserTravelApplications(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName())
             .orElseThrow(() -> new RuntimeException("User not found"));
@@ -135,7 +135,7 @@ public class InsuranceApplicationController {
     }
 
     @GetMapping("/user/health")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<HealthApplication>> getUserHealthApplications(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName())
             .orElseThrow(() -> new RuntimeException("User not found"));
@@ -143,7 +143,7 @@ public class InsuranceApplicationController {
     }
 
     @GetMapping("/user/property")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<PropertyApplication>> getUserPropertyApplications(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName())
             .orElseThrow(() -> new RuntimeException("User not found"));
@@ -151,7 +151,7 @@ public class InsuranceApplicationController {
     }
 
     @GetMapping("/user/all")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<BaseApplication>> getAllUserApplications(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName())
             .orElseThrow(() -> new RuntimeException("User not found"));

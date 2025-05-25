@@ -20,14 +20,14 @@ public class AdminController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/moderators")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<User>> getModerators() {
         List<User> moderators = userRepository.findByRole(Role.ROLE_MODERATOR);
         return ResponseEntity.ok(moderators);
     }
 
     @PostMapping("/moderators")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<User> createModerator(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String password = request.get("password");

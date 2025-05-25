@@ -53,7 +53,7 @@ public class PolicyApplicationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
     public ResponseEntity<Page<PolicyApplication>> getAllApplications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -68,7 +68,7 @@ public class PolicyApplicationController {
     }
 
     @PostMapping("/{id}/process")
-    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
     public ResponseEntity<PolicyApplication> processApplication(
             @PathVariable Long id,
             @RequestBody Map<String, Object> request,
@@ -93,7 +93,7 @@ public class PolicyApplicationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
     public ResponseEntity<PolicyApplication> getApplication(@PathVariable Long id) {
         return applicationRepository.findById(id)
             .map(ResponseEntity::ok)

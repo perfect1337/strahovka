@@ -48,15 +48,15 @@ public class SecurityConfig {
                     "/api/insurance/packages/**",
                     "/api/insurance/categories/**",
                     "/api/admin/**"
-                ).hasRole("ADMIN")
+                ).hasAuthority("ROLE_ADMIN")
                 .requestMatchers(
                     "/api/users/profile",
                     "/api/insurance/applications/**",
                     "/api/insurance/policies/**",
                     "/api/insurance/claims/user/**"
-                ).hasAnyRole("USER", "ADMIN", "MODERATOR")
-                .requestMatchers("/api/insurance/claims/all").hasAnyRole("ADMIN", "MODERATOR")
-                .requestMatchers("/api/insurance/claims/process/**").hasAnyRole("ADMIN", "MODERATOR")
+                ).hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "ROLE_MODERATOR")
+                .requestMatchers("/api/insurance/claims/all").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
+                .requestMatchers("/api/insurance/claims/process/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

@@ -21,6 +21,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import Decimal from 'decimal.js';
 
 const RealEstateForm = () => {
   const [form, setForm] = useState({
@@ -33,6 +34,7 @@ const RealEstateForm = () => {
     floor: '',
     totalFloors: '',
     cadastralNumber: '',
+    ownershipDocumentNumber: '',
     
     // Owner Information
     ownerFullName: '',
@@ -45,6 +47,9 @@ const RealEstateForm = () => {
     propertyCondition: '', // excellent, good, needs repair
     hasParking: false,
     hasSecurity: false,
+    hasFireAlarm: false,
+    hasMortgage: false,
+    mortgageBank: '',
     
     // Insurance Options
     coverageType: 'standard', // basic, standard, premium
@@ -54,11 +59,9 @@ const RealEstateForm = () => {
     includeFurniture: false,
     includeValuables: false,
     
-    // Coverage Period
+    // Dates and Value
     startDate: null,
     endDate: null,
-    
-    // Additional Info
     propertyValue: '',
     description: ''
   });
@@ -91,6 +94,7 @@ const RealEstateForm = () => {
       form.totalArea &&
       form.yearBuilt &&
       form.cadastralNumber &&
+      form.ownershipDocumentNumber &&
       form.ownerFullName &&
       form.ownerPassport &&
       form.ownerPhone &&
@@ -120,12 +124,31 @@ const RealEstateForm = () => {
     
     try {
       const formData = {
-        ...form,
+        propertyType: form.propertyType,
+        address: form.address,
+        propertyArea: new Decimal(form.totalArea).toString(),
+        yearBuilt: parseInt(form.yearBuilt),
+        constructionType: form.constructionType,
+        propertyValue: new Decimal(form.propertyValue).toString(),
+        hasSecuritySystem: form.hasSecurity,
+        hasFireAlarm: form.hasFireAlarm,
+        coverNaturalDisasters: true,
+        coverTheft: true,
+        coverThirdPartyLiability: form.includeThirdPartyLiability,
+        ownershipDocumentNumber: form.ownershipDocumentNumber,
+        cadastralNumber: form.cadastralNumber,
+        hasMortgage: form.hasMortgage,
+        mortgageBank: form.mortgageBank,
+        ownerFullName: form.ownerFullName,
+        ownerPassport: form.ownerPassport,
+        ownerPhone: form.ownerPhone,
+        ownerEmail: form.ownerEmail,
         startDate: form.startDate?.toISOString().split('T')[0],
         endDate: form.endDate?.toISOString().split('T')[0],
+        description: form.description
       };
 
-      await api.post('/api/insurance/applications/realestate', formData);
+      await api.post('/api/insurance/applications/property', formData);
       setSuccess(true);
       
       // Reset form
@@ -138,6 +161,7 @@ const RealEstateForm = () => {
         floor: '',
         totalFloors: '',
         cadastralNumber: '',
+        ownershipDocumentNumber: '',
         ownerFullName: '',
         ownerPassport: '',
         ownerPhone: '',
@@ -146,6 +170,9 @@ const RealEstateForm = () => {
         propertyCondition: '',
         hasParking: false,
         hasSecurity: false,
+        hasFireAlarm: false,
+        hasMortgage: false,
+        mortgageBank: '',
         coverageType: 'standard',
         includeFinishings: true,
         includeUtilities: true,
@@ -264,6 +291,16 @@ const RealEstateForm = () => {
                 label="Кадастровый номер" 
                 name="cadastralNumber" 
                 value={form.cadastralNumber} 
+                onChange={handleChange} 
+                fullWidth 
+                required 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                label="Номер документа собственности" 
+                name="ownershipDocumentNumber" 
+                value={form.ownershipDocumentNumber} 
                 onChange={handleChange} 
                 fullWidth 
                 required 

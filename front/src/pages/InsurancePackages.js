@@ -249,147 +249,111 @@ const InsurancePackages = ({ adminView = false }) => {
   const renderPolicies = () => (
     <Grid container spacing={3}>
       <Grid item xs={12} sm={6} md={4}>
-        <Card>
-          <CardMedia
-            component="img"
-            height="140"
-            image="/images/car-insurance.jpg"
-            alt="ОСАГО"
-          />
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              ОСАГО
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Обязательное страхование автогражданской ответственности
-            </Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small" color="primary" onClick={() => navigate('/create-policy?type=osago')}>
-              Оформить
-            </Button>
-          </CardActions>
-        </Card>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            ОСАГО
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Обязательное страхование автогражданской ответственности
+          </Typography>
+          <Button 
+            variant="contained" 
+            fullWidth
+            onClick={() => navigate('/insurance/osago')}
+          >
+            ОФОРМИТЬ
+          </Button>
+        </Box>
       </Grid>
 
       <Grid item xs={12} sm={6} md={4}>
-        <Card>
-          <CardMedia
-            component="img"
-            height="140"
-            image="/images/kasko.jpg"
-            alt="КАСКО"
-          />
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              КАСКО
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Добровольное страхование автомобиля
-            </Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small" color="primary" onClick={() => navigate('/create-policy?type=kasko')}>
-              Оформить
-            </Button>
-          </CardActions>
-        </Card>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            КАСКО
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Добровольное страхование автомобиля
+          </Typography>
+          <Button 
+            variant="contained" 
+            fullWidth
+            onClick={() => navigate('/insurance/kasko')}
+          >
+            ОФОРМИТЬ
+          </Button>
+        </Box>
       </Grid>
 
       <Grid item xs={12} sm={6} md={4}>
-        <Card>
-          <CardMedia
-            component="img"
-            height="140"
-            image="/images/property.jpg"
-            alt="Недвижимость"
-          />
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Недвижимость
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Страхование квартир, домов и других объектов недвижимости
-            </Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small" color="primary" onClick={() => navigate('/create-policy?type=property')}>
-              Оформить
-            </Button>
-          </CardActions>
-        </Card>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Страхование путешествий
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Защита во время поездок по России и за рубежом
+          </Typography>
+          <Button 
+            variant="contained" 
+            fullWidth
+            onClick={() => navigate('/insurance/travel')}
+          >
+            ОФОРМИТЬ
+          </Button>
+        </Box>
       </Grid>
 
       <Grid item xs={12} sm={6} md={4}>
-        <Card>
-          <CardMedia
-            component="img"
-            height="140"
-            image="/images/health.jpg"
-            alt="Здоровье"
-          />
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Здоровье
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Добровольное медицинское страхование
-            </Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small" color="primary" onClick={() => navigate('/create-policy?type=health')}>
-              Оформить
-            </Button>
-          </CardActions>
-        </Card>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Страхование здоровья
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Медицинское страхование и страхование от несчастных случаев
+          </Typography>
+          <Button 
+            variant="contained" 
+            fullWidth
+            onClick={() => navigate('/insurance/health')}
+          >
+            ОФОРМИТЬ
+          </Button>
+        </Box>
       </Grid>
 
       <Grid item xs={12} sm={6} md={4}>
-        <Card>
-          <CardMedia
-            component="img"
-            height="140"
-            image="/images/mortgage.jpg"
-            alt="Ипотека"
-          />
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Ипотечное страхование
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Комплексное страхование для ипотечных заемщиков
-            </Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small" color="primary" onClick={() => navigate('/create-policy?type=mortgage')}>
-              Оформить
-            </Button>
-          </CardActions>
-        </Card>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Страхование недвижимости
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Защита домов, коттеджей и коммерческой недвижимости
+          </Typography>
+          <Button 
+            variant="contained" 
+            fullWidth
+            onClick={() => navigate('/insurance/realestate')}
+          >
+            ОФОРМИТЬ
+          </Button>
+        </Box>
       </Grid>
 
       <Grid item xs={12} sm={6} md={4}>
-        <Card>
-          <CardMedia
-            component="img"
-            height="140"
-            image="/images/travel.jpg"
-            alt="Путешествия"
-          />
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Путешествия
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Страхование для путешественников
-            </Typography>
-          </CardContent>
-          <CardActions>
-            <Button size="small" color="primary" onClick={() => navigate('/create-policy?type=travel')}>
-              Оформить
-            </Button>
-          </CardActions>
-        </Card>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Страхование квартиры
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Защита квартиры и имущества
+          </Typography>
+          <Button 
+            variant="contained" 
+            fullWidth
+            onClick={() => navigate('/insurance/apartment')}
+          >
+            ОФОРМИТЬ
+          </Button>
+        </Box>
       </Grid>
     </Grid>
   );
@@ -419,10 +383,18 @@ const InsurancePackages = ({ adminView = false }) => {
             textColor="primary"
             centered
           >
-            <Tab label="Страховые пакеты" />
-            <Tab label="Отдельные полисы" />
+            <Tab label="СТРАХОВЫЕ ПАКЕТЫ" />
+            <Tab label="ОТДЕЛЬНЫЕ ПОЛИСЫ" />
           </Tabs>
         </Paper>
+      )}
+
+      {!adminView && tabValue === 1 && (
+        <Box sx={{ mb: 3, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary">
+            Выберите тип страхования для оформления полиса
+          </Typography>
+        </Box>
       )}
 
       {(!adminView && tabValue === 0) || adminView ? renderPackages() : renderPolicies()}

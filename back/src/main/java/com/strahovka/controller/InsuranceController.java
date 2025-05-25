@@ -129,7 +129,7 @@ public class InsuranceController {
     }
 
     @PostMapping("/claims/{claimId}/process")
-    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
     public ResponseEntity<InsuranceClaim> processClaim(
             @PathVariable Long claimId,
             @RequestBody Map<String, String> request) {
@@ -163,7 +163,7 @@ public class InsuranceController {
     }
 
     @GetMapping("/claims/all")
-    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
     public ResponseEntity<Page<InsuranceClaim>> getAllClaims(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,

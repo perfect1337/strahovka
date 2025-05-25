@@ -36,13 +36,13 @@ public class InsurancePackageController {
     }
 
     @PostMapping("/packages")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<InsurancePackage> createPackage(@Valid @RequestBody InsurancePackage insurancePackage) {
         return ResponseEntity.ok(insurancePackageService.createPackage(insurancePackage));
     }
 
     @PutMapping("/packages/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<InsurancePackage> updatePackage(
             @PathVariable Long id,
             @Valid @RequestBody InsurancePackage insurancePackage) {
@@ -50,7 +50,7 @@ public class InsurancePackageController {
     }
 
     @DeleteMapping("/packages/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Void> deletePackage(@PathVariable Long id) {
         insurancePackageService.deletePackage(id);
         return ResponseEntity.ok().build();

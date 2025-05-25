@@ -21,7 +21,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/profile")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN', 'ROLE_MODERATOR')")
     public ResponseEntity<?> getProfile(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName())
             .orElseThrow(() -> new RuntimeException("User not found"));
@@ -38,7 +38,7 @@ public class UserController {
     }
 
     @PostMapping("/change-password")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request) {
         String currentPassword = request.get("currentPassword");
         String newPassword = request.get("newPassword");
