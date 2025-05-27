@@ -27,9 +27,11 @@ import {
   TableRow,
   Paper,
   TablePagination,
+  Stack,
 } from '@mui/material';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import ClaimChatButton from '../components/admin/ClaimChatButton';
 
 const ModeratorClaims = () => {
   const { user } = useAuth();
@@ -213,13 +215,20 @@ const ModeratorClaims = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="small"
-                      color="primary"
-                      onClick={() => handleOpenDialog(claim)}
-                    >
-                      Обработать
-                    </Button>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleOpenDialog(claim)}
+                      >
+                        Обработать
+                      </Button>
+                      <ClaimChatButton 
+                        claimId={claim.id}
+                        claimDescription={claim.description}
+                      />
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}

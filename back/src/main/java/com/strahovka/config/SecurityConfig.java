@@ -5,6 +5,7 @@ import com.strahovka.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -40,12 +41,24 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/**"
                 ).permitAll()
-                .requestMatchers(
+                .requestMatchers(HttpMethod.GET,
                     "/api/insurance/packages",
-                    "/api/insurance/categories"
+                    "/api/insurance/categories",
+                    "/api/insurance/guides/**"
                 ).permitAll()
-                .requestMatchers(
+                .requestMatchers(HttpMethod.POST,
+                    "/api/insurance/packages",
+                    "/api/insurance/guides"
+                ).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(HttpMethod.PUT,
                     "/api/insurance/packages/**",
+                    "/api/insurance/guides/**"
+                ).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(HttpMethod.DELETE,
+                    "/api/insurance/packages/**",
+                    "/api/insurance/guides/**"
+                ).hasAuthority("ROLE_ADMIN")
+                .requestMatchers(
                     "/api/insurance/categories/**",
                     "/api/admin/**"
                 ).hasAuthority("ROLE_ADMIN")
@@ -53,7 +66,8 @@ public class SecurityConfig {
                     "/api/users/profile",
                     "/api/insurance/applications/**",
                     "/api/insurance/policies/**",
-                    "/api/insurance/claims/user/**"
+                    "/api/insurance/claims/user/**",
+                    "/api/insurance/claims/{claimId}/messages/**"
                 ).hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "ROLE_MODERATOR")
                 .requestMatchers("/api/insurance/claims/all").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
                 .requestMatchers("/api/insurance/claims/process/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")

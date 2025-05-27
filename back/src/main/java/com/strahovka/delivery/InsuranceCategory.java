@@ -36,6 +36,10 @@ public class InsuranceCategory {
     @Column(name = "base_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal basePrice;
 
+    @NotBlank(message = "Тип страхования обязателен")
+    @Column(name = "type", nullable = false)
+    private String type;
+
     @ManyToMany(mappedBy = "categories")
     @JsonIgnoreProperties({"categories", "hibernateLazyInitializer", "handler"})
     private Set<InsurancePackage> packages = new HashSet<>();

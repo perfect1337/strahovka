@@ -23,11 +23,13 @@ import {
   Tab,
   Paper,
   CardMedia,
+  Stack,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import AddIcon from '@mui/icons-material/Add';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 const InsurancePackages = ({ adminView = false }) => {
   const [tabValue, setTabValue] = useState(0);
@@ -116,9 +118,14 @@ const InsurancePackages = ({ adminView = false }) => {
 
   const handleSubmit = async () => {
     try {
+      const selectedCategories = formData.categories.map(categoryId => 
+        categories.find(c => c.id === categoryId)
+      );
+
       const data = {
         ...formData,
-        basePrice: parseFloat(formData.basePrice)
+        basePrice: parseFloat(formData.basePrice),
+        categories: selectedCategories
       };
 
       if (selectedPackage) {
@@ -256,13 +263,22 @@ const InsurancePackages = ({ adminView = false }) => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Обязательное страхование автогражданской ответственности
           </Typography>
-          <Button 
-            variant="contained" 
-            fullWidth
-            onClick={() => navigate('/insurance/osago')}
-          >
-            ОФОРМИТЬ
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={() => navigate('/insurance/osago')}
+            >
+              ОФОРМИТЬ
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'OSAGO' } })}
+            >
+              СПРАВКА
+            </Button>
+          </Stack>
         </Box>
       </Grid>
 
@@ -274,13 +290,22 @@ const InsurancePackages = ({ adminView = false }) => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Добровольное страхование автомобиля
           </Typography>
-          <Button 
-            variant="contained" 
-            fullWidth
-            onClick={() => navigate('/insurance/kasko')}
-          >
-            ОФОРМИТЬ
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={() => navigate('/insurance/kasko')}
+            >
+              ОФОРМИТЬ
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'KASKO' } })}
+            >
+              СПРАВКА
+            </Button>
+          </Stack>
         </Box>
       </Grid>
 
@@ -292,13 +317,22 @@ const InsurancePackages = ({ adminView = false }) => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Защита во время поездок по России и за рубежом
           </Typography>
-          <Button 
-            variant="contained" 
-            fullWidth
-            onClick={() => navigate('/insurance/travel')}
-          >
-            ОФОРМИТЬ
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={() => navigate('/insurance/travel')}
+            >
+              ОФОРМИТЬ
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'TRAVEL' } })}
+            >
+              СПРАВКА
+            </Button>
+          </Stack>
         </Box>
       </Grid>
 
@@ -310,13 +344,22 @@ const InsurancePackages = ({ adminView = false }) => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Медицинское страхование и страхование от несчастных случаев
           </Typography>
-          <Button 
-            variant="contained" 
-            fullWidth
-            onClick={() => navigate('/insurance/health')}
-          >
-            ОФОРМИТЬ
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={() => navigate('/insurance/health')}
+            >
+              ОФОРМИТЬ
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'HEALTH' } })}
+            >
+              СПРАВКА
+            </Button>
+          </Stack>
         </Box>
       </Grid>
 
@@ -328,13 +371,22 @@ const InsurancePackages = ({ adminView = false }) => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Защита домов, коттеджей и коммерческой недвижимости
           </Typography>
-          <Button 
-            variant="contained" 
-            fullWidth
-            onClick={() => navigate('/insurance/realestate')}
-          >
-            ОФОРМИТЬ
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={() => navigate('/insurance/realestate')}
+            >
+              ОФОРМИТЬ
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'PROPERTY' } })}
+            >
+              СПРАВКА
+            </Button>
+          </Stack>
         </Box>
       </Grid>
 
@@ -346,13 +398,22 @@ const InsurancePackages = ({ adminView = false }) => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Защита квартиры и имущества
           </Typography>
-          <Button 
-            variant="contained" 
-            fullWidth
-            onClick={() => navigate('/insurance/apartment')}
-          >
-            ОФОРМИТЬ
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={() => navigate('/insurance/apartment')}
+            >
+              ОФОРМИТЬ
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'PROPERTY' } })}
+            >
+              СПРАВКА
+            </Button>
+          </Stack>
         </Box>
       </Grid>
     </Grid>

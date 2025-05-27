@@ -29,6 +29,9 @@ import RealEstateForm from './pages/forms/RealEstateForm';
 import ApartmentForm from './pages/forms/ApartmentForm';
 import ModeratorClaims from './pages/ModeratorClaims';
 import ApplicationsList from './pages/ApplicationsList';
+import InsuranceGuide from './pages/InsuranceGuide';
+import AdminRoute from './components/AdminRoute';
+import ClaimsManagement from './components/admin/ClaimsManagement';
 
 const theme = createTheme({
   palette: {
@@ -106,17 +109,17 @@ function App() {
                 <Route
                   path="/admin/claims"
                   element={
-                    <ProtectedRoute adminOnly>
-                      <AdminClaims />
-                    </ProtectedRoute>
+                    <PrivateRoute roles={['ROLE_ADMIN']}>
+                      <ModeratorClaims />
+                    </PrivateRoute>
                   }
                 />
                 <Route
                   path="/moderator/claims"
                   element={
-                    <ProtectedRoute moderatorOnly>
+                    <PrivateRoute roles={['ROLE_MODERATOR', 'ROLE_ADMIN']}>
                       <ModeratorClaims />
-                    </ProtectedRoute>
+                    </PrivateRoute>
                   }
                 />
                 <Route
@@ -182,6 +185,22 @@ function App() {
                     <ProtectedRoute roles={['ROLE_ADMIN', 'ROLE_MODERATOR']}>
                       <ApplicationsList />
                     </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/insurance-guide"
+                  element={
+                    <ProtectedRoute>
+                      <InsuranceGuide />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/packages"
+                  element={
+                    <AdminRoute>
+                      <InsurancePackages adminView={true} />
+                    </AdminRoute>
                   }
                 />
               </Route>

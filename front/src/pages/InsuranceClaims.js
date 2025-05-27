@@ -33,9 +33,10 @@ import {
   ListItemText,
   ListItemSecondaryAction,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, CloudUpload as CloudUploadIcon, Close as CloseIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import ClaimChat from '../components/ClaimChat';
 
 const InsuranceClaims = () => {
   const { user } = useAuth();
@@ -49,6 +50,8 @@ const InsuranceClaims = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const [newClaim, setNewClaim] = useState({
     policyId: '',
@@ -227,6 +230,7 @@ const InsuranceClaims = () => {
                   <TableCell>Полис</TableCell>
                   <TableCell>Описание</TableCell>
                   <TableCell>Статус</TableCell>
+                  <TableCell>Действия</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -249,6 +253,18 @@ const InsuranceClaims = () => {
                         size="small"
                       />
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        color="primary"
+                        onClick={() => {
+                          setSelectedClaim(claim);
+                          setChatOpen(true);
+                        }}
+                      >
+                        Чат
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -265,6 +281,31 @@ const InsuranceClaims = () => {
           </TableContainer>
         </Grid>
       </Grid>
+
+      <Dialog
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Чат по страховому случаю #{selectedClaim?.id}
+          <IconButton
+            aria-label="close"
+            onClick={() => setChatOpen(false)}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {selectedClaim && <ClaimChat claimId={selectedClaim.id} />}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Подать заявку на страховой случай</DialogTitle>

@@ -1,5 +1,6 @@
 package com.strahovka.delivery;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 @Data
 @Entity
 @Table(name = "insurance_claims")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class InsuranceClaim {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,6 +20,7 @@ public class InsuranceClaim {
 
     @ManyToOne
     @JoinColumn(name = "policy_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private InsurancePolicy policy;
 
     @Column(nullable = false)
@@ -49,5 +52,6 @@ public class InsuranceClaim {
     private BigDecimal calculatedAmount;
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "claim"})
     private List<ClaimAttachment> attachments = new ArrayList<>();
 } 

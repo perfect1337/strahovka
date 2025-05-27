@@ -24,6 +24,7 @@ public class InsuranceService {
     private final InsuranceClaimRepository claimRepository;
     private final InsurancePackageRepository packageRepository;
     private final UserRepository userRepository;
+    private final InsuranceGuideRepository guideRepository;
 
     public List<InsuranceCategory> getAllCategories() {
         return categoryRepository.findAll();
@@ -49,6 +50,10 @@ public class InsuranceService {
         policy.setDetails(details);
         policy.setPrice(category.getBasePrice());
         policy.calculateCashback();
+
+        // Link the corresponding insurance guide
+        guideRepository.findByInsuranceType(category.getType())
+            .ifPresent(policy::setGuide);
 
         // Don't increment policy count until payment is successful
         return policyRepository.save(policy);
@@ -82,6 +87,10 @@ public class InsuranceService {
                 );
                 policy.setPrice(finalPrice);
                 policy.calculateCashback();
+
+                // Link the corresponding insurance guide
+                guideRepository.findByInsuranceType(category.getType())
+                    .ifPresent(policy::setGuide);
                 
                 return policy;
             })

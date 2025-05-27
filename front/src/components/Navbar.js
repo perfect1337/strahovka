@@ -14,6 +14,7 @@ import {
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useAuth } from '../context/AuthContext';
 import { checkIfAdmin } from '../utils/roleUtils';
+import { Link } from 'react-router-dom';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -79,6 +80,14 @@ const Navbar = () => {
                   </Button>
                 </>
               )}
+              <Button
+                color="inherit"
+                component={Link}
+                to="/insurance-guide"
+                sx={{ textTransform: 'none' }}
+              >
+                Справочник
+              </Button>
               <IconButton
                 size="large"
                 aria-label="account of current user"

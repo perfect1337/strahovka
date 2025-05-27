@@ -66,6 +66,11 @@ public class InsurancePolicy {
     @Column(name = "cashback", nullable = false, precision = 10, scale = 2)
     private BigDecimal cashback = BigDecimal.ZERO;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guide_id", foreignKey = @ForeignKey(name = "fk_insurance_policies_guide"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private InsuranceGuide guide;
+
     @PrePersist
     @PreUpdate
     public void calculateCashback() {
