@@ -5,7 +5,7 @@ import { Container, Typography, Box, Tabs, Tab, Paper, Table, TableBody,
   DialogTitle, DialogContent, DialogActions, TextField, Fab, Select, MenuItem, 
   FormControl, InputLabel, Grid, Alert } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import api from '../api';
+import api from '../utils/api';
 import { checkIfAdmin } from '../utils/roleUtils';
 import InsurancePackages from './InsurancePackages';
 

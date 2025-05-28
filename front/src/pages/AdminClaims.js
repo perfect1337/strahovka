@@ -17,7 +17,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import api from '../api';
+import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { checkIfAdmin } from '../utils/roleUtils';
 

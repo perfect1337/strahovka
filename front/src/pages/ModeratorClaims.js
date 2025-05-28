@@ -29,7 +29,7 @@ import {
   TablePagination,
   Stack,
 } from '@mui/material';
-import api from '../api';
+import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ClaimChatButton from '../components/admin/ClaimChatButton';
 
@@ -201,7 +201,7 @@ const ModeratorClaims = () => {
                   <TableCell>{claim.policy.user.firstName} {claim.policy.user.lastName}</TableCell>
                   <TableCell>
                     <Chip
-                      label={claim.policy.type}
+                      label={claim.policy.category.name}
                       size="small"
                       variant="outlined"
                     />
@@ -264,7 +264,7 @@ const ModeratorClaims = () => {
                 <strong>Клиент:</strong> {selectedClaim.policy.user.firstName} {selectedClaim.policy.user.lastName}
               </Typography>
               <Typography variant="body2" paragraph>
-                <strong>Тип страховки:</strong> {selectedClaim.policy.type}
+                <strong>Тип страховки:</strong> {selectedClaim.policy.category.name}
               </Typography>
               <Typography variant="body2" paragraph>
                 <strong>Описание:</strong> {selectedClaim.description}

@@ -36,7 +36,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../utils/api';
 import {
   Person as PersonIcon,
   Email as EmailIcon,
@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { formatDate } from '../utils/dateUtils';
 import { processKaskoPayment } from '../api/insurance';
+import { getKaskoApplications, getOsagoApplications, getTravelApplications, getHealthApplications, getPropertyApplications } from '../api/insurance';
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);

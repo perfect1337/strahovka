@@ -16,6 +16,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   FormControl,
   InputLabel,
@@ -32,10 +33,12 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  Snackbar,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, CloudUpload as CloudUploadIcon, Close as CloseIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../utils/api';
+import { cancelClaim } from '../api/insurance';
 import ClaimChat from '../components/ClaimChat';
 
 const InsuranceClaims = () => {
@@ -48,10 +51,12 @@ const InsuranceClaims = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [policies, setPolicies] = useState([]);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [claimToCancel, setClaimToCancel] = useState(null);
 
   const [newClaim, setNewClaim] = useState({
     policyId: '',
@@ -68,6 +73,7 @@ const InsuranceClaims = () => {
           searchId: searchId || undefined,
         },
       });
+      console.log('Claims data:', response.data);
       setClaims(response.data.content || response.data);
       setTotalClaims(response.data.totalElements || response.data.length);
     } catch (error) {
@@ -141,7 +147,7 @@ const InsuranceClaims = () => {
           'Content-Type': 'multipart/form-data',
         },
       });
-      setSuccess(true);
+      setSuccess('Заявка успешно отправлена');
       handleCloseDialog();
       fetchClaims();
     } catch (error) {
@@ -181,6 +187,24 @@ const InsuranceClaims = () => {
         return 'Требуется информация';
       default:
         return status;
+    }
+  };
+
+  const handleCancelClaim = (claim) => {
+    setClaimToCancel(claim);
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancelClaim = async () => {
+    try {
+      await cancelClaim(claimToCancel.id);
+      setSuccess('Заявка успешно отменена');
+      fetchClaims();
+    } catch (error) {
+      setError('Ошибка при отмене заявки: ' + (error.response?.data || error.message));
+    } finally {
+      setCancelDialogOpen(false);
+      setClaimToCancel(null);
     }
   };
 
@@ -240,9 +264,10 @@ const InsuranceClaims = () => {
                     <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Chip
-                        label={claim.policyId}
+                        label={claim.policy ? `Полис №${claim.policy.policyNumber || claim.policy.id}` : 'Не указан'}
                         size="small"
                         variant="outlined"
+                        color={claim.policy ? "primary" : "default"}
                       />
                     </TableCell>
                     <TableCell>{claim.description}</TableCell>
@@ -254,16 +279,27 @@ const InsuranceClaims = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="small"
-                        color="primary"
-                        onClick={() => {
-                          setSelectedClaim(claim);
-                          setChatOpen(true);
-                        }}
-                      >
-                        Чат
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          color="primary"
+                          onClick={() => {
+                            setSelectedClaim(claim);
+                            setChatOpen(true);
+                          }}
+                        >
+                          Чат
+                        </Button>
+                        {claim.status === 'PENDING' && (
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => handleCancelClaim(claim)}
+                          >
+                            Отменить
+                          </Button>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -307,15 +343,30 @@ const InsuranceClaims = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={cancelDialogOpen}
+        onClose={() => setCancelDialogOpen(false)}
+      >
+        <DialogTitle>Подтверждение отмены заявки</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы уверены, что хотите отменить заявку #{claimToCancel?.id}? Это действие нельзя будет отменить.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)}>
+            Нет
+          </Button>
+          <Button onClick={confirmCancelClaim} color="error" variant="contained">
+            Да, отменить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Подать заявку на страховой случай</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Полис</InputLabel>
               <Select
@@ -388,18 +439,29 @@ const InsuranceClaims = () => {
         </DialogActions>
       </Dialog>
 
-      <Alert
-        severity="success"
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          display: success ? 'flex' : 'none',
-        }}
-        onClose={() => setSuccess(false)}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={6000}
+        onClose={() => setSuccess('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        Заявка успешно отправлена
-      </Alert>
+        <Alert onClose={() => setSuccess('')} severity="success" sx={{ width: '100%' }}>
+          {success}
+        </Alert>
+      </Snackbar>
+
+      {error && (
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={() => setError('')}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert onClose={() => setError('')} severity="error" sx={{ width: '100%' }}>
+            {error}
+          </Alert>
+        </Snackbar>
+      )}
     </Container>
   );
 };

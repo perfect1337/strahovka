@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../utils/api';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 

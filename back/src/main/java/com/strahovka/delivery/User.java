@@ -33,6 +33,12 @@ public class User implements UserDetails {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
+    @Column(name = "middle_name")
+    private String middleName;
+
+    @Column(name = "phone")
+    private String phone;
+
     @NotBlank
     @Email
     @Column(nullable = false, unique = true)

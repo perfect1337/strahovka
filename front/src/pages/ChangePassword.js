@@ -9,7 +9,7 @@ import {
   Box,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import api from '../utils/api';
 
 const ChangePassword = () => {
   const [currentPassword, setCurrentPassword] = useState('');

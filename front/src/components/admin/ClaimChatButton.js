@@ -15,7 +15,7 @@ import {
 import ChatIcon from '@mui/icons-material/Chat';
 import SendIcon from '@mui/icons-material/Send';
 import { format } from 'date-fns';
-import api from '../../api';
+import api from '../../utils/api';
 
 const ClaimChatButton = ({ claimId, claimDescription }) => {
     const [open, setOpen] = useState(false);

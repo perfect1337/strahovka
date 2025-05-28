@@ -10,10 +10,11 @@ import {
   Box,
   Alert,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../utils/api';
 
 const Home = () => {
   const [packages, setPackages] = useState([]);
@@ -26,26 +27,24 @@ const Home = () => {
     const fetchPackages = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/api/insurance/packages');
+        // Use public endpoint for unauthorized users
+        const endpoint = user ? '/api/insurance/packages' : '/api/insurance/packages/public';
+        const response = await api.get(endpoint);
         setPackages(response.data);
       } catch (err) {
         console.error('Error fetching packages:', err);
-        if (err.response?.status === 403) {
-          setError('Для просмотра пакетов необходимо авторизоваться');
-        } else {
-          setError('Ошибка при загрузке пакетов. Пожалуйста, попробуйте позже.');
-        }
+        setError('Ошибка при загрузке пакетов. Пожалуйста, попробуйте позже.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchPackages();
-  }, []);
+  }, [user]);
 
   const handleBuyClick = (packageId) => {
     if (!user) {
-      navigate('/login');
+      navigate('/login', { state: { from: `/insurance/buy/${packageId}` } });
       return;
     }
     navigate(`/insurance/buy/${packageId}`);
@@ -60,13 +59,13 @@ const Home = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" gutterBottom>
         Страховые пакеты
       </Typography>
-
+      
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -74,26 +73,41 @@ const Home = () => {
       <Grid container spacing={3}>
         {packages.map((pkg) => (
           <Grid item xs={12} sm={6} md={4} key={pkg.id}>
-            <Card>
-              <CardContent>
-                <Typography variant="h5" component="h2" gutterBottom>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Typography variant="h6" gutterBottom>
                   {pkg.name}
                 </Typography>
-                <Typography variant="body1" color="text.secondary" paragraph>
+                <Typography variant="body2" color="textSecondary" paragraph>
                   {pkg.description}
                 </Typography>
-                <Typography variant="h6" color="primary">
-                  {pkg.price} ₽/мес
+                <Typography variant="h6" color="primary" gutterBottom>
+                  {pkg.basePrice.toLocaleString('ru-RU')} ₽
                 </Typography>
+                {pkg.discount > 0 && (
+                  <Typography variant="body2" color="error">
+                    Скидка: {pkg.discount}%
+                  </Typography>
+                )}
+                <Box mt={1}>
+                  {pkg.categories.map((category) => (
+                    <Chip
+                      key={category.id}
+                      label={category.name}
+                      size="small"
+                      sx={{ mr: 0.5, mb: 0.5 }}
+                    />
+                  ))}
+                </Box>
               </CardContent>
               <CardActions>
-                <Button
-                  size="large"
-                  fullWidth
-                  variant="contained"
+                <Button 
+                  fullWidth 
+                  variant="contained" 
+                  color="primary" 
                   onClick={() => handleBuyClick(pkg.id)}
                 >
-                  {user ? 'Купить' : 'Войти для покупки'}
+                  {user ? 'Оформить' : 'Войти и оформить'}
                 </Button>
               </CardActions>
             </Card>

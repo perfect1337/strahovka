@@ -116,4 +116,15 @@ public class AuthService {
         user.setRefreshToken(null);
         userRepository.save(user);
     }
+
+    public String generateToken(User user) {
+        String accessToken = jwtService.generateToken(user);
+        String refreshToken = UUID.randomUUID().toString();
+        
+        user.setAccessToken(accessToken);
+        user.setRefreshToken(refreshToken);
+        userRepository.save(user);
+        
+        return accessToken;
+    }
 } 

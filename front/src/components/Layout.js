@@ -1,73 +1,173 @@
 import React from 'react';
-import { Box, AppBar, Toolbar, Typography, IconButton, Button } from '@mui/material';
-import { Menu as MenuIcon, Logout as LogoutIcon, Login as LoginIcon } from '@mui/icons-material';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import {
+  AppBar,
+  Box,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  IconButton,
+  Menu,
+  MenuItem,
+  Link,
+} from '@mui/material';
+import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useAuth } from '../context/AuthContext';
 import SideMenu from './SideMenu';
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [anchorEl, setAnchorEl] = React.useState(null);
+
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    handleClose();
+    navigate('/');
   };
 
-  const handleLogin = () => {
-    navigate('/login');
+  const handleProfile = () => {
+    handleClose();
+    navigate('/profile');
   };
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed">
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            sx={{ mr: 2 }}
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              flexGrow: 1,
+              textDecoration: 'none',
+              color: 'inherit',
+              '&:hover': {
+                color: 'inherit',
+              },
+            }}
           >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Страховая компания
           </Typography>
+
+          <Button
+            color="inherit"
+            component={RouterLink}
+            to="/insurance/packages"
+            sx={{ mr: 2 }}
+          >
+            Страховые продукты
+          </Button>
+
           {user ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body1">
-                {user.firstName} {user.lastName}
-              </Typography>
+            <>
+              <IconButton
+                size="large"
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleMenu}
+                color="inherit"
+              >
+                <AccountCircle />
+              </IconButton>
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+              >
+                <MenuItem onClick={handleProfile}>Личный кабинет</MenuItem>
+                {user.role === 'ADMIN' && (
+                  <MenuItem onClick={() => { handleClose(); navigate('/admin'); }}>
+                    Панель администратора
+                  </MenuItem>
+                )}
+                {(user.role === 'ADMIN' || user.role === 'MODERATOR') && (
+                  <MenuItem onClick={() => { handleClose(); navigate('/moderator/claims'); }}>
+                    Управление заявками
+                  </MenuItem>
+                )}
+                <MenuItem onClick={handleLogout}>Выйти</MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <>
               <Button
                 color="inherit"
-                startIcon={<LogoutIcon />}
-                onClick={handleLogout}
+                component={RouterLink}
+                to="/login"
+                state={{ from: location.pathname }}
               >
-                Выйти
+                Войти
               </Button>
-            </Box>
-          ) : (
-            <Button
-              color="inherit"
-              startIcon={<LoginIcon />}
-              onClick={handleLogin}
-            >
-              Войти
-            </Button>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/register"
+              >
+                Регистрация
+              </Button>
+            </>
           )}
         </Toolbar>
       </AppBar>
+
       {user && <SideMenu />}
+
+      <Box component="main" sx={{ 
+        flexGrow: 1, 
+        p: 3,
+        width: user ? 'calc(100% - 240px)' : '100%',
+        ml: user ? '240px' : 0,
+        mt: '64px'
+      }}>
+        <Container maxWidth="lg">
+          <Outlet />
+        </Container>
+      </Box>
+
       <Box
-        component="main"
+        component="footer"
         sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${user ? 240 : 0}px)` },
-          ml: { sm: user ? '240px' : 0 },
-          mt: '64px',
+          py: 3,
+          px: 2,
+          mt: 'auto',
+          position: 'fixed',
+          bottom: 0,
+          width: user ? 'calc(100% - 240px)' : '100%',
+          ml: user ? '240px' : 0,
+          backgroundColor: (theme) =>
+            theme.palette.mode === 'light'
+              ? theme.palette.grey[200]
+              : theme.palette.grey[800],
         }}
       >
-        <Outlet />
+        <Container maxWidth="sm">
+          <Typography variant="body2" color="text.secondary" align="center">
+            © {new Date().getFullYear()} Страховая компания. Все права защищены.
+          </Typography>
+        </Container>
       </Box>
     </Box>
   );

@@ -3,12 +3,13 @@ import axios from 'axios';
 const api = axios.create({
     baseURL: 'http://localhost:8081',
     headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
     },
     withCredentials: true
 });
 
-// Add a request interceptor to include the token in requests
+// Add request interceptor for authentication
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -22,23 +23,34 @@ api.interceptors.request.use(
     }
 );
 
-// Add a response interceptor to handle common errors
+// Add response interceptor for handling auth errors
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (error.response) {
-            // Handle 401 Unauthorized errors
-            if (error.response.status === 401) {
+    async (error) => {
+        if (error.response?.status === 401) {
+            const publicEndpoints = [
+                '/api/auth/login',
+                '/api/auth/register',
+                '/api/insurance/packages/public',
+                '/api/insurance/categories',
+                '/api/insurance/guides'
+            ];
+            
+            // Only redirect to login for protected endpoints
+            const isPublicEndpoint = publicEndpoints.some(endpoint => 
+                error.config.url.includes(endpoint)
+            );
+            
+            if (!isPublicEndpoint) {
+                // Clear invalid token
                 localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
                 window.location.href = '/login';
-            }
-            // Handle 403 Forbidden errors
-            if (error.response.status === 403) {
-                console.error('Access denied');
             }
         }
         return Promise.reject(error);
     }
 );
 
-export { api }; 
+export default api; 

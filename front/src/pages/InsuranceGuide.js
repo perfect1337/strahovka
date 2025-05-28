@@ -23,7 +23,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
-import api from '../api';
+import api from '../utils/api';
 
 const InsuranceGuide = () => {
   const [guides, setGuides] = useState([]);

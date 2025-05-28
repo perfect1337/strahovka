@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../utils/api';
 
 const ClaimChat = ({ claimId }) => {
   const [messages, setMessages] = useState([]);

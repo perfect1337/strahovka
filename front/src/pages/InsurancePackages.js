@@ -26,7 +26,7 @@ import {
   Stack,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import AddIcon from '@mui/icons-material/Add';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -52,24 +52,18 @@ const InsurancePackages = ({ adminView = false }) => {
 
   useEffect(() => {
     fetchPackages();
-    fetchCategories();
-  }, []);
+    if (user) {
+      fetchCategories();
+    }
+  }, [user]);
 
   const fetchPackages = async () => {
     try {
-      const packagesResponse = await api.get('/api/insurance/packages');
+      const endpoint = '/api/insurance/packages/public';
+      const packagesResponse = await api.get(endpoint);
       setPackages(packagesResponse.data);
     } catch (error) {
       console.error('Error fetching packages:', error);
-      // If unauthorized and not in admin view, try fetching public packages
-      if (error.response?.status === 401 && !adminView) {
-        try {
-          const publicResponse = await api.get('/api/insurance/packages/public');
-          setPackages(publicResponse.data);
-        } catch (publicError) {
-          console.error('Error fetching public packages:', publicError);
-        }
-      }
     }
   };
 
@@ -165,6 +159,14 @@ const InsurancePackages = ({ adminView = false }) => {
   };
 
   const handleCreatePolicy = (item, type) => {
+    if (!user) {
+      const path = type === 'package' 
+        ? `/insurance/apply?type=package&id=${item.id}` 
+        : `/insurance/apply?type=${item.type}`;
+      navigate(path);
+      return;
+    }
+    
     if (type === 'package') {
       navigate(`/create-policy?type=package&id=${item.id}`);
     } else {
@@ -178,7 +180,10 @@ const InsurancePackages = ({ adminView = false }) => {
         <Grid item xs={12} sm={6} md={4} key={pkg.id}>
           <Card sx={{ 
             opacity: pkg.active ? 1 : 0.7,
-            position: 'relative'
+            position: 'relative',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
             {!pkg.active && (
               <Box
@@ -197,14 +202,14 @@ const InsurancePackages = ({ adminView = false }) => {
                 Неактивен
               </Box>
             )}
-            <CardContent>
+            <CardContent sx={{ flexGrow: 1 }}>
               <Typography variant="h6" gutterBottom>
                 {pkg.name}
               </Typography>
               <Typography variant="body2" color="textSecondary" paragraph>
                 {pkg.description}
               </Typography>
-              <Typography variant="h6" color="primary">
+              <Typography variant="h6" color="primary" gutterBottom>
                 {pkg.basePrice.toLocaleString('ru-RU')} ₽
               </Typography>
               {pkg.discount > 0 && (
@@ -225,7 +230,12 @@ const InsurancePackages = ({ adminView = false }) => {
             </CardContent>
             <CardActions>
               {!adminView && pkg.active && (
-                <Button size="small" color="primary" onClick={() => handleCreatePolicy(pkg, 'package')}>
+                <Button 
+                  fullWidth 
+                  variant="contained" 
+                  color="primary"
+                  onClick={() => handleCreatePolicy(pkg, 'package')}
+                >
                   Оформить
                 </Button>
               )}
@@ -267,7 +277,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => navigate('/insurance/osago')}
+              onClick={() => handleCreatePolicy({ type: 'OSAGO' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>
@@ -294,7 +304,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => navigate('/insurance/kasko')}
+              onClick={() => handleCreatePolicy({ type: 'КАСКО' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>
@@ -321,7 +331,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => navigate('/insurance/travel')}
+              onClick={() => handleCreatePolicy({ type: 'TRAVEL' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>
@@ -348,7 +358,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => navigate('/insurance/health')}
+              onClick={() => handleCreatePolicy({ type: 'HEALTH' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>
@@ -375,7 +385,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => navigate('/insurance/realestate')}
+              onClick={() => handleCreatePolicy({ type: 'REALESTATE' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>
@@ -402,7 +412,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => navigate('/insurance/apartment')}
+              onClick={() => handleCreatePolicy({ type: 'APARTMENT' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>

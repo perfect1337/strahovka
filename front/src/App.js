@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -32,6 +32,7 @@ import ApplicationsList from './pages/ApplicationsList';
 import InsuranceGuide from './pages/InsuranceGuide';
 import AdminRoute from './components/AdminRoute';
 import ClaimsManagement from './components/admin/ClaimsManagement';
+import UnauthorizedPolicyForm from './pages/UnauthorizedPolicyForm';
 
 const theme = createTheme({
   palette: {
@@ -57,7 +58,10 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/categories" element={<InsuranceCategories />} />
+                <Route path="/insurance" element={<Navigate to="/insurance/packages" replace />} />
                 <Route path="/insurance/packages" element={<InsurancePackages />} />
+                <Route path="/insurance/packages/public" element={<InsurancePackages />} />
+                <Route path="/insurance/apply" element={<UnauthorizedPolicyForm />} />
                 <Route
                   path="/profile"
                   element={
@@ -75,10 +79,10 @@ function App() {
                   }
                 />
                 <Route
-                  path="/insurance"
+                  path="/insurance/buy/:id"
                   element={
                     <ProtectedRoute>
-                      <InsurancePackages />
+                      <CreatePolicy />
                     </ProtectedRoute>
                   }
                 />

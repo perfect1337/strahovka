@@ -21,7 +21,7 @@ import {
     Box,
     Pagination
 } from '@mui/material';
-import { api } from '../utils/api';
+import api from '../utils/api';
 import { formatDate } from '../utils/dateUtils';
 
 const ApplicationsList = () => {

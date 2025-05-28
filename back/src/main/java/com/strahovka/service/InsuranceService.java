@@ -23,6 +23,7 @@ public class InsuranceService {
     private final InsurancePolicyRepository policyRepository;
     private final InsuranceClaimRepository claimRepository;
     private final InsurancePackageRepository packageRepository;
+    private final InsuranceApplicationRepository applicationRepository;
     private final UserRepository userRepository;
     private final InsuranceGuideRepository guideRepository;
 
@@ -32,6 +33,50 @@ public class InsuranceService {
 
     public List<InsurancePackage> getAllPackages() {
         return packageRepository.findAll();
+    }
+
+    public List<InsurancePackage> getAllActivePackages() {
+        return packageRepository.findByActiveTrue();
+    }
+
+    @Transactional
+    public InsuranceApplication createApplication(InsuranceApplication application) {
+        // Проверяем существование пользователя
+        User user = userRepository.findById(application.getUser().getId())
+            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+        
+        // Если указан пакет, проверяем его существование и активность
+        if (application.getPackageId() != null) {
+            InsurancePackage insurancePackage = packageRepository.findById(application.getPackageId())
+                .orElseThrow(() -> new RuntimeException("Страховой пакет не найден"));
+            
+            if (!insurancePackage.isActive()) {
+                throw new RuntimeException("Данный страховой пакет больше не доступен");
+            }
+        }
+
+        // Устанавливаем статус PENDING для новой заявки
+        application.setStatus("PENDING");
+        
+        return applicationRepository.save(application);
+    }
+
+    public List<InsuranceApplication> getUserApplications(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+        return applicationRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+
+    public InsuranceApplication getApplicationById(Long id) {
+        return applicationRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Заявка не найдена"));
+    }
+
+    @Transactional
+    public InsuranceApplication updateApplicationStatus(Long id, String status) {
+        InsuranceApplication application = getApplicationById(id);
+        application.setStatus(status);
+        return applicationRepository.save(application);
     }
 
     @Transactional

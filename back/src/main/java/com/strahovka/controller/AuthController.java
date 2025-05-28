@@ -38,6 +38,8 @@ public class AuthController {
         String password = request.get("password");
         String firstName = request.get("firstName");
         String lastName = request.get("lastName");
+        String middleName = request.get("middleName");
+        String phone = request.get("phone");
 
         if (userRepository.existsByEmail(email)) {
             return ResponseEntity.badRequest().body(new HashMap<String, String>() {{
@@ -50,6 +52,8 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(password));
         user.setFirstName(firstName);
         user.setLastName(lastName);
+        user.setMiddleName(middleName);
+        user.setPhone(phone);
         user.setRole(Role.ROLE_USER);
         String token = jwtService.generateToken(user);
         String refreshToken = UUID.randomUUID().toString();
@@ -65,6 +69,8 @@ public class AuthController {
         response.put("email", user.getEmail());
         response.put("firstName", user.getFirstName());
         response.put("lastName", user.getLastName());
+        response.put("middleName", user.getMiddleName());
+        response.put("phone", user.getPhone());
         response.put("role", user.getRole().name());
         response.put("level", user.getLevel().name());
         response.put("policyCount", user.getPolicyCount());

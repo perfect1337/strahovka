@@ -124,6 +124,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                uri.contains("/api/auth/register") ||
                uri.contains("/api/auth/refresh-token") ||
                uri.contains("/api/users/change-password") ||
+               uri.contains("/api/insurance/unauthorized/") ||
+               uri.contains("/api/insurance/packages/public") ||
                uri.contains("/debug");
     }
 

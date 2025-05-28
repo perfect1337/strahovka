@@ -39,10 +39,12 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                    "/api/auth/**"
+                    "/api/auth/**",
+                    "/api/insurance/unauthorized/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET,
                     "/api/insurance/packages",
+                    "/api/insurance/packages/public",
                     "/api/insurance/categories",
                     "/api/insurance/guides/**"
                 ).permitAll()

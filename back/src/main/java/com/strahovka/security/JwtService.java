@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.ArrayList;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class JwtService {
@@ -34,6 +35,13 @@ public class JwtService {
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    private SecretKey signingKey;
+
+    @PostConstruct
+    public void init() {
+        this.signingKey = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+    }
 
     public String extractUsername(String token) {
         try {
@@ -73,7 +81,7 @@ public class JwtService {
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiration)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .signWith(signingKey)
                 .compact();
                 
             System.out.println("Token generated successfully");
@@ -82,7 +90,7 @@ public class JwtService {
             // Verify the token immediately after generation
             try {
                 Claims verificationClaims = Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
+                    .setSigningKey(signingKey)
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
@@ -179,7 +187,7 @@ public class JwtService {
 
     public Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-            .setSigningKey(getSigningKey())
+            .setSigningKey(signingKey)
             .build()
             .parseClaimsJws(token)
             .getBody();
@@ -200,10 +208,5 @@ public class JwtService {
             System.out.println("Error checking token expiration: " + e.getMessage());
             return true;
         }
-    }
-
-    private Key getSigningKey() {
-        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
     }
 } 
