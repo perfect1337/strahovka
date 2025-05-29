@@ -107,16 +107,27 @@ public class InsurancePolicyController {
 
     @PostMapping("/policies/{id}/cancel")
     @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<?> cancelPolicy(@PathVariable Long id) {
+    public ResponseEntity<?> cancelPolicy(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-            
+                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+
+        // Verify policy belongs to user
+        InsurancePolicy policy = policyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Полис не найден"));
+        if (!policy.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.badRequest()
+                    .body("У вас нет прав на отмену данного полиса");
+        }
+
         try {
-            Map<String, Object> result = insuranceService.cancelPolicy(id);
+            String reason = request.getOrDefault("reason", "Отменено по запросу клиента");
+            Map<String, Object> result = insuranceService.cancelPolicy(id, reason);
             return ResponseEntity.ok(result);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

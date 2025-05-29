@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -70,6 +71,15 @@ public class InsurancePolicy {
     @JoinColumn(name = "guide_id", foreignKey = @ForeignKey(name = "fk_insurance_policies_guide"))
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private InsuranceGuide guide;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
+    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    private String cancellationReason;
+
+    @Column(name = "refund_amount", precision = 10, scale = 2)
+    private BigDecimal refundAmount;
 
     @PrePersist
     @PreUpdate

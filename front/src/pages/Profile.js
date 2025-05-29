@@ -238,8 +238,11 @@ const Profile = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'PENDING_PAYMENT':
+      case 'PENDING':
         return 'Ожидает оплаты';
       case 'ACTIVE':
+      case 'APPROVED':
+      case 'PAID':
         return 'Активен';
       case 'INACTIVE':
         return 'Остановлен';
@@ -247,14 +250,12 @@ const Profile = () => {
         return 'Завершен';
       case 'CANCELLED':
         return 'Отменен';
-      case 'PENDING':
-        return 'На рассмотрении';
-      case 'APPROVED':
-        return 'Оплачен';
       case 'REJECTED':
         return 'Отклонен';
-      case 'PAID':
-        return 'Оплачен';
+      case 'IN_REVIEW':
+        return 'На рассмотрении';
+      case 'NEED_INFO':
+        return 'Требуется информация';
       default:
         return status;
     }
@@ -275,6 +276,10 @@ const Profile = () => {
         return 'error';
       case 'COMPLETED':
         return 'info';
+      case 'IN_REVIEW':
+        return 'info';
+      case 'NEED_INFO':
+        return 'warning';
       default:
         return 'default';
     }
@@ -283,45 +288,75 @@ const Profile = () => {
   const handlePayment = async (applicationId, type = 'kasko') => {
     try {
       setLoading(true);
+      setError('');
+      
+      let response;
       if (type === 'kasko') {
-        await processKaskoPayment(applicationId);
+        response = await processKaskoPayment(applicationId);
       } else if (type === 'osago') {
-        await api.post(`/api/insurance/applications/osago/${applicationId}/pay`);
+        response = await api.post(`/api/insurance/applications/osago/${applicationId}/pay`);
       }
-      setSuccess('Полис успешно оплачен');
+
+      setSuccess('Полис успешно активирован');
+      
       // Refresh data
       await Promise.all([
         fetchPolicies(),
         fetchAllApplications()
       ]);
+
+      return response;
     } catch (error) {
       console.error('Error processing payment:', error);
-      setError('Ошибка при обработке платежа: ' + (error.response?.data || error.message));
+      setError(error.message || 'Ошибка при обработке платежа');
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancelPolicy = async (policy) => {
-    setSelectedPolicy(policy);
+  const handleCancelPolicy = async (app) => {
+    // Get the policy ID from either the policy object or the application ID
+    const policyId = app.policy?.id || app.id;
+    const status = app.policy?.status || app.status;
+    
+    // Check if policy can be cancelled
+    if (status !== 'ACTIVE') {
+      setError(`Полис не может быть отменен. Текущий статус: ${getStatusText(status)}. Для отмены полис должен быть активен.`);
+      return;
+    }
+    
+    setSelectedPolicy({
+      ...app,
+      id: policyId,
+      type: app.policy?.category?.name || app.type,
+      startDate: app.policy?.startDate || app.applicationDate,
+      endDate: app.policy?.endDate || app.endDate,
+      calculatedAmount: app.policy?.price || app.calculatedAmount,
+      status: status
+    });
     setCancelDialogOpen(true);
   };
 
   const confirmCancelPolicy = async () => {
     try {
       setLoading(true);
-      const response = await api.post(`/api/insurance/policies/${selectedPolicy.id}/cancel`);
-      const { refundAmount } = response.data;
+      const response = await api.post(`/api/insurance/policies/${selectedPolicy.id}/cancel`, {
+        reason: 'Отменено по запросу клиента'
+      });
       
-      setSuccess(`Полис успешно остановлен. Сумма возврата: ${refundAmount.toLocaleString('ru-RU')} ₽`);
-      // Принудительно обновляем данные
+      const { refundAmount, message } = response.data;
+      setSuccess(message || `Полис успешно остановлен. Сумма возврата: ${refundAmount.toLocaleString('ru-RU')} ₽`);
+      
+      // Refresh data
       await Promise.all([
         fetchPolicies(),
         fetchAllApplications()
       ]);
     } catch (error) {
       console.error('Error cancelling policy:', error);
-      setError('Ошибка при отмене полиса: ' + (error.response?.data || error.message));
+      const errorMessage = error.response?.data || error.message;
+      setError(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     } finally {
       setLoading(false);
       setCancelDialogOpen(false);
@@ -343,60 +378,65 @@ const Profile = () => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {applications.map((app) => (
-            <TableRow key={app.id}>
-              <TableCell>{`${type.toUpperCase()} - ${app.carMake || ''} ${app.carModel || ''}`}</TableCell>
-              <TableCell>{formatDate(app.applicationDate)}</TableCell>
-              <TableCell>{formatDate(app.endDate || app.policy?.endDate)}</TableCell>
-              <TableCell>
-                <Chip
-                  label={getStatusText(app.status || app.policy?.status)}
-                  color={getStatusColor(app.status || app.policy?.status)}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell>{app.calculatedAmount?.toLocaleString('ru-RU')} ₽</TableCell>
-              <TableCell>
-                <Stack direction="row" spacing={1} sx={{ minWidth: 250 }}>
-                  {app.status === 'PENDING' && (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="small"
-                      onClick={() => handlePayment(app.id, type)}
-                      disabled={loading}
-                      sx={{ whiteSpace: 'nowrap' }}
-                    >
-                      Оплатить
-                    </Button>
-                  )}
-                  {app.status === 'ACTIVE' && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleCancelPolicy(app)}
-                      disabled={loading}
-                      sx={{ whiteSpace: 'nowrap' }}
-                    >
-                      Остановить
-                    </Button>
-                  )}
-                  {app.status === 'PAID' && (
-                    <Button
-                      variant="outlined"
-                      color="success"
-                      size="small"
-                      disabled={true}
-                      sx={{ whiteSpace: 'nowrap' }}
-                    >
-                      Оплачен
-                    </Button>
-                  )}
-                </Stack>
-              </TableCell>
-            </TableRow>
-          ))}
+          {applications.map((app) => {
+            // Get status from either the application or its policy
+            const status = app.policy?.status || app.status;
+            const amount = app.policy?.price || app.calculatedAmount;
+            
+            // Determine which button to show based on status
+            const showPayButton = ['PENDING', 'PENDING_PAYMENT'].includes(status);
+            const showCancelButton = ['ACTIVE', 'APPROVED', 'PAID'].includes(status);
+
+            return (
+              <TableRow key={app.id}>
+                <TableCell>{`${type.toUpperCase()} - ${app.carMake || ''} ${app.carModel || ''}`}</TableCell>
+                <TableCell>{formatDate(app.applicationDate)}</TableCell>
+                <TableCell>{formatDate(app.endDate || app.policy?.endDate)}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={getStatusText(status)}
+                    color={getStatusColor(status)}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>{amount?.toLocaleString('ru-RU')} ₽</TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={1} sx={{ minWidth: 250 }}>
+                    {showPayButton && (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        onClick={() => handlePayment(app.id, type)}
+                        disabled={loading}
+                        sx={{ whiteSpace: 'nowrap' }}
+                      >
+                        Оплатить
+                      </Button>
+                    )}
+                    {showCancelButton && (
+                      <Button
+                        variant="contained"
+                        color="error"
+                        size="small"
+                        onClick={() => handleCancelPolicy(app)}
+                        disabled={loading}
+                        sx={{ 
+                          whiteSpace: 'nowrap',
+                          '&:hover': {
+                            backgroundColor: '#d32f2f',
+                            boxShadow: '0 2px 4px rgba(211, 47, 47, 0.25)'
+                          }
+                        }}
+                      >
+                        Прекратить
+                      </Button>
+                    )}
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            );
+          })}
           {applications.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} align="center">
@@ -472,20 +512,66 @@ const Profile = () => {
       <Dialog
         open={cancelDialogOpen}
         onClose={() => setCancelDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle>Подтверждение остановки полиса</DialogTitle>
+        <DialogTitle>Подтверждение прекращения полиса</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Вы уверены, что хотите остановить действие полиса? 
-            Вам будет возвращена часть стоимости полиса пропорционально оставшемуся сроку действия.
+            Вы уверены, что хотите прекратить действие полиса?
           </DialogContentText>
+          
+          <Box sx={{ mt: 3, mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Условия возврата страховой премии:
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
+              • В течение первых 14 дней: возврат 100% стоимости полиса
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              • После 14 дней: пропорциональный возврат за неиспользованный период минус 20% (административные расходы)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Возврат средств будет произведен в течение 10 рабочих дней на карту, с которой была произведена оплата.
+            </Typography>
+          </Box>
+
+          {selectedPolicy && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Информация о полисе:
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                Тип страхования: {selectedPolicy.type?.toUpperCase()}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                Дата начала: {formatDate(selectedPolicy.startDate)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                Дата окончания: {formatDate(selectedPolicy.endDate)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                Стоимость полиса: {selectedPolicy.calculatedAmount?.toLocaleString('ru-RU')} ₽
+              </Typography>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>
+          <Button onClick={() => setCancelDialogOpen(false)} disabled={loading}>
             Отмена
           </Button>
-          <Button onClick={confirmCancelPolicy} color="error" variant="contained">
-            Остановить полис
+          <Button 
+            onClick={confirmCancelPolicy} 
+            color="error" 
+            variant="contained"
+            disabled={loading}
+            sx={{
+              '&:hover': {
+                backgroundColor: '#d32f2f',
+              }
+            }}
+          >
+            {loading ? 'Обработка...' : 'Прекратить полис'}
           </Button>
         </DialogActions>
       </Dialog>

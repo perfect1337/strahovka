@@ -18,10 +18,15 @@ export const createKaskoApplication = async (applicationData) => {
 export const processKaskoPayment = async (applicationId) => {
     try {
         const response = await api.post(`/api/insurance/applications/kasko/${applicationId}/pay`);
+        console.log('Payment successful:', response.data);
         return response.data;
     } catch (error) {
-        console.error('Payment processing error:', error);
-        throw error;
+        console.error('Payment processing error:', {
+            applicationId,
+            error: error.message,
+            response: error.response?.data
+        });
+        throw new Error(error.response?.data || 'Ошибка при обработке платежа');
     }
 };
 

@@ -96,21 +96,23 @@ public class KaskoApplicationService {
             throw new RuntimeException("No policy found for this application");
         }
 
-        // Update application status to PAID
-        application.setStatus(ApplicationStatus.PAID);
+        // Update application status to APPROVED instead of PAID
+        application.setStatus(ApplicationStatus.APPROVED);
         application.setProcessedAt(LocalDateTime.now());
         application.setProcessedBy("SYSTEM");
+        application.setApprovedAt(LocalDateTime.now());
+        application.setApprovedBy("SYSTEM");
 
-        // Update policy status
+        // Update policy status to ACTIVE
         policy.setStatus(PolicyStatus.ACTIVE);
         policy.setActive(true);
-        policyRepository.saveAndFlush(policy);
+        policyRepository.save(policy);
 
         // Increment user's policy count
         user.incrementPolicyCount();
-        userRepository.saveAndFlush(user);
+        userRepository.save(user);
 
-        return kaskoApplicationRepository.saveAndFlush(application);
+        return kaskoApplicationRepository.save(application);
     }
 
     private BigDecimal calculatePolicyAmount(KaskoApplicationRequest request) {

@@ -3,6 +3,7 @@ package com.strahovka.service;
 import com.strahovka.delivery.*;
 import com.strahovka.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.time.temporal.ChronoUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InsuranceService {
@@ -232,6 +234,7 @@ public class InsuranceService {
         }
 
         policy.setStatus(PolicyStatus.ACTIVE);
+        policy.setActive(true);
         
         // Increment user's policy count after successful payment
         user.incrementPolicyCount();
@@ -241,55 +244,89 @@ public class InsuranceService {
     }
 
     @Transactional
-    public Map<String, Object> cancelPolicy(Long policyId) {
+    public Map<String, Object> cancelPolicy(Long policyId, String reason) {
         InsurancePolicy policy = policyRepository.findById(policyId)
-            .orElseThrow(() -> new RuntimeException("Страховой полис не найден"));
-        
+                .orElseThrow(() -> new RuntimeException("Страховой полис не найден"));
+
+        log.debug("Attempting to cancel policy with ID: {}, current status: {}", policyId, policy.getStatus());
+
         if (policy.getStatus() != PolicyStatus.ACTIVE) {
-            throw new RuntimeException("Можно остановить только активный полис");
+            String errorMsg = String.format(
+                "Полис не может быть отменен. Текущий статус: %s. Разрешенный статус: ACTIVE",
+                policy.getStatus()
+            );
+            log.error(errorMsg);
+            throw new RuntimeException(errorMsg);
         }
 
-        // Рассчитываем сумму возврата
-        BigDecimal refundAmount = calculateRefundAmount(policy);
+        // Validate policy expiration
+        LocalDate today = LocalDate.now();
+        if (today.isAfter(policy.getEndDate())) {
+            String errorMsg = String.format(
+                "Полис уже истек и не может быть отменен. Дата окончания: %s",
+                policy.getEndDate()
+            );
+            log.error(errorMsg);
+            throw new RuntimeException(errorMsg);
+        }
+
+        // Calculate days
+        long totalDays = ChronoUnit.DAYS.between(policy.getStartDate(), policy.getEndDate());
+        long remainingDays = ChronoUnit.DAYS.between(today, policy.getEndDate());
+        long usedDays = totalDays - remainingDays;
+        long daysFromStart = ChronoUnit.DAYS.between(policy.getStartDate(), today);
+
+        log.debug("Policy cancellation calculation - Total days: {}, Remaining days: {}, Used days: {}, Days from start: {}", 
+                 totalDays, remainingDays, usedDays, daysFromStart);
+
+        // Calculate refund amount
+        BigDecimal refundAmount;
+        String refundMessage;
         
-        // Обновляем статус полиса
-        policy.setStatus(PolicyStatus.INACTIVE);
+        if (daysFromStart <= 14) {
+            // Full refund within cooling period
+            refundAmount = policy.getPrice();
+            refundMessage = "Полис отменен в период охлаждения (14 дней). Возврат 100% стоимости.";
+            log.debug("Policy cancelled within cooling period - Full refund: {}", refundAmount);
+        } else {
+            // Proportional refund with administrative fee
+            BigDecimal usedPortion = BigDecimal.valueOf(usedDays)
+                    .divide(BigDecimal.valueOf(totalDays), 4, RoundingMode.HALF_UP);
+            BigDecimal unusedAmount = policy.getPrice()
+                    .multiply(BigDecimal.ONE.subtract(usedPortion));
+            
+            // Apply 20% administrative fee
+            BigDecimal adminFee = unusedAmount.multiply(new BigDecimal("0.20"));
+            refundAmount = unusedAmount.subtract(adminFee);
+            refundMessage = String.format(
+                "Полис отменен после периода охлаждения. Возврат пропорционально неиспользованному периоду минус 20%% (административные расходы)."
+            );
+            log.debug("Policy cancelled after cooling period - Used portion: {}, Unused amount: {}, Admin fee: {}, Final refund: {}", 
+                     usedPortion, unusedAmount, adminFee, refundAmount);
+        }
+
+        // Update policy
+        policy.setStatus(PolicyStatus.CANCELLED);
         policy.setActive(false);
-        policy.setEndDate(LocalDate.now());
-        
-        // Обновляем количество полисов пользователя
+        policy.setCancelledAt(LocalDateTime.now());
+        policy.setCancellationReason(reason);
+        policy.setRefundAmount(refundAmount.setScale(2, RoundingMode.HALF_UP));
+
+        // Update user's policy count
         User user = policy.getUser();
         user.decrementPolicyCount();
         userRepository.save(user);
-        
-        // Сохраняем изменения полиса
-        policyRepository.save(policy);
-        
-        // Возвращаем информацию о возврате
-        Map<String, Object> result = new HashMap<>();
-        result.put("policy", policy);
-        result.put("refundAmount", refundAmount);
-        return result;
-    }
 
-    private BigDecimal calculateRefundAmount(InsurancePolicy policy) {
-        // Получаем общую длительность полиса в днях
-        long totalDays = ChronoUnit.DAYS.between(policy.getStartDate(), policy.getEndDate());
-        // Получаем количество оставшихся дней
-        long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), policy.getEndDate());
-        
-        // Если срок полиса уже истек
-        if (remainingDays <= 0) {
-            return BigDecimal.ZERO;
-        }
-        
-        // Рассчитываем процент возврата
-        BigDecimal refundPercentage = BigDecimal.valueOf(remainingDays)
-            .divide(BigDecimal.valueOf(totalDays), 4, RoundingMode.HALF_UP);
-        
-        // Рассчитываем сумму возврата
-        return policy.getPrice()
-            .multiply(refundPercentage)
-            .setScale(2, RoundingMode.HALF_UP);
+        // Save updated policy
+        policy = policyRepository.save(policy);
+        log.info("Successfully cancelled policy ID: {}. Refund amount: {}", policyId, refundAmount);
+
+        // Return response with policy and refund details
+        Map<String, Object> response = new HashMap<>();
+        response.put("policy", policy);
+        response.put("refundAmount", refundAmount);
+        response.put("message", String.format("Полис успешно отменен. %s Сумма возврата: %.2f ₽", refundMessage, refundAmount));
+
+        return response;
     }
 } 
