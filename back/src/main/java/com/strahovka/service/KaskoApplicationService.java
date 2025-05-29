@@ -45,6 +45,7 @@ public class KaskoApplicationService {
         application.setPreviousInsuranceNumber(request.getPreviousInsuranceNumber());
         application.setApplicationDate(LocalDateTime.now());
         application.setStatus(ApplicationStatus.PENDING);
+        application.setDuration(request.getDuration());
 
         // Calculate policy amount based on car value and other factors
         BigDecimal policyAmount = calculatePolicyAmount(request);
@@ -58,7 +59,7 @@ public class KaskoApplicationService {
                             " (" + request.getCarYear() + " г.в., VIN: " + request.getVinNumber() + ")");
         policy.setPrice(policyAmount);
         policy.setStartDate(LocalDate.now());
-        policy.setEndDate(LocalDate.now().plusYears(1)); // 1 year policy
+        policy.setEndDate(LocalDate.now().plusMonths(request.getDuration())); // Set end date based on duration
         policy.setStatus(PolicyStatus.PENDING_PAYMENT);
         policy.setActive(false);
 

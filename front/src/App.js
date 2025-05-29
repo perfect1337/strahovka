@@ -33,14 +33,102 @@ import InsuranceGuide from './pages/InsuranceGuide';
 import AdminRoute from './components/AdminRoute';
 import ClaimsManagement from './components/admin/ClaimsManagement';
 import UnauthorizedPolicyForm from './pages/UnauthorizedPolicyForm';
+import ApplicationSuccess from './pages/ApplicationSuccess';
 
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
+      main: 'rgb(178, 32, 52)', // raspberry red
+      light: 'rgb(213, 87, 103)',
+      dark: 'rgb(124, 22, 36)',
     },
     secondary: {
-      main: '#dc004e',
+      main: 'rgb(142, 26, 42)', // darker raspberry
+      light: 'rgb(184, 77, 91)',
+      dark: 'rgb(99, 18, 29)',
+    },
+  },
+  typography: {
+    fontFamily: [
+      '-apple-system',
+      'BlinkMacSystemFont',
+      'Segoe UI',
+      'Roboto',
+      'Helvetica Neue',
+      'Arial',
+      'sans-serif',
+    ].join(','),
+    h1: {
+      fontWeight: 500,
+      fontSize: '2.5rem',
+    },
+    h2: {
+      fontWeight: 500,
+      fontSize: '2rem',
+    },
+    h3: {
+      fontWeight: 500,
+      fontSize: '1.75rem',
+    },
+    body1: {
+      fontSize: '1rem',
+      lineHeight: 1.5,
+      color: 'rgba(0, 0, 0, 0.87)',
+    },
+    button: {
+      textTransform: 'none',
+      fontWeight: 500,
+      fontSize: '1rem',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: '12px',
+          textTransform: 'none',
+          padding: '12px 32px',
+          fontSize: '1.1rem',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          minHeight: '48px',
+          '&:hover': {
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+            transform: 'translateY(-1px)',
+          },
+        },
+        contained: {
+          '&:hover': {
+            backgroundColor: 'rgb(213, 87, 103)',
+          },
+        },
+        outlined: {
+          borderWidth: '2px',
+          '&:hover': {
+            borderWidth: '2px',
+          },
+        },
+        // Стили для маленьких кнопок
+        sizeSmall: {
+          padding: '8px 24px',
+          fontSize: '0.95rem',
+          minHeight: '36px',
+        },
+        // Стили для больших кнопок
+        sizeLarge: {
+          padding: '16px 40px',
+          fontSize: '1.2rem',
+          minHeight: '56px',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          boxShadow: 'none',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+        },
+      },
     },
   },
 });
@@ -137,51 +225,27 @@ function App() {
                 {/* Insurance Form Routes */}
                 <Route
                   path="/insurance/osago"
-                  element={
-                    <ProtectedRoute>
-                      <OsagoForm />
-                    </ProtectedRoute>
-                  }
+                  element={<OsagoForm />}
                 />
                 <Route
                   path="/insurance/kasko"
-                  element={
-                    <ProtectedRoute>
-                      <KaskoForm />
-                    </ProtectedRoute>
-                  }
+                  element={<KaskoForm />}
                 />
                 <Route
                   path="/insurance/travel"
-                  element={
-                    <ProtectedRoute>
-                      <TravelForm />
-                    </ProtectedRoute>
-                  }
+                  element={<TravelForm />}
                 />
                 <Route
                   path="/insurance/health"
-                  element={
-                    <ProtectedRoute>
-                      <HealthForm />
-                    </ProtectedRoute>
-                  }
+                  element={<HealthForm />}
                 />
                 <Route
                   path="/insurance/realestate"
-                  element={
-                    <ProtectedRoute>
-                      <RealEstateForm />
-                    </ProtectedRoute>
-                  }
+                  element={<RealEstateForm />}
                 />
                 <Route
                   path="/insurance/apartment"
-                  element={
-                    <ProtectedRoute>
-                      <ApartmentForm />
-                    </ProtectedRoute>
-                  }
+                  element={<ApartmentForm />}
                 />
                 <Route
                   path="/applications"
@@ -193,11 +257,7 @@ function App() {
                 />
                 <Route
                   path="/insurance-guide"
-                  element={
-                    <ProtectedRoute>
-                      <InsuranceGuide />
-                    </ProtectedRoute>
-                  }
+                  element={<InsuranceGuide />}
                 />
                 <Route
                   path="/admin/packages"
@@ -207,6 +267,7 @@ function App() {
                     </AdminRoute>
                   }
                 />
+                <Route path="/applications/success" element={<ApplicationSuccess />} />
               </Route>
             </Routes>
           </AuthProvider>

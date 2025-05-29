@@ -13,7 +13,7 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
         javax.persistence.validation.mode: none
-        hbm2ddl.auto: none
+        schema_validation.enabled: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     generate-ddl: false
   flyway:
@@ -21,12 +21,22 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
     validate-on-migrate: false
-    clean-on-validation-error: true
-    repair-on-migrate: true
+    out-of-order: true
+    ignore-migration-patterns: "*:ignored"
     clean-disabled: false
+    repair-on-migrate: true
+    placeholder-replacement: false
+    mixed: true
+    validate-migration-naming: false
   sql:
     init:
       mode: never
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+      file-size-threshold: 2KB
 
 server:
   port: 8081

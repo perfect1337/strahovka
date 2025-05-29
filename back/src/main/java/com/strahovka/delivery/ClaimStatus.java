@@ -5,5 +5,6 @@ public enum ClaimStatus {
     IN_PROGRESS,
     NEED_INFO,
     APPROVED,
-    REJECTED
+    REJECTED,
+    CANCELLED
 } 

@@ -3,7 +3,6 @@ import axios from 'axios';
 const api = axios.create({
     baseURL: 'http://localhost:8081',
     headers: {
-        'Content-Type': 'application/json',
         'Accept': 'application/json'
     },
     withCredentials: true
@@ -16,6 +15,12 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // Only set Content-Type if not already set (for multipart form data)
+        if (!config.headers['Content-Type']) {
+            config.headers['Content-Type'] = 'application/json';
+        }
+        
         return config;
     },
     (error) => {

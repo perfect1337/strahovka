@@ -159,18 +159,25 @@ const InsurancePackages = ({ adminView = false }) => {
   };
 
   const handleCreatePolicy = (item, type) => {
-    if (!user) {
-      const path = type === 'package' 
-        ? `/insurance/apply?type=package&id=${item.id}` 
-        : `/insurance/apply?type=${item.type}`;
-      navigate(path);
-      return;
-    }
-    
     if (type === 'package') {
       navigate(`/create-policy?type=package&id=${item.id}`);
     } else {
-      navigate(`/create-policy?category=${item.id}`);
+      const categoryToPath = {
+        'OSAGO': '/insurance/osago',
+        'KASKO': '/insurance/kasko',
+        'PROPERTY': '/insurance/realestate',
+        'HEALTH': '/insurance/health',
+        'MORTGAGE': '/insurance/mortgage',
+        'TRAVEL': '/insurance/travel',
+        'APARTMENT': '/insurance/apartment'
+      };
+      
+      const path = categoryToPath[item.type];
+      if (!path) {
+        console.error('Unknown insurance type:', item.type);
+        return;
+      }
+      navigate(path);
     }
   };
 
@@ -304,7 +311,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => handleCreatePolicy({ type: 'КАСКО' }, 'policy')}
+              onClick={() => handleCreatePolicy({ type: 'KASKO' }, 'policy')}
             >
               ОФОРМИТЬ
             </Button>
@@ -430,45 +437,53 @@ const InsurancePackages = ({ adminView = false }) => {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ mt: adminView ? 0 : 4, mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        {!adminView && <Typography variant="h4">Страховые продукты</Typography>}
-        {(isAdmin || adminView) && tabValue === 0 && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => handleOpenDialog()}
-            startIcon={<AddIcon />}
-          >
-            Добавить пакет
-          </Button>
-        )}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4 }}>
+        Страховые продукты
+      </Typography>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          centered
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            '& .MuiTab-root': {
+              fontSize: '1rem',
+              fontWeight: 500,
+              color: 'rgba(0, 0, 0, 0.7)',
+              '&.Mui-selected': {
+                color: 'primary.main',
+                fontWeight: 600,
+              },
+            },
+          }}
+        >
+          <Tab label="СТРАХОВЫЕ ПАКЕТЫ" />
+          <Tab label="ОТДЕЛЬНЫЕ ПОЛИСЫ" />
+        </Tabs>
       </Box>
 
-      {!adminView && (
-        <Paper sx={{ mb: 3 }}>
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            indicatorColor="primary"
-            textColor="primary"
-            centered
-          >
-            <Tab label="СТРАХОВЫЕ ПАКЕТЫ" />
-            <Tab label="ОТДЕЛЬНЫЕ ПОЛИСЫ" />
-          </Tabs>
-        </Paper>
+      {tabValue === 0 ? (
+        <>
+          {isAdmin && (
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => handleOpenDialog()}
+              >
+                Добавить пакет
+              </Button>
+            </Box>
+          )}
+          {renderPackages()}
+        </>
+      ) : (
+        renderPolicies()
       )}
-
-      {!adminView && tabValue === 1 && (
-        <Box sx={{ mb: 3, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
-            Выберите тип страхования для оформления полиса
-          </Typography>
-        </Box>
-      )}
-
-      {(!adminView && tabValue === 0) || adminView ? renderPackages() : renderPolicies()}
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>

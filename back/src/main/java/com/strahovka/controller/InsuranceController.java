@@ -180,4 +180,35 @@ public class InsuranceController {
         
         return ResponseEntity.ok(claims);
     }
+
+    @PostMapping("/claims/{claimId}/cancel")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
+    public ResponseEntity<InsuranceClaim> cancelClaim(@PathVariable Long claimId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+
+        InsuranceClaim claim = claimRepository.findById(claimId)
+            .orElseThrow(() -> new RuntimeException("Страховой случай не найден"));
+
+        // Verify that the claim belongs to the user
+        if (!claim.getPolicy().getUser().getId().equals(user.getId()) && !auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            throw new RuntimeException("У вас нет прав на отмену этого страхового случая");
+        }
+
+        // Only allow cancellation of pending claims
+        if (claim.getStatus() != ClaimStatus.PENDING) {
+            throw new RuntimeException("Можно отменить только страховые случаи в статусе ожидания");
+        }
+
+        claim.setStatus(ClaimStatus.CANCELLED);
+        claim.setProcessedAt(LocalDateTime.now());
+        claim.setProcessedBy(email);
+        claim.setResponseDate(LocalDate.now());
+        claim.setResponse("Отменено пользователем");
+
+        return ResponseEntity.ok(claimRepository.save(claim));
+    }
 } 

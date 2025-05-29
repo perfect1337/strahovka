@@ -44,4 +44,9 @@ public class KaskoApplicationRequest {
     private Boolean hasAntiTheftSystem = false;
     private Boolean garageParking = false;
     private String previousInsuranceNumber;
+
+    @NotNull(message = "Insurance duration is required")
+    @Min(value = 1, message = "Duration must be at least 1 month")
+    @Max(value = 60, message = "Duration cannot exceed 60 months")
+    private Integer duration;
 } 

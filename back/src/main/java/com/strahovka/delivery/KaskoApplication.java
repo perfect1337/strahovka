@@ -6,12 +6,28 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import java.time.LocalDate;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "kasko_applications")
 public class KaskoApplication extends BaseApplication {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ApplicationStatus status;
+
+    @Column(name = "application_date", nullable = false)
+    private LocalDateTime applicationDate;
+
     @NotBlank(message = "Car make is required")
     @Column(name = "car_make", nullable = false)
     private String carMake;
@@ -32,12 +48,12 @@ public class KaskoApplication extends BaseApplication {
     private String vinNumber;
 
     @NotBlank(message = "License plate is required")
-    @Column(name = "license_plate")
+    @Column(name = "license_plate", nullable = false)
     private String licensePlate;
 
     @NotNull(message = "Car value is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "Car value must be greater than 0")
-    @Column(name = "car_value", precision = 10, scale = 2)
+    @Column(name = "car_value", nullable = false)
     private BigDecimal carValue;
 
     @NotBlank(message = "Driver's license number is required")
@@ -47,17 +63,38 @@ public class KaskoApplication extends BaseApplication {
     @NotNull(message = "Driver experience years is required")
     @Min(value = 0, message = "Driver experience cannot be negative")
     @Max(value = 70, message = "Driver experience years seems too high")
-    @Column(name = "driver_experience_years")
+    @Column(name = "driver_experience_years", nullable = false)
     private Integer driverExperienceYears;
 
     @Column(name = "has_anti_theft_system")
-    private Boolean hasAntiTheftSystem = false;
+    private Boolean hasAntiTheftSystem;
 
     @Column(name = "garage_parking")
-    private Boolean garageParking = false;
+    private Boolean garageParking;
 
     @Column(name = "previous_insurance_number")
     private String previousInsuranceNumber;
+
+    @Column(name = "duration", nullable = false)
+    private Integer duration;
+
+    @Column(name = "calculated_amount")
+    private BigDecimal calculatedAmount;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "approved_by")
+    private String approvedBy;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "rejected_by")
+    private String rejectedBy;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
 
     @OneToOne
     @JoinColumn(name = "policy_id")

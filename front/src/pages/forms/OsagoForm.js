@@ -17,8 +17,12 @@ import {
   Alert,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
+import { useNavigate } from 'react-router-dom';
+import InsuranceFormWrapper from '../../components/InsuranceFormWrapper';
+import api from '../../utils/api';
 
 const OsagoForm = () => {
+  const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     // Данные о владельце
@@ -74,10 +78,41 @@ const OsagoForm = () => {
     setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    // Здесь будет логика отправки данных на сервер
-    console.log(formData);
+  const handleSubmit = async (data) => {
+    try {
+      // Отправляем данные на сервер
+      const response = await api.post('/api/insurance/applications/osago', data);
+      
+      // Если пользователь не был авторизован, выполняем автоматическую регистрацию
+      if (!data.isAuthenticated) {
+        await api.post('/api/auth/register', {
+          email: data.email,
+          password: data.email,
+          firstName: data.ownerFirstName,
+          lastName: data.ownerLastName,
+          middleName: data.ownerMiddleName,
+        });
+        
+        // Выполняем автоматический вход
+        const loginResponse = await api.post('/api/auth/login', {
+          email: data.email,
+          password: data.email,
+        });
+        
+        // Сохраняем токен
+        localStorage.setItem('token', loginResponse.data.token);
+      }
+
+      // Перенаправляем на страницу успешной подачи заявки
+      navigate('/applications/success', { 
+        state: { 
+          applicationId: response.data.id,
+          isNewUser: !data.isAuthenticated 
+        } 
+      });
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Ошибка при отправке заявки');
+    }
   };
 
   const handleInputChange = (field) => (event) => {
@@ -422,40 +457,51 @@ const OsagoForm = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Paper sx={{ p: 3, my: 3 }}>
-        <Typography variant="h4" gutterBottom align="center">
-          Оформление ОСАГО
-        </Typography>
+    <Container maxWidth="md">
+      <Typography variant="h4" component="h1" gutterBottom align="center">
+        Оформление ОСАГО
+      </Typography>
 
-        <Stepper activeStep={activeStep} sx={{ py: 3 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+      <InsuranceFormWrapper onSubmit={handleSubmit}>
+        <Box>
+          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
 
-        <form onSubmit={handleSubmit}>
-          <Box sx={{ mt: 3 }}>
+          <form>
             {renderStepContent(activeStep)}
-          </Box>
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            {activeStep > 0 && (
-              <Button onClick={handleBack} sx={{ mr: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+              <Button
+                onClick={handleBack}
+                disabled={activeStep === 0}
+              >
                 Назад
               </Button>
-            )}
-            <Button
-              variant="contained"
-              onClick={activeStep === steps.length - 1 ? handleSubmit : handleNext}
-            >
-              {activeStep === steps.length - 1 ? 'Оформить' : 'Далее'}
-            </Button>
-          </Box>
-        </form>
-      </Paper>
+              {activeStep === steps.length - 1 ? (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handleSubmit(formData)}
+                >
+                  Оформить
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                >
+                  Далее
+                </Button>
+              )}
+            </Box>
+          </form>
+        </Box>
+      </InsuranceFormWrapper>
     </Container>
   );
 };

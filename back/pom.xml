@@ -15,6 +15,7 @@
     <artifactId>strahovka-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>strahovka-backend</name>
+    <packaging>jar</packaging>
     <description>Backend for Strahovka insurance platform</description>
 
     <properties>

@@ -40,13 +40,18 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/auth/**",
-                    "/api/insurance/unauthorized/**"
+                    "/api/insurance/unauthorized/**",
+                    "/api/insurance/guides"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET,
                     "/api/insurance/packages",
                     "/api/insurance/packages/public",
                     "/api/insurance/categories",
-                    "/api/insurance/guides/**"
+                    "/api/insurance/guides/**",
+                    "/api/insurance-guide/**"
+                ).permitAll()
+                .requestMatchers(HttpMethod.POST,
+                    "/api/insurance/unauthorized/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST,
                     "/api/insurance/packages",
@@ -69,10 +74,15 @@ public class SecurityConfig {
                     "/api/insurance/applications/**",
                     "/api/insurance/policies/**",
                     "/api/insurance/claims/user/**",
-                    "/api/insurance/claims/{claimId}/messages/**"
-                ).hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "ROLE_MODERATOR")
+                    "/api/insurance/claims/{claimId}/messages/**",
+                    "/api/insurance/claims/attachments/**"
+                ).authenticated()
+                .requestMatchers("/api/insurance/claims").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                .requestMatchers("/api/insurance/claims/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "ROLE_MODERATOR")
                 .requestMatchers("/api/insurance/claims/all").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
                 .requestMatchers("/api/insurance/claims/process/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
+                .requestMatchers("/api/insurance/applications/user/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                .requestMatchers("/api/insurance/policies/user/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

@@ -4,12 +4,17 @@ import com.strahovka.delivery.*;
 import com.strahovka.service.UserService;
 import com.strahovka.service.InsurancePackageService;
 import com.strahovka.repository.InsuranceApplicationRepository;
+import com.strahovka.repository.KaskoApplicationRepository;
+import com.strahovka.repository.InsurancePolicyRepository;
+import com.strahovka.repository.InsuranceCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.Map;
 
 @RestController
@@ -19,6 +24,9 @@ public class UnauthorizedApplicationController {
     private final UserService userService;
     private final InsurancePackageService packageService;
     private final InsuranceApplicationRepository applicationRepository;
+    private final KaskoApplicationRepository kaskoApplicationRepository;
+    private final InsurancePolicyRepository policyRepository;
+    private final InsuranceCategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/apply")
@@ -77,6 +85,111 @@ public class UnauthorizedApplicationController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(Map.of("message", "Ошибка при создании заявки: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/kasko")
+    public ResponseEntity<?> createUnauthorizedKaskoApplication(@RequestBody Map<String, Object> request) {
+        try {
+            // Извлекаем данные пользователя
+            String email = request.get("email").toString();
+            String firstName = request.get("firstName").toString();
+            String lastName = request.get("lastName").toString();
+            String middleName = request.getOrDefault("middleName", "").toString();
+
+            // Проверяем, существует ли пользователь
+            if (userService.findByEmail(email).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Пользователь с таким email уже существует"
+                ));
+            }
+
+            // Создаем нового пользователя
+            User newUser = new User();
+            newUser.setEmail(email);
+            newUser.setPassword(email); // Используем email в качестве пароля (будет закодирован в registerUser)
+            newUser.setFirstName(firstName);
+            newUser.setLastName(lastName);
+            newUser.setMiddleName(middleName);
+            newUser.setRole(Role.ROLE_USER);
+            
+            // Регистрируем пользователя через сервис
+            User registeredUser = userService.registerUser(newUser);
+
+            // Создаем заявку на КАСКО
+            KaskoApplication application = new KaskoApplication();
+            application.setUser(registeredUser);
+            application.setStatus(ApplicationStatus.PENDING);
+            application.setApplicationDate(LocalDateTime.now());
+            
+            // Заполняем данные автомобиля
+            application.setCarMake(request.get("carMake").toString());
+            application.setCarModel(request.get("carModel").toString());
+            application.setCarYear(Integer.parseInt(request.get("carYear").toString()));
+            application.setVinNumber(request.get("vinNumber").toString());
+            application.setLicensePlate(request.get("licensePlate").toString());
+            application.setCarValue(new BigDecimal(request.get("carValue").toString()));
+            application.setDriverLicenseNumber(request.get("driverLicenseNumber").toString());
+            application.setDriverExperienceYears(Integer.parseInt(request.get("driverExperienceYears").toString()));
+            application.setHasAntiTheftSystem(Boolean.parseBoolean(request.get("hasAntiTheftSystem").toString()));
+            application.setGarageParking(Boolean.parseBoolean(request.get("garageParking").toString()));
+            application.setPreviousInsuranceNumber((String) request.getOrDefault("previousInsuranceNumber", null));
+            application.setDuration(Integer.parseInt(request.get("insuranceDuration").toString()));
+
+            // Рассчитываем стоимость полиса
+            BigDecimal baseRate = application.getCarValue().multiply(new BigDecimal("0.05")); // 5% от стоимости авто
+            if (application.getHasAntiTheftSystem()) {
+                baseRate = baseRate.multiply(new BigDecimal("0.95")); // 5% скидка
+            }
+            if (application.getGarageParking()) {
+                baseRate = baseRate.multiply(new BigDecimal("0.95")); // 5% скидка
+            }
+            if (application.getDriverExperienceYears() < 3) {
+                baseRate = baseRate.multiply(new BigDecimal("1.2")); // 20% надбавка
+            }
+            application.setCalculatedAmount(baseRate.setScale(2, java.math.RoundingMode.HALF_UP));
+
+            // Создаем страховой полис
+            InsurancePolicy policy = new InsurancePolicy();
+            policy.setUser(registeredUser);
+            policy.setName("КАСКО - " + application.getCarMake() + " " + application.getCarModel());
+            policy.setDescription("Страховой полис КАСКО для автомобиля " + application.getCarMake() + " " + 
+                                application.getCarModel() + " (" + application.getCarYear() + " г.в., VIN: " + 
+                                application.getVinNumber() + ")");
+            policy.setPrice(application.getCalculatedAmount());
+            policy.setStartDate(LocalDate.now());
+            policy.setEndDate(LocalDate.now().plusMonths(application.getDuration()));
+            policy.setStatus(PolicyStatus.PENDING_PAYMENT);
+            policy.setActive(false);
+
+            // Находим и устанавливаем категорию КАСКО
+            InsuranceCategory kaskoCategory = categoryRepository.findByName("КАСКО")
+                    .orElseThrow(() -> new RuntimeException("KASKO insurance category not found"));
+            policy.setCategory(kaskoCategory);
+
+            // Сохраняем полис
+            policy = policyRepository.save(policy);
+
+            // Связываем полис с заявкой
+            application.setPolicy(policy);
+
+            // Сохраняем заявку
+            KaskoApplication savedApplication = kaskoApplicationRepository.save(application);
+
+            // Возвращаем ID заявки, информацию о стоимости и токены
+            return ResponseEntity.ok(Map.of(
+                "id", savedApplication.getId(),
+                "calculatedAmount", savedApplication.getCalculatedAmount(),
+                "accessToken", registeredUser.getAccessToken(),
+                "refreshToken", registeredUser.getRefreshToken(),
+                "email", registeredUser.getEmail(),
+                "password", email, // Возвращаем незакодированный пароль для первого входа
+                "message", "Application created successfully"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to create application: " + e.getMessage()
+            ));
         }
     }
 } 

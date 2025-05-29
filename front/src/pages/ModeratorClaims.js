@@ -46,6 +46,7 @@ const ModeratorClaims = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalClaims, setTotalClaims] = useState(0);
   const [filter, setFilter] = useState('PENDING');
+  const [amount, setAmount] = useState('');
 
   useEffect(() => {
     fetchClaims();
@@ -98,6 +99,7 @@ const ModeratorClaims = () => {
       await api.post(`/api/insurance/claims/${selectedClaim.id}/process`, {
         status,
         response,
+        amount: amount ? parseFloat(amount) : null
       });
       setSuccess('Заявка успешно обработана');
       handleCloseDialog();
@@ -105,6 +107,37 @@ const ModeratorClaims = () => {
     } catch (err) {
       console.error('Error processing claim:', err);
       setError('Ошибка при обработке заявки');
+    }
+  };
+
+  const handleDownloadAttachment = async (attachmentId) => {
+    try {
+      const response = await api.get(`/api/insurance/claims/attachments/${attachmentId}`, {
+        responseType: 'blob'
+      });
+      
+      // Get filename from Content-Disposition header or use a default name
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'download';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch.length === 2) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading attachment:', err);
+      setError('Ошибка при скачивании файла');
     }
   };
 
@@ -246,66 +279,152 @@ const ModeratorClaims = () => {
         </TableContainer>
       </Box>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Обработка страхового случая #{selectedClaim?.id}</DialogTitle>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Обработка страхового случая #{selectedClaim?.id}
+        </DialogTitle>
         <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          
-          {selectedClaim && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Информация о заявке:
-              </Typography>
-              <Typography variant="body2" paragraph>
-                <strong>Клиент:</strong> {selectedClaim.policy.user.firstName} {selectedClaim.policy.user.lastName}
-              </Typography>
-              <Typography variant="body2" paragraph>
-                <strong>Тип страховки:</strong> {selectedClaim.policy.category.name}
-              </Typography>
-              <Typography variant="body2" paragraph>
-                <strong>Описание:</strong> {selectedClaim.description}
-              </Typography>
+          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom>
+                  Информация о заявке:
+                </Typography>
+              </Grid>
               
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Статус</InputLabel>
-                <Select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  label="Статус"
-                >
-                  <MenuItem value="IN_PROGRESS">В обработке</MenuItem>
-                  <MenuItem value="NEED_INFO">Требуется информация</MenuItem>
-                  <MenuItem value="APPROVED">Одобрить</MenuItem>
-                  <MenuItem value="REJECTED">Отклонить</MenuItem>
-                </Select>
-              </FormControl>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Клиент
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.policy?.user?.firstName} {selectedClaim?.policy?.user?.lastName}
+                  <br />
+                  {selectedClaim?.policy?.user?.email}
+                </Typography>
 
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Ответ"
-                value={response}
-                onChange={(e) => setResponse(e.target.value)}
-                margin="normal"
-                required
-              />
-            </Box>
-          )}
+                <Typography variant="subtitle2" color="text.secondary">
+                  Тип страховки
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.policy?.category?.name}
+                </Typography>
+
+                <Typography variant="subtitle2" color="text.secondary">
+                  Дата создания
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.createdAt && new Date(selectedClaim.createdAt).toLocaleString()}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Номер полиса
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.policy?.id}
+                </Typography>
+
+                <Typography variant="subtitle2" color="text.secondary">
+                  Срок действия полиса
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.policy?.startDate && new Date(selectedClaim.policy.startDate).toLocaleDateString()} - 
+                  {selectedClaim?.policy?.endDate && new Date(selectedClaim.policy.endDate).toLocaleDateString()}
+                </Typography>
+
+                <Typography variant="subtitle2" color="text.secondary">
+                  Сумма страхового полиса
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.policy?.price?.toLocaleString('ru-RU')} ₽
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Описание страхового случая
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {selectedClaim?.description}
+                </Typography>
+
+                {selectedClaim?.attachments?.length > 0 && (
+                  <>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Прикрепленные файлы
+                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {selectedClaim.attachments.map((attachment) => (
+                        <Chip
+                          key={attachment.id}
+                          label={attachment.fileName}
+                          onClick={() => handleDownloadAttachment(attachment.id)}
+                          sx={{ mr: 1, mb: 1 }}
+                        />
+                      ))}
+                    </Box>
+                  </>
+                )}
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Обработка заявки
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Статус</InputLabel>
+                  <Select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    label="Статус"
+                  >
+                    <MenuItem value="IN_PROGRESS">В обработке</MenuItem>
+                    <MenuItem value="NEED_INFO">Требуется информация</MenuItem>
+                    <MenuItem value="APPROVED">Одобрено</MenuItem>
+                    <MenuItem value="REJECTED">Отклонено</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Сумма выплаты"
+                  type="number"
+                  InputProps={{
+                    endAdornment: <Typography>₽</Typography>
+                  }}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Ответ"
+                  multiline
+                  rows={4}
+                  value={response}
+                  onChange={(e) => setResponse(e.target.value)}
+                />
+              </Grid>
+            </Grid>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Отмена</Button>
-          <Button
-            onClick={handleProcessClaim}
-            variant="contained"
+          <Button 
+            onClick={handleProcessClaim} 
+            variant="contained" 
             color="primary"
             disabled={!status || !response}
           >
-            Сохранить
+            Обработать
           </Button>
         </DialogActions>
       </Dialog>
