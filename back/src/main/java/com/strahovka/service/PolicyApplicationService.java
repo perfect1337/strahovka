@@ -1,6 +1,7 @@
 package com.strahovka.service;
 
 import com.strahovka.delivery.*;
+import com.strahovka.entity.ApplicationStatus;
 import com.strahovka.repository.PolicyApplicationRepository;
 import com.strahovka.repository.InsurancePolicyRepository;
 import lombok.RequiredArgsConstructor;

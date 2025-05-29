@@ -6,78 +6,80 @@ import api from '../../utils/api';
 
 const { Option } = Select;
 
-const KaskoForm = () => {
+const KaskoFormContent = ({ isAuthenticated, onSubmit }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    const onFinish = async (values) => {
+    const handleFinish = async (valuesFromForm) => {
         try {
             setLoading(true);
-            console.log('Raw form values:', values);
+            console.log('[KaskoFormContent] Raw form values:', JSON.stringify(valuesFromForm));
 
-            // Transform the values with proper validation
-            const transformedValues = {
-                carMake: values.carMake?.trim(),
-                carModel: values.carModel?.trim(),
-                carYear: Number(values.carYear),
-                vinNumber: values.vinNumber?.trim()?.toUpperCase(),
-                licensePlate: values.licensePlate?.trim(),
-                carValue: Number(values.carValue),
-                driverLicenseNumber: values.driverLicenseNumber?.trim(),
-                driverExperienceYears: Number(values.driverExperienceYears),
-                hasAntiTheftSystem: Boolean(values.hasAntiTheftSystem),
-                garageParking: Boolean(values.garageParking),
-                previousInsuranceNumber: values.previousInsuranceNumber?.trim() || null,
-                duration: Number(values.insuranceDuration)
+            // 1. Только трансформация и сбор данных, специфичных для КАСКО
+            const kaskoData = {
+                carMake: valuesFromForm.carMake?.trim(),
+                carModel: valuesFromForm.carModel?.trim(),
+                carYear: valuesFromForm.carYear?.toString(),
+                vinNumber: valuesFromForm.vinNumber?.trim()?.toUpperCase(),
+                licensePlate: valuesFromForm.licensePlate?.trim(),
+                carValue: valuesFromForm.carValue?.toString(),
+                driverLicenseNumber: valuesFromForm.driverLicenseNumber?.trim(),
+                driverExperienceYears: valuesFromForm.driverExperienceYears?.toString(),
+                hasAntiTheftSystem: valuesFromForm.hasAntiTheftSystem?.toString() || "false",
+                garageParking: valuesFromForm.garageParking?.toString() || "false",
+                previousInsuranceNumber: valuesFromForm.previousInsuranceNumber?.trim() || null,
+                duration: valuesFromForm.insuranceDuration?.toString()
             };
 
-            // Определяем URL в зависимости от статуса аутентификации
-            const url = values.isAuthenticated 
-                ? '/api/insurance/applications/kasko'
-                : '/api/insurance/unauthorized/kasko';
-
-            // Если пользователь не аутентифицирован, добавляем данные пользователя
-            if (!values.isAuthenticated) {
-                transformedValues.email = values.email?.trim();
-                transformedValues.firstName = values.ownerFirstName?.trim();
-                transformedValues.lastName = values.ownerLastName?.trim();
-                transformedValues.middleName = values.ownerMiddleName?.trim() || '';
-            }
-
-            // Отправляем данные на сервер
-            const response = await api.post(url, transformedValues);
-            
-            // Если пользователь не авторизован, сохраняем токены
-            if (!values.isAuthenticated && response.data.accessToken) {
-                localStorage.setItem('token', response.data.accessToken);
-                localStorage.setItem('refreshToken', response.data.refreshToken);
+            // 2. Если пользователь не аутентифицирован, добавляем "owner" поля как есть
+            // InsuranceFormWrapper позаботится об их преобразовании в firstName, lastName, middleName
+            if (!isAuthenticated) {
+                kaskoData.ownerFirstName = valuesFromForm.ownerFirstName;
+                kaskoData.ownerLastName = valuesFromForm.ownerLastName;
+                kaskoData.ownerMiddleName = valuesFromForm.ownerMiddleName;
             }
             
-            // Перенаправляем на страницу успешной подачи заявки
+            console.log('[KaskoFormContent] Prepared kaskoData (to be sent to wrapper):', JSON.stringify(kaskoData));
+
+            // Вызываем onSubmit из InsuranceFormWrapper с собранными данными
+            const response = await onSubmit(kaskoData);
+            
+            if (response?.data) {
             navigate('/applications/success', { 
                 state: { 
                     applicationId: response.data.id,
-                    calculatedAmount: response.data.calculatedAmount,
-                    isNewUser: !values.isAuthenticated,
-                    email: response.data.email,
-                    password: response.data.password // Используем пароль из ответа сервера
+                        calculatedAmount: response.data.calculatedAmount,
+                        isNewUser: !isAuthenticated, // Это все еще актуально
+                        email: response.data.email, // email из ответа сервера
+                        password: response.data.password // password из ответа сервера
                 } 
             });
+            }
             
         } catch (error) {
-            message.error(error.response?.data?.error || 'Ошибка при создании заявки');
+            console.error('[KaskoFormContent] KASKO application error:', {
+                sentData: valuesFromForm,
+                transformedDataForWrapper: error.config?.data ? JSON.parse(error.config.data) : undefined,
+                error: error.message,
+                response: error.response?.data
+            });
+            message.error(
+                error.response?.data?.error || 
+                (Array.isArray(error.response?.data) ? error.response.data.join(', ') : 'Ошибка при создании заявки')
+            );
         } finally {
             setLoading(false);
         }
     };
 
-    const FormContent = ({ onSubmit, isAuthenticated }) => (
+    return (
         <Form
             form={form}
             layout="vertical"
-            onFinish={(values) => onSubmit({ ...values, isAuthenticated })}
+            onFinish={handleFinish}
             className="insurance-form"
+            autoComplete="off"
             initialValues={{
                 hasAntiTheftSystem: false,
                 garageParking: false,
@@ -89,17 +91,6 @@ const KaskoForm = () => {
             {!isAuthenticated && (
                 <>
                     <Form.Item
-                        name="email"
-                        label="Email"
-                        rules={[
-                            { required: true, message: 'Пожалуйста, введите email' },
-                            { type: 'email', message: 'Пожалуйста, введите корректный email' }
-                        ]}
-                    >
-                        <Input placeholder="Введите email" />
-                    </Form.Item>
-
-                    <Form.Item
                         name="ownerLastName"
                         label="Фамилия"
                         rules={[
@@ -107,7 +98,7 @@ const KaskoForm = () => {
                             { whitespace: true, message: 'Фамилия не может быть пустой' }
                         ]}
                     >
-                        <Input placeholder="Введите фамилию" />
+                        <Input placeholder="Введите фамилию" autoComplete="off" />
                     </Form.Item>
 
                     <Form.Item
@@ -118,14 +109,17 @@ const KaskoForm = () => {
                             { whitespace: true, message: 'Имя не может быть пустым' }
                         ]}
                     >
-                        <Input placeholder="Введите имя" />
+                        <Input placeholder="Введите имя" autoComplete="off" />
                     </Form.Item>
 
                     <Form.Item
                         name="ownerMiddleName"
                         label="Отчество"
+                        rules={[
+                            { whitespace: true, message: 'Отчество не может быть пустым' }
+                        ]}
                     >
-                        <Input placeholder="Введите отчество" />
+                        <Input placeholder="Введите отчество" autoComplete="off" />
                     </Form.Item>
                 </>
             )}
@@ -154,7 +148,7 @@ const KaskoForm = () => {
                     { whitespace: true, message: 'Марка автомобиля не может быть пустой' }
                 ]}
             >
-                <Input placeholder="например, Toyota, BMW, Mercedes" />
+                <Input placeholder="например, Toyota, BMW, Mercedes" autoComplete="off" />
             </Form.Item>
 
             <Form.Item
@@ -165,7 +159,7 @@ const KaskoForm = () => {
                     { whitespace: true, message: 'Модель автомобиля не может быть пустой' }
                 ]}
             >
-                <Input placeholder="например, Camry, 3-Series, C-Class" />
+                <Input placeholder="например, Camry, 3-Series, C-Class" autoComplete="off" />
             </Form.Item>
 
             <Form.Item
@@ -181,6 +175,7 @@ const KaskoForm = () => {
                     max={new Date().getFullYear()}
                     style={{ width: '100%' }}
                     placeholder="Введите год выпуска"
+                    autoComplete="off"
                 />
             </Form.Item>
 
@@ -197,6 +192,7 @@ const KaskoForm = () => {
                     placeholder="Введите 17-значный VIN номер"
                     maxLength={17}
                     showCount
+                    autoComplete="off"
                 />
             </Form.Item>
 
@@ -208,7 +204,7 @@ const KaskoForm = () => {
                     { whitespace: true, message: 'Государственный номер не может быть пустым' }
                 ]}
             >
-                <Input placeholder="Введите государственный номер" />
+                <Input placeholder="Введите государственный номер" autoComplete="off" />
             </Form.Item>
 
             <Form.Item
@@ -226,6 +222,7 @@ const KaskoForm = () => {
                     formatter={value => `₽ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={value => value.replace(/₽\s?|(,*)/g, '')}
                     placeholder="Введите стоимость автомобиля"
+                    autoComplete="off"
                 />
             </Form.Item>
 
@@ -237,7 +234,7 @@ const KaskoForm = () => {
                     { whitespace: true, message: 'Номер водительского удостоверения не может быть пустым' }
                 ]}
             >
-                <Input placeholder="Введите номер водительского удостоверения" />
+                <Input placeholder="Введите номер водительского удостоверения" autoComplete="off" />
             </Form.Item>
 
             <Form.Item
@@ -248,7 +245,7 @@ const KaskoForm = () => {
                     { type: 'number', min: 0, message: 'Стаж вождения не может быть отрицательным' }
                 ]}
             >
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="Введите стаж вождения" />
+                <InputNumber min={0} style={{ width: '100%' }} placeholder="Введите стаж вождения" autoComplete="off" />
             </Form.Item>
 
             <Form.Item
@@ -269,7 +266,7 @@ const KaskoForm = () => {
                 name="previousInsuranceNumber"
                 label="Номер предыдущего полиса (если есть)"
             >
-                <Input placeholder="Введите номер предыдущего полиса" />
+                <Input placeholder="Введите номер предыдущего полиса" autoComplete="off" />
             </Form.Item>
 
             <Form.Item>
@@ -279,10 +276,23 @@ const KaskoForm = () => {
             </Form.Item>
         </Form>
     );
+};
+
+const KaskoForm = () => {
+    const handleSubmit = async (data) => {
+        // Этот handleSubmit вызывается из InsuranceFormWrapper
+        // data здесь уже должна быть полностью готова для API
+        const url = data.email // Проверяем наличие email для определения URL
+            ? '/api/insurance/unauthorized/kasko'
+            : '/api/insurance/applications/kasko';
+            
+        const response = await api.post(url, data);
+        return response;
+    };
 
     return (
-        <InsuranceFormWrapper onSubmit={onFinish}>
-            <FormContent />
+        <InsuranceFormWrapper onSubmit={handleSubmit}>
+            <KaskoFormContent />
         </InsuranceFormWrapper>
     );
 };

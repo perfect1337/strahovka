@@ -1,7 +1,10 @@
 package com.strahovka.delivery;
 
+import com.strahovka.entity.ApplicationStatus;
+import com.strahovka.config.ApplicationStatusType;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.Type;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 
@@ -12,7 +15,7 @@ public abstract class BaseApplication {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
@@ -20,7 +23,8 @@ public abstract class BaseApplication {
     private LocalDateTime applicationDate = LocalDateTime.now();
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, columnDefinition = "application_status")
+    @Type(ApplicationStatusType.class)
     private ApplicationStatus status = ApplicationStatus.PENDING;
 
     @Column(name = "processed_at")

@@ -1,7 +1,7 @@
 package com.strahovka.repository;
 
 import com.strahovka.delivery.PolicyApplication;
-import com.strahovka.delivery.ApplicationStatus;
+import com.strahovka.entity.ApplicationStatus;
 import com.strahovka.delivery.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

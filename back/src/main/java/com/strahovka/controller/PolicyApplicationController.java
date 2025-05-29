@@ -1,7 +1,7 @@
 package com.strahovka.controller;
 
 import com.strahovka.delivery.PolicyApplication;
-import com.strahovka.delivery.ApplicationStatus;
+import com.strahovka.entity.ApplicationStatus;
 import com.strahovka.delivery.User;
 import com.strahovka.delivery.InsurancePackage;
 import com.strahovka.service.PolicyApplicationService;

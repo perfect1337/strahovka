@@ -1,5 +1,6 @@
 package com.strahovka.delivery;
 
+import com.strahovka.entity.ApplicationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Data;
@@ -20,10 +21,6 @@ public class KaskoApplication extends BaseApplication {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private ApplicationStatus status;
 
     @Column(name = "application_date", nullable = false)
     private LocalDateTime applicationDate;

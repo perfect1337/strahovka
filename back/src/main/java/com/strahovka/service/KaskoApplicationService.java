@@ -1,6 +1,7 @@
 package com.strahovka.service;
 
 import com.strahovka.delivery.*;
+import com.strahovka.entity.ApplicationStatus;
 import com.strahovka.dto.KaskoApplicationRequest;
 import com.strahovka.repository.KaskoApplicationRepository;
 import com.strahovka.repository.UserRepository;
@@ -95,21 +96,21 @@ public class KaskoApplicationService {
             throw new RuntimeException("No policy found for this application");
         }
 
-        // Update application status
-        application.setStatus(ApplicationStatus.APPROVED);
+        // Update application status to PAID
+        application.setStatus(ApplicationStatus.PAID);
         application.setProcessedAt(LocalDateTime.now());
         application.setProcessedBy("SYSTEM");
 
         // Update policy status
         policy.setStatus(PolicyStatus.ACTIVE);
         policy.setActive(true);
-        policyRepository.save(policy);
+        policyRepository.saveAndFlush(policy);
 
         // Increment user's policy count
         user.incrementPolicyCount();
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
-        return kaskoApplicationRepository.save(application);
+        return kaskoApplicationRepository.saveAndFlush(application);
     }
 
     private BigDecimal calculatePolicyAmount(KaskoApplicationRequest request) {

@@ -43,7 +43,7 @@ public class UserService {
 
         // Set default role if not set
         if (user.getRole() == null) {
-            user.setRole(Role.ROLE_USER);
+        user.setRole(Role.ROLE_USER);
         }
         
         // Hash the password
@@ -60,7 +60,7 @@ public class UserService {
         // Update and save user with tokens
         user.setAccessToken(accessToken);
         user.setRefreshToken(refreshToken);
-        
+
         return userRepository.save(user);
     }
 

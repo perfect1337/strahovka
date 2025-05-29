@@ -1,5 +1,6 @@
 package com.strahovka.delivery;
 
+import com.strahovka.entity.ApplicationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;

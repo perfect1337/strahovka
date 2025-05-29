@@ -69,13 +69,13 @@ const ApplicationSuccess = () => {
 
         {isNewUser && (
           <>
-            <Alert severity="success" sx={{ mt: 2, mb: 3 }}>
+          <Alert severity="success" sx={{ mt: 2, mb: 3 }}>
               Для вас был создан личный кабинет. Используйте следующие данные для входа:
               <Box component="div" sx={{ mt: 1, textAlign: 'left' }}>
                 <Typography variant="body2">Логин: {email}</Typography>
                 <Typography variant="body2">Пароль: {email}</Typography>
               </Box>
-            </Alert>
+          </Alert>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Рекомендуем сменить пароль после первого входа в личный кабинет.
             </Typography>

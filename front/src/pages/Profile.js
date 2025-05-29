@@ -250,9 +250,11 @@ const Profile = () => {
       case 'PENDING':
         return 'На рассмотрении';
       case 'APPROVED':
-        return 'Одобрен';
+        return 'Оплачен';
       case 'REJECTED':
         return 'Отклонен';
+      case 'PAID':
+        return 'Оплачен';
       default:
         return status;
     }
@@ -261,34 +263,37 @@ const Profile = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'PENDING_PAYMENT':
+      case 'PENDING':
         return 'warning';
       case 'ACTIVE':
+      case 'APPROVED':
+      case 'PAID':
         return 'success';
       case 'INACTIVE':
+      case 'CANCELLED':
+      case 'REJECTED':
         return 'error';
       case 'COMPLETED':
         return 'info';
-      case 'CANCELLED':
-        return 'error';
-      case 'PENDING':
-        return 'warning';
-      case 'APPROVED':
-        return 'success';
-      case 'REJECTED':
-        return 'error';
       default:
         return 'default';
     }
   };
 
-  const handlePayment = async (applicationId) => {
+  const handlePayment = async (applicationId, type = 'kasko') => {
     try {
       setLoading(true);
-      await processKaskoPayment(applicationId);
+      if (type === 'kasko') {
+        await processKaskoPayment(applicationId);
+      } else if (type === 'osago') {
+        await api.post(`/api/insurance/applications/osago/${applicationId}/pay`);
+      }
       setSuccess('Полис успешно оплачен');
       // Refresh data
-      fetchPolicies();
-      fetchAllApplications();
+      await Promise.all([
+        fetchPolicies(),
+        fetchAllApplications()
+      ]);
     } catch (error) {
       console.error('Error processing payment:', error);
       setError('Ошибка при обработке платежа: ' + (error.response?.data || error.message));
@@ -334,46 +339,61 @@ const Profile = () => {
             <TableCell>Дата окончания</TableCell>
             <TableCell>Статус</TableCell>
             <TableCell>Сумма</TableCell>
-            <TableCell>Действия</TableCell>
+            <TableCell sx={{ minWidth: 250 }}>Действия</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {applications.map((app) => (
             <TableRow key={app.id}>
-              <TableCell>{app.policy?.name || `${type.toUpperCase()}`}</TableCell>
+              <TableCell>{`${type.toUpperCase()} - ${app.carMake || ''} ${app.carModel || ''}`}</TableCell>
               <TableCell>{formatDate(app.applicationDate)}</TableCell>
-              <TableCell>{app.policy ? formatDate(app.policy.endDate) : '-'}</TableCell>
+              <TableCell>{formatDate(app.endDate || app.policy?.endDate)}</TableCell>
               <TableCell>
                 <Chip
-                  label={getStatusText(app.policy?.status || app.status)}
-                  color={getStatusColor(app.policy?.status || app.status)}
+                  label={getStatusText(app.status || app.policy?.status)}
+                  color={getStatusColor(app.status || app.policy?.status)}
                   size="small"
                 />
               </TableCell>
               <TableCell>{app.calculatedAmount?.toLocaleString('ru-RU')} ₽</TableCell>
               <TableCell>
-                {app.status === 'PENDING' && app.policy?.status === 'PENDING_PAYMENT' && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => handlePayment(app.id)}
-                    disabled={loading}
-                  >
-                    Оплатить
-                  </Button>
-                )}
-                {app.policy?.status === 'ACTIVE' && (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    size="small"
-                    onClick={() => handleCancelPolicy(app.policy)}
-                    disabled={loading}
-                  >
-                    Остановить
-                  </Button>
-                )}
+                <Stack direction="row" spacing={1} sx={{ minWidth: 250 }}>
+                  {app.status === 'PENDING' && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={() => handlePayment(app.id, type)}
+                      disabled={loading}
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      Оплатить
+                    </Button>
+                  )}
+                  {app.status === 'ACTIVE' && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => handleCancelPolicy(app)}
+                      disabled={loading}
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      Остановить
+                    </Button>
+                  )}
+                  {app.status === 'PAID' && (
+                    <Button
+                      variant="outlined"
+                      color="success"
+                      size="small"
+                      disabled={true}
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      Оплачен
+                    </Button>
+                  )}
+                </Stack>
               </TableCell>
             </TableRow>
           ))}

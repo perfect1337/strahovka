@@ -45,4 +45,8 @@ public class OsagoApplication extends BaseApplication {
 
     @Column(name = "previous_policy_number")
     private String previousPolicyNumber;
+
+    @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH}, fetch = FetchType.EAGER)
+    @JoinColumn(name = "policy_id")
+    private InsurancePolicy policy;
 } 

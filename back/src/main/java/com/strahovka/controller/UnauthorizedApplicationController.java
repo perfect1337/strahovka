@@ -1,6 +1,7 @@
 package com.strahovka.controller;
 
 import com.strahovka.delivery.*;
+import com.strahovka.entity.ApplicationStatus;
 import com.strahovka.service.UserService;
 import com.strahovka.service.InsurancePackageService;
 import com.strahovka.repository.InsuranceApplicationRepository;
@@ -91,6 +92,22 @@ public class UnauthorizedApplicationController {
     @PostMapping("/kasko")
     public ResponseEntity<?> createUnauthorizedKaskoApplication(@RequestBody Map<String, Object> request) {
         try {
+            // Log incoming request data
+            System.out.println("Received KASKO application request: " + request);
+            
+            // Validate required fields
+            String[] requiredFields = {"email", "firstName", "lastName", "carMake", "carModel", "carYear", 
+                                     "vinNumber", "licensePlate", "carValue", "driverLicenseNumber", 
+                                     "driverExperienceYears", "duration"};
+            
+            for (String field : requiredFields) {
+                if (!request.containsKey(field) || request.get(field) == null) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Missing required field: " + field
+                    ));
+                }
+            }
+
             // Извлекаем данные пользователя
             String email = request.get("email").toString();
             String firstName = request.get("firstName").toString();

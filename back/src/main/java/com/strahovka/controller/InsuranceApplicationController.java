@@ -101,6 +101,19 @@ public class InsuranceApplicationController {
         }
     }
 
+    @PostMapping("/osago/{id}/pay")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
+    public ResponseEntity<?> processOsagoPayment(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            OsagoApplication application = applicationService.processOsagoPayment(id, authentication.getName());
+            return ResponseEntity.ok(application);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/user/kasko")
     @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<List<KaskoApplication>> getUserKaskoApplications(Authentication authentication) {

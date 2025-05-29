@@ -40,7 +40,39 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
-        this.signingKey = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+        try {
+            System.out.println("\n=== Initializing JWT Service ===");
+            System.out.println("Secret key length: " + secretKey.length());
+            
+            // Ensure key is at least 64 bytes (512 bits) for HS512
+            byte[] keyBytes = new byte[64];
+            byte[] secretBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+            System.arraycopy(secretBytes, 0, keyBytes, 0, Math.min(secretBytes.length, keyBytes.length));
+            
+            System.out.println("Key bytes length: " + keyBytes.length);
+            this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+            System.out.println("JWT signing key initialized successfully");
+            System.out.println("Algorithm: " + signingKey.getAlgorithm());
+            
+            // Test token generation and validation
+            String testToken = Jwts.builder()
+                .setSubject("test")
+                .signWith(signingKey, SignatureAlgorithm.HS512)
+                .compact();
+            System.out.println("Test token generated: " + testToken);
+            
+            // Verify the test token
+            Jwts.parserBuilder()
+                .setSigningKey(signingKey)
+                .build()
+                .parseClaimsJws(testToken);
+            System.out.println("Test token verified successfully");
+            System.out.println("=== JWT Service Initialized ===\n");
+        } catch (Exception e) {
+            System.err.println("Error initializing JWT service: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize JWT service", e);
+        }
     }
 
     public String extractUsername(String token) {
@@ -70,6 +102,7 @@ public class JwtService {
             System.out.println("\n=== Generating Token ===");
             System.out.println("User: " + userDetails.getUsername());
             System.out.println("Roles: " + roles);
+            System.out.println("Using signing key algorithm: " + signingKey.getAlgorithm());
             
             claims.put("roles", roles);
             
@@ -81,11 +114,12 @@ public class JwtService {
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiration)
-                .signWith(signingKey)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
                 
             System.out.println("Token generated successfully");
             System.out.println("Token expiration: " + expiration);
+            System.out.println("Token: " + token);
             
             // Verify the token immediately after generation
             try {
@@ -104,6 +138,7 @@ public class JwtService {
             return token;
         } catch (Exception e) {
             System.out.println("Error generating token: " + e.getMessage());
+            e.printStackTrace();
             throw e;
         }
     }
@@ -186,11 +221,24 @@ public class JwtService {
     }
 
     public Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-            .setSigningKey(signingKey)
-            .build()
-            .parseClaimsJws(token)
-            .getBody();
+        try {
+            System.out.println("\n=== Extracting Claims ===");
+            System.out.println("Token: " + token);
+            System.out.println("Using signing key algorithm: " + signingKey.getAlgorithm());
+            
+            Claims claims = Jwts.parserBuilder()
+                .setSigningKey(signingKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+                
+            System.out.println("Claims extracted successfully: " + claims);
+            return claims;
+        } catch (Exception e) {
+            System.out.println("Error extracting claims: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     public Date extractExpiration(String token) {

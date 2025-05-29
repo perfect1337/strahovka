@@ -12,24 +12,53 @@ import { useAuth } from '../context/AuthContext';
 const InsuranceFormWrapper = ({ children, onSubmit }) => {
   const { user } = useAuth();
   const [email, setEmail] = useState('');
-  const [formData, setFormData] = useState({});
   const [error, setError] = useState('');
 
-  const handleFormSubmit = async (data) => {
+  const handleFormSubmit = async (formDataFromKasko) => {
     try {
       if (!user) {
-        // Если пользователь не авторизован, добавляем email и генерируем пароль
-        const userData = {
-          ...data,
-          email: email,
-          password: email, // Пароль соответствует email
-        };
-        await onSubmit(userData);
+        const dataForApi = {};
+        const trimmedEmail = email.trim();
+
+        // 1. Копируем все поля, специфичные для страхования, из formDataFromKasko
+        dataForApi.carMake = formDataFromKasko.carMake;
+        dataForApi.carModel = formDataFromKasko.carModel;
+        dataForApi.carYear = formDataFromKasko.carYear;
+        dataForApi.vinNumber = formDataFromKasko.vinNumber;
+        dataForApi.licensePlate = formDataFromKasko.licensePlate;
+        dataForApi.carValue = formDataFromKasko.carValue;
+        dataForApi.driverLicenseNumber = formDataFromKasko.driverLicenseNumber;
+        dataForApi.driverExperienceYears = formDataFromKasko.driverExperienceYears;
+        dataForApi.hasAntiTheftSystem = formDataFromKasko.hasAntiTheftSystem;
+        dataForApi.garageParking = formDataFromKasko.garageParking;
+        dataForApi.previousInsuranceNumber = formDataFromKasko.previousInsuranceNumber;
+        dataForApi.duration = formDataFromKasko.duration;
+        // Другие поля, которые KaskoFormContent может отправлять как часть деталей страхования
+
+        // 2. Добавляем/перезаписываем email и password
+        dataForApi.email = trimmedEmail;
+        dataForApi.password = trimmedEmail;
+
+        // 3. Преобразуем поля owner в поля пользователя
+        dataForApi.firstName = formDataFromKasko.ownerFirstName ? formDataFromKasko.ownerFirstName.trim() : '';
+        dataForApi.lastName = formDataFromKasko.ownerLastName ? formDataFromKasko.ownerLastName.trim() : '';
+        dataForApi.middleName = formDataFromKasko.ownerMiddleName ? formDataFromKasko.ownerMiddleName.trim() : '';
+        
+        // Детальное логирование
+        console.log('[InsuranceFormWrapper] Received formDataFromKasko:', JSON.stringify(formDataFromKasko));
+        console.log('[InsuranceFormWrapper] Email for registration:', trimmedEmail);
+        console.log('[InsuranceFormWrapper] Constructed dataForApi before sending:', JSON.stringify(dataForApi));
+
+        await onSubmit(dataForApi);
       } else {
-        await onSubmit(data);
+        // Для аутентифицированных пользователей передаем formDataFromKasko как есть
+        console.log('[InsuranceFormWrapper] Authenticated user, sending formDataFromKasko as is:', JSON.stringify(formDataFromKasko));
+        await onSubmit(formDataFromKasko);
       }
     } catch (err) {
       setError(err.message || 'Произошла ошибка при отправке формы');
+      // Логируем ошибку вместе с данными, которые пытались отправить
+      console.error('[InsuranceFormWrapper] Error during form submission:', err, 'Data attempted:', JSON.stringify(err.config?.data));
     }
   };
 
@@ -65,7 +94,8 @@ const InsuranceFormWrapper = ({ children, onSubmit }) => {
 
       {React.cloneElement(children, {
         onSubmit: handleFormSubmit,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user
+        // parentEmail больше не передается, т.к. email обрабатывается здесь
       })}
     </Paper>
   );

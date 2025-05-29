@@ -37,7 +37,7 @@ public class InsurancePolicy {
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_category"))
     @JsonIgnoreProperties({"packages", "hibernateLazyInitializer", "handler"})
     private InsuranceCategory category;
@@ -45,7 +45,7 @@ public class InsurancePolicy {
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_user"))
     @JsonIgnoreProperties({"policies", "hibernateLazyInitializer", "handler"})
     private User user;
@@ -66,7 +66,7 @@ public class InsurancePolicy {
     @Column(name = "cashback", nullable = false, precision = 10, scale = 2)
     private BigDecimal cashback = BigDecimal.ZERO;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "guide_id", foreignKey = @ForeignKey(name = "fk_insurance_policies_guide"))
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private InsuranceGuide guide;
