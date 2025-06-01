@@ -49,7 +49,7 @@ import {
   EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
 import { formatDate } from '../utils/dateUtils';
-import { processKaskoPayment } from '../api/insurance';
+import { processKaskoPayment, processTravelPayment, processPropertyPayment } from '../api/insurance';
 import { getKaskoApplications, getOsagoApplications, getTravelApplications, getHealthApplications, getPropertyApplications } from '../api/insurance';
 
 const UserLevelInfo = ({ level, policyCount }) => {
@@ -184,6 +184,9 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -285,31 +288,36 @@ const Profile = () => {
     }
   };
 
-  const handlePayment = async (applicationId, type = 'kasko') => {
+  const handlePayment = async (applicationId, type) => {
     try {
       setLoading(true);
-      setError('');
-      
       let response;
-      if (type === 'kasko') {
-        response = await processKaskoPayment(applicationId);
-      } else if (type === 'osago') {
-        response = await api.post(`/api/insurance/applications/osago/${applicationId}/pay`);
+      
+      switch (type) {
+        case 'kasko':
+          response = await processKaskoPayment(applicationId);
+          break;
+        case 'travel':
+          response = await processTravelPayment(applicationId);
+          break;
+        case 'property':
+          response = await processPropertyPayment(applicationId);
+          break;
+        default:
+          throw new Error('Unsupported application type');
       }
 
-      setSuccess('Полис успешно активирован');
+      // Refresh applications after payment
+      await fetchAllApplications();
       
-      // Refresh data
-      await Promise.all([
-        fetchPolicies(),
-        fetchAllApplications()
-      ]);
-
-      return response;
+      setSnackbarMessage('Оплата успешно проведена');
+      setSnackbarSeverity('success');
+      setOpenSnackbar(true);
     } catch (error) {
-      console.error('Error processing payment:', error);
-      setError(error.message || 'Ошибка при обработке платежа');
-      throw error;
+      console.error('Payment error:', error);
+      setSnackbarMessage('Ошибка при проведении оплаты');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
     } finally {
       setLoading(false);
     }
@@ -387,11 +395,23 @@ const Profile = () => {
             const showPayButton = ['PENDING', 'PENDING_PAYMENT'].includes(status);
             const showCancelButton = ['ACTIVE', 'APPROVED', 'PAID'].includes(status);
 
+            // Get application-specific display info
+            let displayName = type.toUpperCase();
+            if (type === 'kasko') {
+              displayName += ` - ${app.carMake || ''} ${app.carModel || ''}`;
+            } else if (type === 'travel') {
+              displayName += ` - ${app.destinationCountry || ''}`;
+            }
+
             return (
               <TableRow key={app.id}>
-                <TableCell>{`${type.toUpperCase()} - ${app.carMake || ''} ${app.carModel || ''}`}</TableCell>
+                <TableCell>{displayName}</TableCell>
                 <TableCell>{formatDate(app.applicationDate)}</TableCell>
-                <TableCell>{formatDate(app.endDate || app.policy?.endDate)}</TableCell>
+                <TableCell>
+                  {type === 'travel' 
+                    ? formatDate(app.travelEndDate)
+                    : formatDate(app.endDate || app.policy?.endDate)}
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={getStatusText(status)}
@@ -399,7 +419,7 @@ const Profile = () => {
                     size="small"
                   />
                 </TableCell>
-                <TableCell>{amount?.toLocaleString('ru-RU')} ₽</TableCell>
+                <TableCell>{amount ? `${Number(amount).toLocaleString('ru-RU')} ₽` : '-'}</TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={1} sx={{ minWidth: 250 }}>
                     {showPayButton && (
@@ -408,7 +428,7 @@ const Profile = () => {
                         color="primary"
                         size="small"
                         onClick={() => handlePayment(app.id, type)}
-                        disabled={loading}
+                        disabled={loading || !amount}
                         sx={{ whiteSpace: 'nowrap' }}
                       >
                         Оплатить
@@ -437,13 +457,6 @@ const Profile = () => {
               </TableRow>
             );
           })}
-          {applications.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6} align="center">
-                Нет заявок
-              </TableCell>
-            </TableRow>
-          )}
         </TableBody>
       </Table>
     </TableContainer>
@@ -575,6 +588,16 @@ const Profile = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={6000}
+        onClose={() => setOpenSnackbar(false)}
+      >
+        <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

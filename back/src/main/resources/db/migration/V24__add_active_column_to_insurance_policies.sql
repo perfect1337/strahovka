@@ -1,2 +1,0 @@
-ALTER TABLE insurance_policies
-ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true; 

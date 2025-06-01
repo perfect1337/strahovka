@@ -1,214 +1,177 @@
 package com.strahovka.controller;
 
-import com.strahovka.delivery.*;
+import com.strahovka.delivery.Insurance.*;
+import com.strahovka.delivery.InsurancePolicy;
+import com.strahovka.delivery.Claims.InsuranceClaim;
+import com.strahovka.delivery.Claims.ClaimStatus;
 import com.strahovka.service.InsuranceService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.Authentication;
-import com.strahovka.repository.UserRepository;
-import com.strahovka.repository.InsuranceClaimRepository;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
-import java.time.LocalDate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/insurance")
 @RequiredArgsConstructor
 public class InsuranceController {
     private final InsuranceService insuranceService;
-    private final UserRepository userRepository;
-    private final InsuranceClaimRepository claimRepository;
 
+
+    @PostMapping
+    public ResponseEntity<InsuranceGuide> createGuide(@RequestBody InsuranceGuide guide) {
+        return ResponseEntity.ok(insuranceService.createGuide(guide));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<InsuranceGuide> updateGuide(@PathVariable Long id, @RequestBody InsuranceGuide guide) {
+        return ResponseEntity.ok(insuranceService.updateGuide(id, guide));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteGuide(@PathVariable Long id) {
+        insuranceService.deleteGuide(id);
+        return ResponseEntity.ok().build();
+    }
+    // Guide endpoints
+    @GetMapping("/guides")
+    public ResponseEntity<List<InsuranceGuide>> getAllGuides() {
+        return ResponseEntity.ok(insuranceService.getAllGuides());
+    }
+
+    @GetMapping("/guides/{id}")
+    public ResponseEntity<InsuranceGuide> getGuideById(@PathVariable Long id) {
+        return ResponseEntity.ok(insuranceService.getGuideById(id));
+    }
+
+    // Policy endpoints
+    @GetMapping("/policies")
+    public ResponseEntity<List<InsurancePolicy>> getUserPolicies(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(insuranceService.getUserPolicies(userDetails.getUsername()));
+    }
+
+    @PostMapping("/policies")
+    public ResponseEntity<InsurancePolicy> createPolicy(
+            @RequestBody InsurancePolicy policy,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(insuranceService.createPolicy(policy, userDetails.getUsername()));
+    }
+
+    @PutMapping("/policies/{id}")
+    public ResponseEntity<InsurancePolicy> updatePolicy(
+            @PathVariable Long id,
+            @RequestBody InsurancePolicy policy) {
+        return ResponseEntity.ok(insuranceService.updatePolicy(id, policy));
+    }
+
+    @DeleteMapping("/policies/{id}")
+    public ResponseEntity<Void> deletePolicy(@PathVariable Long id) {
+        insuranceService.deletePolicy(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // Package endpoints
+    @GetMapping("/packages")
+    public ResponseEntity<List<InsurancePackage>> getUserPackages(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(insuranceService.getUserPackages(userDetails.getUsername()));
+    }
+
+    @PostMapping("/packages")
+    public ResponseEntity<InsurancePackage> createPackage(
+            @RequestBody InsurancePackage insurancePackage,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(insuranceService.createPackage(insurancePackage, userDetails.getUsername()));
+    }
+
+    @PutMapping("/packages/{id}")
+    public ResponseEntity<InsurancePackage> updatePackage(
+            @PathVariable Long id,
+            @RequestBody InsurancePackage insurancePackage) {
+        return ResponseEntity.ok(insuranceService.updatePackage(id, insurancePackage));
+    }
+
+    @DeleteMapping("/packages/{id}")
+    public ResponseEntity<Void> deletePackage(@PathVariable Long id) {
+        insuranceService.deletePackage(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // Application endpoints
+    @GetMapping("/applications/kasko")
+    public ResponseEntity<List<KaskoApplication>> getUserKaskoApplications(Authentication auth) {
+        return ResponseEntity.ok(insuranceService.getUserKaskoApplications(auth.getName()));
+    }
+
+    @GetMapping("/applications/osago")
+    public ResponseEntity<List<OsagoApplication>> getUserOsagoApplications(Authentication auth) {
+        return ResponseEntity.ok(insuranceService.getUserOsagoApplications(auth.getName()));
+    }
+
+    @GetMapping("/applications/property")
+    public ResponseEntity<List<PropertyApplication>> getUserPropertyApplications(Authentication auth) {
+        return ResponseEntity.ok(insuranceService.getUserPropertyApplications(auth.getName()));
+    }
+
+    @GetMapping("/applications/health")
+    public ResponseEntity<List<HealthApplication>> getUserHealthApplications(Authentication auth) {
+        return ResponseEntity.ok(insuranceService.getUserHealthApplications(auth.getName()));
+    }
+
+    @GetMapping("/applications/travel")
+    public ResponseEntity<List<TravelApplication>> getUserTravelApplications(Authentication auth) {
+        return ResponseEntity.ok(insuranceService.getUserTravelApplications(auth.getName()));
+    }
+
+    @DeleteMapping("/applications/{id}")
+    public ResponseEntity<Void> deleteApplication(@PathVariable Long id) {
+        insuranceService.deleteApplication(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // Category endpoints
     @GetMapping("/categories")
     public ResponseEntity<List<InsuranceCategory>> getAllCategories() {
         return ResponseEntity.ok(insuranceService.getAllCategories());
     }
 
-    @PostMapping("/policies")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<InsurancePolicy> createPolicy(
-            @RequestParam Long categoryId,
-            @RequestParam LocalDate endDate,
-            @RequestParam String details) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Creating policy - User: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        
-        String email = auth.getName();
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-        Long userId = user.getId();
-        return ResponseEntity.ok(insuranceService.createPolicy(userId, categoryId, endDate, details));
+    @PostMapping("/categories")
+    public ResponseEntity<InsuranceCategory> createCategory(@RequestBody InsuranceCategory category) {
+        return ResponseEntity.ok(insuranceService.createCategory(category));
     }
 
-    @PostMapping("/packages/{packageId}/policies")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<List<InsurancePolicy>> createPackagePolicies(
-            @PathVariable Long packageId,
-            @RequestParam LocalDate endDate,
-            @RequestParam String details) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Creating package policies - User: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        
-        String email = auth.getName();
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-        Long userId = user.getId();
-        return ResponseEntity.ok(insuranceService.createPackagePolicies(userId, packageId, endDate, details));
+    @PutMapping("/categories/{id}")
+    public ResponseEntity<InsuranceCategory> updateCategory(
+            @PathVariable Long id,
+            @RequestBody InsuranceCategory category) {
+        return ResponseEntity.ok(insuranceService.updateCategory(id, category));
     }
 
-    @GetMapping("/policies")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<List<InsurancePolicy>> getUserPolicies() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Getting user policies - User: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        
-        String email = auth.getName();
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-        Long userId = user.getId();
-        return ResponseEntity.ok(insuranceService.getUserPolicies(userId));
+    @DeleteMapping("/categories/{id}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+        insuranceService.deleteCategory(id);
+        return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/policies/{policyId}/suspend")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<InsurancePolicy> suspendPolicy(@PathVariable Long policyId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Suspending policy - User: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        return ResponseEntity.ok(insuranceService.suspendPolicy(policyId));
+    // Public endpoints
+    @GetMapping("/public/packages")
+    public ResponseEntity<List<InsurancePackage>> getPublicPackages() {
+        return ResponseEntity.ok(insuranceService.getPublicPackages());
+    }
+
+    // Claims endpoints
+    @GetMapping("/claims/user")
+    public ResponseEntity<List<InsuranceClaim>> getUserClaims(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication auth) {
+        return ResponseEntity.ok(insuranceService.getUserClaims(auth.getName(), page, size));
     }
 
     @PostMapping("/claims")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<InsuranceClaim> createClaim(
-            @RequestParam Long policyId,
-            @RequestParam String description,
-            @RequestParam(required = false) List<MultipartFile> documents) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Creating claim - User: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        
-        InsuranceClaim claim = insuranceService.createClaim(policyId, description);
-        
-        // Handle document uploads if provided
-        if (documents != null && !documents.isEmpty()) {
-            for (MultipartFile document : documents) {
-                try {
-                    ClaimAttachment attachment = new ClaimAttachment();
-                    attachment.setClaim(claim);
-                    attachment.setFileName(document.getOriginalFilename());
-                    attachment.setFileType(document.getContentType());
-                    attachment.setFileSize(document.getSize());
-                    attachment.setFileData(document.getBytes());
-                    claim.getAttachments().add(attachment);
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to process document: " + document.getOriginalFilename(), e);
-                }
-            }
-            claim = claimRepository.save(claim);
-        }
-        
-        return ResponseEntity.ok(claim);
-    }
-
-    @GetMapping("/claims")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<List<InsuranceClaim>> getUserClaims() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-        Long userId = user.getId();
-        return ResponseEntity.ok(insuranceService.getUserClaims(userId));
-    }
-
-    @PostMapping("/claims/{claimId}/process")
-    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
-    public ResponseEntity<InsuranceClaim> processClaim(
-            @PathVariable Long claimId,
-            @RequestBody Map<String, String> request) {
-        
-        String status = request.get("status");
-        String response = request.get("response");
-        BigDecimal amount = request.get("amount") != null ? new BigDecimal(request.get("amount")) : null;
-        
-        InsuranceClaim claim = claimRepository.findById(claimId)
-            .orElseThrow(() -> new RuntimeException("Claim not found"));
-            
-        claim.setStatus(ClaimStatus.valueOf(status));
-        claim.setResponse(response);
-        claim.setProcessedAt(LocalDateTime.now());
-        claim.setProcessedBy(SecurityContextHolder.getContext().getAuthentication().getName());
-        claim.setResponseDate(LocalDate.now());
-        
-        if (amount != null) {
-            claim.setCalculatedAmount(amount);
-        }
-        
-        return ResponseEntity.ok(claimRepository.save(claim));
-    }
-
-    @GetMapping("/claims/pending")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<InsuranceClaim>> getPendingClaims() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Getting pending claims - Admin: " + auth.getName() + ", Authorities: " + auth.getAuthorities());
-        return ResponseEntity.ok(insuranceService.getPendingClaims());
-    }
-
-    @GetMapping("/claims/all")
-    @PreAuthorize("hasAnyAuthority('ROLE_MODERATOR', 'ROLE_ADMIN')")
-    public ResponseEntity<Page<InsuranceClaim>> getAllClaims(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String status) {
-        
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Page<InsuranceClaim> claims;
-        
-        if (status != null && !status.equals("ALL")) {
-            claims = claimRepository.findByStatus(ClaimStatus.valueOf(status), pageRequest);
-        } else {
-            claims = claimRepository.findAll(pageRequest);
-        }
-        
-        return ResponseEntity.ok(claims);
-    }
-
-    @PostMapping("/claims/{claimId}/cancel")
-    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<InsuranceClaim> cancelClaim(@PathVariable Long claimId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String email = auth.getName();
-        User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-
-        InsuranceClaim claim = claimRepository.findById(claimId)
-            .orElseThrow(() -> new RuntimeException("Страховой случай не найден"));
-
-        // Verify that the claim belongs to the user
-        if (!claim.getPolicy().getUser().getId().equals(user.getId()) && !auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
-            throw new RuntimeException("У вас нет прав на отмену этого страхового случая");
-        }
-
-        // Only allow cancellation of pending claims
-        if (claim.getStatus() != ClaimStatus.PENDING) {
-            throw new RuntimeException("Можно отменить только страховые случаи в статусе ожидания");
-        }
-
-        claim.setStatus(ClaimStatus.CANCELLED);
-        claim.setProcessedAt(LocalDateTime.now());
-        claim.setProcessedBy(email);
-        claim.setResponseDate(LocalDate.now());
-        claim.setResponse("Отменено пользователем");
-
-        return ResponseEntity.ok(claimRepository.save(claim));
+    public ResponseEntity<InsuranceClaim> createClaim(@RequestBody InsuranceClaim claim, Authentication auth) {
+        return ResponseEntity.ok(insuranceService.createClaim(claim, auth.getName()));
     }
 } 

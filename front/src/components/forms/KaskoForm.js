@@ -278,11 +278,15 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit }) => {
     );
 };
 
-const KaskoForm = () => {
+const KaskoForm = ({ isPartOfPackage, packageId, onSubmit: parentOnSubmit }) => {
     const handleSubmit = async (data) => {
-        // Этот handleSubmit вызывается из InsuranceFormWrapper
-        // data здесь уже должна быть полностью готова для API
-        const url = data.email // Проверяем наличие email для определения URL
+        if (isPartOfPackage && packageId) {
+            // Если форма является частью пакета, используем parentOnSubmit
+            return parentOnSubmit(data);
+        }
+
+        // Стандартная логика для отдельной формы КАСКО
+        const url = data.email 
             ? '/api/insurance/unauthorized/kasko'
             : '/api/insurance/applications/kasko';
             

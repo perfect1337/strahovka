@@ -59,7 +59,7 @@ const InsurancePackages = ({ adminView = false }) => {
 
   const fetchPackages = async () => {
     try {
-      const endpoint = '/api/insurance/packages/public';
+      const endpoint = adminView ? '/api/insurance/packages/admin' : '/api/insurance/packages/public';
       const packagesResponse = await api.get(endpoint);
       setPackages(packagesResponse.data);
     } catch (error) {
@@ -165,11 +165,11 @@ const InsurancePackages = ({ adminView = false }) => {
       const categoryToPath = {
         'OSAGO': '/insurance/osago',
         'KASKO': '/insurance/kasko',
-        'PROPERTY': '/insurance/realestate',
         'HEALTH': '/insurance/health',
         'MORTGAGE': '/insurance/mortgage',
         'TRAVEL': '/insurance/travel',
-        'APARTMENT': '/insurance/apartment'
+        'APARTMENT': '/insurance/apartment',
+        'REALESTATE': '/insurance/realestate'
       };
       
       const path = categoryToPath[item.type];
@@ -399,7 +399,7 @@ const InsurancePackages = ({ adminView = false }) => {
             <Button
               variant="outlined"
               startIcon={<HelpOutlineIcon />}
-              onClick={() => navigate('/insurance-guide', { state: { type: 'PROPERTY' } })}
+              onClick={() => navigate('/insurance-guide', { state: { type: 'REALESTATE' } })}
             >
               СПРАВКА
             </Button>
@@ -468,7 +468,7 @@ const InsurancePackages = ({ adminView = false }) => {
 
       {tabValue === 0 ? (
         <>
-          {isAdmin && (
+          {adminView && (
             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="contained"

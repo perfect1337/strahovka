@@ -37,10 +37,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             // Add CORS headers for all responses
             response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
-            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept");
+            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
+            response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
             response.setHeader("Access-Control-Allow-Credentials", "true");
             response.setHeader("Access-Control-Max-Age", "3600");
+            response.setHeader("Access-Control-Expose-Headers", "Access-Control-Allow-Origin, Access-Control-Allow-Credentials");
 
             // For OPTIONS requests (CORS preflight), just proceed
             if (request.getMethod().equals("OPTIONS")) {
@@ -80,8 +81,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .orElseThrow(() -> new RuntimeException("User not found"));
 
                 System.out.println("Found user: " + user.getEmail());
-                System.out.println("Stored access token: " + user.getAccessToken());
-                System.out.println("Received token: " + token);
+                System.out.println("User roles: " + userDetails.getAuthorities());
 
                 // Validate token
                 System.out.println("\n=== Token Validation ===");
@@ -102,16 +102,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     System.out.println("Authentication successful for user: " + userEmail);
                     System.out.println("Authorities: " + userDetails.getAuthorities());
                     System.out.println("Request URI: " + request.getRequestURI());
-                    System.out.println("User roles from token: " + jwtService.extractRoles(token));
-                    System.out.println("User roles from userDetails: " + userDetails.getAuthorities());
                     filterChain.doFilter(request, response);
                 } else {
                     System.out.println("Token validation failed for user: " + userEmail);
-                    sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token validation failed");
+                    sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
                 }
             } else {
-                filterChain.doFilter(request, response);
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid or missing token");
             }
+        } catch (ExpiredJwtException e) {
+            System.out.println("JWT token has expired: " + e.getMessage());
+            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "JWT token has expired");
+        } catch (MalformedJwtException | SignatureException e) {
+            System.out.println("Invalid JWT token: " + e.getMessage());
+            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
         } catch (Exception e) {
             System.out.println("Error in JwtAuthenticationFilter: " + e.getMessage());
             e.printStackTrace();
@@ -126,6 +130,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                uri.contains("/api/users/change-password") ||
                uri.contains("/api/insurance/unauthorized/") ||
                uri.contains("/api/insurance/packages/public") ||
+               uri.contains("/api/insurance/packages") ||
+               uri.contains("/api/insurance/categories") ||
                uri.contains("/api/insurance/guides") ||
                uri.contains("/debug");
     }

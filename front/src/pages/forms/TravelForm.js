@@ -24,30 +24,20 @@ import api from '../../utils/api';
 
 const TravelForm = () => {
   const [form, setForm] = useState({ 
-    // Personal Information
-    fullName: '', 
-    birthDate: null,
-    passport: '',
-    email: '',
-    phone: '',
-    address: '',
-    
-    // Trip Information
-    country: '', 
-    cities: '',
-    departure: null, 
-    return: null, 
-    purpose: 'tourism',
-    
-    // Insurance Options
-    coverageMedical: true,
-    coverageAccident: true,
-    coverageLuggage: false,
-    coverageCancellation: false,
-    coverageSports: false,
-    
-    // Additional Info
-    description: '' 
+    passportNumber: '',
+    passportExpiry: null,
+    destinationCountry: '',
+    travelStartDate: null,
+    travelEndDate: null,
+    purposeOfTrip: 'TOURISM',
+    coverMedicalExpenses: true,
+    coverAccidents: true,
+    coverLuggage: false,
+    coverTripCancellation: false,
+    coverSportsActivities: false,
+    hasChronicDiseases: false,
+    plannedSportsActivities: '',
+    notes: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -73,15 +63,12 @@ const TravelForm = () => {
 
   const validateForm = () => {
     return (
-      form.fullName &&
-      form.birthDate &&
-      form.passport &&
-      form.email &&
-      form.phone &&
-      form.address &&
-      form.country &&
-      form.departure &&
-      form.return
+      form.passportNumber &&
+      form.passportExpiry &&
+      form.destinationCountry &&
+      form.travelStartDate &&
+      form.travelEndDate &&
+      form.purposeOfTrip
     );
   };
 
@@ -103,9 +90,9 @@ const TravelForm = () => {
     try {
       const formData = {
         ...form,
-        birthDate: form.birthDate?.toISOString().split('T')[0],
-        departure: form.departure?.toISOString().split('T')[0],
-        return: form.return?.toISOString().split('T')[0],
+        passportExpiry: form.passportExpiry?.toISOString().split('T')[0],
+        travelStartDate: form.travelStartDate?.toISOString().split('T')[0],
+        travelEndDate: form.travelEndDate?.toISOString().split('T')[0],
       };
 
       await api.post('/api/insurance/applications/travel', formData);
@@ -113,23 +100,20 @@ const TravelForm = () => {
       
       // Reset form
       setForm({ 
-        fullName: '', 
-        birthDate: null,
-        passport: '',
-        email: '',
-        phone: '',
-        address: '',
-        country: '', 
-        cities: '',
-        departure: null, 
-        return: null, 
-        purpose: 'tourism',
-        coverageMedical: true,
-        coverageAccident: true,
-        coverageLuggage: false,
-        coverageCancellation: false,
-        coverageSports: false,
-        description: '' 
+        passportNumber: '',
+        passportExpiry: null,
+        destinationCountry: '',
+        travelStartDate: null,
+        travelEndDate: null,
+        purposeOfTrip: 'TOURISM',
+        coverMedicalExpenses: true,
+        coverAccidents: true,
+        coverLuggage: false,
+        coverTripCancellation: false,
+        coverSportsActivities: false,
+        hasChronicDiseases: false,
+        plannedSportsActivities: '',
+        notes: ''
       });
     } catch (err) {
       console.error('Error submitting travel insurance application:', err);
@@ -141,231 +125,213 @@ const TravelForm = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box component="form" onSubmit={handleSubmit}>
-        <Typography variant="h5" gutterBottom>Страхование путешествий</Typography>
-        
-        {error && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{error}</Alert>}
-        
-        {/* Personal Information Section */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" gutterBottom>Личная информация</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField 
-                label="ФИО" 
-                name="fullName" 
-                value={form.fullName} 
-                onChange={handleChange} 
-                fullWidth 
-                required 
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <DatePicker
-                label="Дата рождения"
-                value={form.birthDate}
-                onChange={(date) => handleChange({ target: { name: 'birthDate', value: date } })}
-                renderInput={(params) => <TextField {...params} fullWidth required />}
-                maxDate={new Date()}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Серия и номер загранпаспорта" 
-                name="passport" 
-                value={form.passport} 
-                onChange={handleChange} 
-                fullWidth 
-                required 
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Email" 
-                name="email" 
-                type="email"
-                value={form.email} 
-                onChange={handleChange} 
-                fullWidth 
-                required 
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Телефон" 
-                name="phone" 
-                value={form.phone} 
-                onChange={handleChange} 
-                fullWidth 
-                required 
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField 
-                label="Адрес проживания" 
-                name="address" 
-                value={form.address} 
-                onChange={handleChange} 
-                fullWidth 
-                required 
-                multiline
-                rows={2}
-              />
-            </Grid>
-          </Grid>
-        </Paper>
+      <Paper elevation={3} sx={{ p: 3, maxWidth: 800, mx: 'auto', mt: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          Страхование для путешествий
+        </Typography>
 
-        {/* Trip Information Section */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" gutterBottom>Информация о поездке</Typography>
-          <Grid container spacing={2}>
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            {/* Passport Information */}
             <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Страна поездки" 
-                name="country" 
-                value={form.country} 
-                onChange={handleChange} 
-                fullWidth 
-                required 
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField 
-                label="Города посещения" 
-                name="cities" 
-                value={form.cities} 
-                onChange={handleChange} 
-                fullWidth 
-                placeholder="Через запятую"
+              <TextField
+                required
+                fullWidth
+                label="Номер паспорта"
+                name="passportNumber"
+                value={form.passportNumber}
+                onChange={handleChange}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <DatePicker
-                label="Дата отъезда"
-                value={form.departure}
-                onChange={(date) => handleChange({ target: { name: 'departure', value: date } })}
-                renderInput={(params) => <TextField {...params} fullWidth required />}
-                minDate={new Date()}
+                label="Срок действия паспорта"
+                value={form.passportExpiry}
+                onChange={(newValue) => setForm(prev => ({ ...prev, passportExpiry: newValue }))}
+                renderInput={(params) => <TextField {...params} required fullWidth />}
+              />
+            </Grid>
+
+            {/* Trip Information */}
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                label="Страна назначения"
+                name="destinationCountry"
+                value={form.destinationCountry}
+                onChange={handleChange}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <DatePicker
-                label="Дата возвращения"
-                value={form.return}
-                onChange={(date) => handleChange({ target: { name: 'return', value: date } })}
-                renderInput={(params) => <TextField {...params} fullWidth required />}
-                minDate={form.departure || new Date()}
+                label="Дата начала поездки"
+                value={form.travelStartDate}
+                onChange={(newValue) => setForm(prev => ({ ...prev, travelStartDate: newValue }))}
+                renderInput={(params) => <TextField {...params} required fullWidth />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <DatePicker
+                label="Дата окончания поездки"
+                value={form.travelEndDate}
+                onChange={(newValue) => setForm(prev => ({ ...prev, travelEndDate: newValue }))}
+                renderInput={(params) => <TextField {...params} required fullWidth />}
               />
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth>
+              <FormControl fullWidth required>
                 <InputLabel>Цель поездки</InputLabel>
                 <Select
-                  name="purpose"
-                  value={form.purpose}
-                  label="Цель поездки"
+                  name="purposeOfTrip"
+                  value={form.purposeOfTrip}
                   onChange={handleChange}
+                  label="Цель поездки"
                 >
-                  <MenuItem value="tourism">Туризм</MenuItem>
-                  <MenuItem value="business">Деловая поездка</MenuItem>
-                  <MenuItem value="study">Учеба</MenuItem>
-                  <MenuItem value="sport">Спорт</MenuItem>
-                  <MenuItem value="other">Другое</MenuItem>
+                  <MenuItem value="TOURISM">Туризм</MenuItem>
+                  <MenuItem value="BUSINESS">Бизнес</MenuItem>
+                  <MenuItem value="EDUCATION">Образование</MenuItem>
+                  <MenuItem value="SPORTS">Спорт</MenuItem>
+                  <MenuItem value="OTHER">Другое</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Insurance Coverage Options */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                Страховое покрытие
+              </Typography>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.coverMedicalExpenses}
+                      onChange={handleCheckboxChange}
+                      name="coverMedicalExpenses"
+                    />
+                  }
+                  label="Медицинские расходы"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.coverAccidents}
+                      onChange={handleCheckboxChange}
+                      name="coverAccidents"
+                    />
+                  }
+                  label="Несчастные случаи"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.coverLuggage}
+                      onChange={handleCheckboxChange}
+                      name="coverLuggage"
+                    />
+                  }
+                  label="Багаж"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.coverTripCancellation}
+                      onChange={handleCheckboxChange}
+                      name="coverTripCancellation"
+                    />
+                  }
+                  label="Отмена поездки"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.coverSportsActivities}
+                      onChange={handleCheckboxChange}
+                      name="coverSportsActivities"
+                    />
+                  }
+                  label="Спортивные мероприятия"
+                />
+              </FormGroup>
+            </Grid>
+
+            {/* Additional Information */}
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.hasChronicDiseases}
+                    onChange={handleCheckboxChange}
+                    name="hasChronicDiseases"
+                  />
+                }
+                label="Наличие хронических заболеваний"
+              />
+            </Grid>
+
+            {form.hasChronicDiseases && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Детали хронических заболеваний"
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                />
+              </Grid>
+            )}
+
+            {form.coverSportsActivities && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Планируемые спортивные активности"
+                  name="plannedSportsActivities"
+                  value={form.plannedSportsActivities}
+                  onChange={handleChange}
+                />
+              </Grid>
+            )}
+
+            <Grid item xs={12}>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                fullWidth
+                disabled={loading}
+              >
+                {loading ? 'Отправка...' : 'Отправить заявку'}
+              </Button>
+            </Grid>
           </Grid>
-        </Paper>
+        </form>
 
-        {/* Insurance Options Section */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" gutterBottom>Страховое покрытие</Typography>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={form.coverageMedical}
-                  onChange={handleCheckboxChange}
-                  name="coverageMedical"
-                />
-              }
-              label="Медицинские расходы"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={form.coverageAccident}
-                  onChange={handleCheckboxChange}
-                  name="coverageAccident"
-                />
-              }
-              label="Несчастные случаи"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={form.coverageLuggage}
-                  onChange={handleCheckboxChange}
-                  name="coverageLuggage"
-                />
-              }
-              label="Страхование багажа"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={form.coverageCancellation}
-                  onChange={handleCheckboxChange}
-                  name="coverageCancellation"
-                />
-              }
-              label="Отмена поездки"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={form.coverageSports}
-                  onChange={handleCheckboxChange}
-                  name="coverageSports"
-                />
-              }
-              label="Спортивные мероприятия"
-            />
-          </FormGroup>
-        </Paper>
-
-        {/* Additional Information */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" gutterBottom>Дополнительная информация</Typography>
-          <TextField 
-            label="Примечания" 
-            name="description" 
-            value={form.description} 
-            onChange={handleChange} 
-            fullWidth 
-            multiline 
-            rows={3} 
-          />
-        </Paper>
-
-        <Button 
-          type="submit" 
-          variant="contained" 
-          size="large"
-          fullWidth
-          sx={{ mt: 2 }} 
-          disabled={loading}
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={() => setError(null)}
         >
-          {loading ? 'Отправка...' : 'Отправить заявку'}
-        </Button>
+          <Alert onClose={() => setError(null)} severity="error">
+            {error}
+          </Alert>
+        </Snackbar>
 
         <Snackbar
           open={success}
           autoHideDuration={6000}
           onClose={() => setSuccess(false)}
-          message="Заявка на страхование путешествия успешно отправлена!"
-        />
-      </Box>
+        >
+          <Alert onClose={() => setSuccess(false)} severity="success">
+            Заявка успешно отправлена!
+          </Alert>
+        </Snackbar>
+      </Paper>
     </LocalizationProvider>
   );
 };

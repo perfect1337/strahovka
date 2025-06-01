@@ -3,7 +3,7 @@ import api from '../utils/api';
 export const createKaskoApplication = async (applicationData) => {
     try {
         console.log('Sending KASKO data:', applicationData);
-        const response = await api.post('/api/insurance/applications/kasko', applicationData);
+        const response = await api.post('/api/insurance/kasko', applicationData);
         return response.data;
     } catch (error) {
         console.error('KASKO application error:', {
@@ -17,7 +17,7 @@ export const createKaskoApplication = async (applicationData) => {
 
 export const processKaskoPayment = async (applicationId) => {
     try {
-        const response = await api.post(`/api/insurance/applications/kasko/${applicationId}/pay`);
+        const response = await api.post(`/api/insurance/kasko/${applicationId}/pay`);
         console.log('Payment successful:', response.data);
         return response.data;
     } catch (error) {
@@ -41,26 +41,46 @@ export const cancelClaim = async (claimId) => {
 };
 
 export const getKaskoApplications = async () => {
-    const response = await api.get('/api/insurance/applications/user/kasko');
+    const response = await api.get('/api/insurance/kasko/user');
     return response.data;
 };
 
 export const getOsagoApplications = async () => {
-    const response = await api.get('/api/insurance/applications/user/osago');
+    const response = await api.get('/api/insurance/osago/user');
     return response.data;
 };
 
 export const getTravelApplications = async () => {
-    const response = await api.get('/api/insurance/applications/user/travel');
+    const response = await api.get('/api/insurance/travel/user');
     return response.data;
 };
 
 export const getHealthApplications = async () => {
-    const response = await api.get('/api/insurance/applications/user/health');
+    const response = await api.get('/api/insurance/health/user');
     return response.data;
 };
 
 export const getPropertyApplications = async () => {
-    const response = await api.get('/api/insurance/applications/user/property');
+    const response = await api.get('/api/insurance/property/user');
     return response.data;
+};
+
+export const processTravelPayment = async (applicationId) => {
+    const response = await api.post(`/api/insurance/travel/${applicationId}/pay`);
+    return response.data;
+};
+
+export const processPropertyPayment = async (applicationId) => {
+    try {
+        const response = await api.post(`/api/insurance/property/${applicationId}/pay`);
+        console.log('Property payment successful:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Property payment processing error:', {
+            applicationId,
+            error: error.message,
+            response: error.response?.data
+        });
+        throw new Error(error.response?.data || 'Ошибка при обработке платежа');
+    }
 }; 

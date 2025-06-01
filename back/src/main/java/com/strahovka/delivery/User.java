@@ -55,15 +55,18 @@ public class User implements UserDetails {
     private String accessToken;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "role", nullable = false)
+    @Builder.Default
     private Role role = Role.ROLE_USER;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "level", nullable = false)
+    @Builder.Default
     private UserLevel level = UserLevel.WOODEN;
 
     @Column(name = "policy_count")
-    private int policyCount = 0;
+    @Builder.Default
+    private Integer policyCount = 0;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

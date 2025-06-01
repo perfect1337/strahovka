@@ -34,6 +34,7 @@ import AdminRoute from './components/AdminRoute';
 import ClaimsManagement from './components/admin/ClaimsManagement';
 import UnauthorizedPolicyForm from './pages/UnauthorizedPolicyForm';
 import ApplicationSuccess from './pages/ApplicationSuccess';
+import InsurancePackageForm from './pages/InsurancePackageForm';
 
 const theme = createTheme({
   palette: {
@@ -268,6 +269,7 @@ function App() {
                   }
                 />
                 <Route path="/applications/success" element={<ApplicationSuccess />} />
+                <Route path="/insurance/packages/new" element={<InsurancePackageForm />} />
               </Route>
             </Routes>
           </AuthProvider>

@@ -22,7 +22,7 @@ import api from '../../utils/api';
 
 const steps = ['Данные владельца', 'Данные автомобиля', 'Период страхования', 'Данные водителей'];
 
-const OsagoForm = () => {
+const OsagoForm = ({ isPartOfPackage, packageId, onSubmit: parentOnSubmit }) => {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
@@ -503,7 +503,12 @@ const OsagoForm = () => {
         status: 'PENDING'
       };
 
-      // Send the OSAGO application
+      if (isPartOfPackage && packageId) {
+        // Если форма является частью пакета, используем parentOnSubmit
+        return parentOnSubmit(applicationData);
+      }
+
+      // Стандартная отправка формы ОСАГО
       const response = await api.post('/api/insurance/applications/osago', applicationData);
       
       if (!response.data) {

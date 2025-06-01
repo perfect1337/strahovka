@@ -1,0 +1,21 @@
+CREATE TYPE package_type AS ENUM ('KASKO_OSAGO', 'PROPERTY_LIABILITY', 'HEALTH_TRAVEL', 'CUSTOM');
+CREATE TYPE package_status AS ENUM ('PENDING', 'PARTIALLY_COMPLETED', 'COMPLETED', 'CANCELLED');
+
+CREATE TABLE insurance_packages (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    original_total_amount DECIMAL(10,2),
+    discount_percentage INTEGER NOT NULL,
+    final_amount DECIMAL(10,2),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    package_type package_type NOT NULL,
+    status package_status NOT NULL DEFAULT 'PENDING',
+    CONSTRAINT insurance_packages_discount_percentage_check CHECK (discount_percentage >= 0 AND discount_percentage <= 100)
+);
+
+-- Add reference to insurance_packages in applications tables
+ALTER TABLE kasko_applications ADD COLUMN package_id BIGINT REFERENCES insurance_packages(id);
+ALTER TABLE osago_applications ADD COLUMN package_id BIGINT REFERENCES insurance_packages(id);
+ALTER TABLE property_applications ADD COLUMN package_id BIGINT REFERENCES insurance_packages(id);
+ALTER TABLE health_applications ADD COLUMN package_id BIGINT REFERENCES insurance_packages(id);
+ALTER TABLE travel_applications ADD COLUMN package_id BIGINT REFERENCES insurance_packages(id); 

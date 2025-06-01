@@ -21,6 +21,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
+import { useNavigate } from 'react-router-dom';
 
 const ApartmentForm = () => {
   const [form, setForm] = useState({
@@ -69,7 +70,9 @@ const ApartmentForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [calculatedAmount, setCalculatedAmount] = useState(null);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -126,13 +129,33 @@ const ApartmentForm = () => {
     
     try {
       const formData = {
-        ...form,
+        propertyType: 'apartment',
+        address: form.address,
+        propertyArea: form.totalArea,
+        yearBuilt: parseInt(form.yearBuilt),
+        constructionType: form.constructionType,
+        propertyValue: form.propertyValue,
+        hasSecuritySystem: form.hasSecurity,
+        hasFireAlarm: true,
+        coverNaturalDisasters: true,
+        coverTheft: true,
+        coverThirdPartyLiability: form.includeThirdPartyLiability,
+        ownershipDocumentNumber: form.ownerPassport,
+        cadastralNumber: form.cadastralNumber,
+        hasMortgage: false,
+        mortgageBank: null,
         startDate: form.startDate?.toISOString().split('T')[0],
-        endDate: form.endDate?.toISOString().split('T')[0],
+        endDate: form.endDate?.toISOString().split('T')[0]
       };
 
-      await api.post('/api/insurance/applications/apartment', formData);
+      const response = await api.post('/api/insurance/property', formData);
+      setCalculatedAmount(response.data.calculatedAmount);
       setSuccess(true);
+      
+      // Navigate to profile page after 3 seconds
+      setTimeout(() => {
+        navigate('/profile');
+      }, 3000);
       
       // Reset form
       setForm({
@@ -180,6 +203,14 @@ const ApartmentForm = () => {
         <Typography variant="h5" gutterBottom>Страхование квартиры</Typography>
         
         {error && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{error}</Alert>}
+        
+        {success && (
+          <Alert severity="success" sx={{ mt: 2, mb: 2 }}>
+            Заявка успешно отправлена! Рассчитанная сумма страхования: {Number(calculatedAmount).toLocaleString('ru-RU')} ₽
+            <br />
+            Через 3 секунды вы будете перенаправлены в личный кабинет.
+          </Alert>
+        )}
         
         {/* Property Information Section */}
         <Paper sx={{ p: 2, mb: 2 }}>

@@ -41,48 +41,20 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/insurance/unauthorized/**",
-                    "/api/insurance/guides"
-                ).permitAll()
-                .requestMatchers(HttpMethod.GET,
-                    "/api/insurance/packages",
                     "/api/insurance/packages/public",
                     "/api/insurance/categories",
-                    "/api/insurance/guides/**",
-                    "/api/insurance-guide/**"
+                    "/error"
                 ).permitAll()
-                .requestMatchers(HttpMethod.POST,
-                    "/api/insurance/unauthorized/**"
-                ).permitAll()
-                .requestMatchers(HttpMethod.POST,
-                    "/api/insurance/packages",
-                    "/api/insurance/guides"
-                ).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(HttpMethod.PUT,
-                    "/api/insurance/packages/**",
-                    "/api/insurance/guides/**"
-                ).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(HttpMethod.DELETE,
-                    "/api/insurance/packages/**",
-                    "/api/insurance/guides/**"
-                ).hasAuthority("ROLE_ADMIN")
-                .requestMatchers(
-                    "/api/insurance/categories/**",
-                    "/api/admin/**"
-                ).hasAuthority("ROLE_ADMIN")
                 .requestMatchers(
                     "/api/users/profile",
                     "/api/insurance/applications/**",
                     "/api/insurance/policies/**",
+                    "/api/insurance/claims/**",
+                    "/api/insurance/applications/user/**",
+                    "/api/insurance/policies/user/**",
                     "/api/insurance/claims/user/**",
-                    "/api/insurance/claims/{claimId}/messages/**",
-                    "/api/insurance/claims/attachments/**"
+                    "/api/insurance/packages/user/**"
                 ).authenticated()
-                .requestMatchers("/api/insurance/claims").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
-                .requestMatchers("/api/insurance/claims/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "ROLE_MODERATOR")
-                .requestMatchers("/api/insurance/claims/all").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
-                .requestMatchers("/api/insurance/claims/process/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MODERATOR")
-                .requestMatchers("/api/insurance/applications/user/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
-                .requestMatchers("/api/insurance/policies/user/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
@@ -116,8 +88,21 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+        configuration.setExposedHeaders(Arrays.asList(
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials",
+            "Authorization"
+        ));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
