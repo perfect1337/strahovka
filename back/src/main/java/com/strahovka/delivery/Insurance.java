@@ -24,92 +24,6 @@ public class Insurance {
     @NoArgsConstructor
     @AllArgsConstructor
     @Entity
-    @Table(name = "insurance_policies")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    public static class InsurancePolicy {
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
-
-        @NotBlank(message = "Название полиса обязательно")
-        @Column(name = "policy_name", nullable = false, length = 255)
-        private String name;
-
-        @NotBlank(message = "Описание полиса обязательно")
-        @Column(name = "description", nullable = false, columnDefinition = "TEXT")
-        private String description;
-
-        @NotNull(message = "Цена обязательна")
-        @Column(name = "price", nullable = false, precision = 10, scale = 2)
-        private BigDecimal price;
-
-        @ManyToOne(fetch = FetchType.EAGER)
-        @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_category"))
-        @JsonIgnoreProperties({"packages", "hibernateLazyInitializer", "handler"})
-        private InsuranceCategory category;
-
-        @Column(name = "active", nullable = false)
-        @Builder.Default
-        private boolean active = true;
-
-        @ManyToOne(fetch = FetchType.EAGER)
-        @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_policy_user"))
-        @JsonIgnoreProperties({"policies", "hibernateLazyInitializer", "handler"})
-        private User user;
-
-        @Column(name = "start_date", nullable = false)
-        private LocalDate startDate;
-
-        @Column(name = "end_date", nullable = false)
-        private LocalDate endDate;
-
-        @Enumerated(EnumType.STRING)
-        @Column(name = "status", nullable = false, length = 20)
-        @Builder.Default
-        private PolicyStatus status = PolicyStatus.ACTIVE;
-
-        @Column(name = "details", columnDefinition = "TEXT")
-        private String details;
-
-        @Column(name = "cashback", nullable = false, precision = 10, scale = 2)
-        @Builder.Default
-        private BigDecimal cashback = BigDecimal.ZERO;
-
-        @ManyToOne(fetch = FetchType.EAGER)
-        @JoinColumn(name = "guide_id", foreignKey = @ForeignKey(name = "fk_insurance_policies_guide"))
-        @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-        private InsuranceGuide guide;
-
-        @Column(name = "cancelled_at")
-        private LocalDateTime cancelledAt;
-
-        @Column(name = "cancellation_reason", columnDefinition = "TEXT")
-        private String cancellationReason;
-
-        @Column(name = "refund_amount", precision = 10, scale = 2)
-        private BigDecimal refundAmount;
-
-        @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL)
-        @Builder.Default
-        private List<InsuranceClaim> claims = new ArrayList<>();
-
-        @PrePersist
-        @PreUpdate
-        public void calculateCashback() {
-            if (user != null && user.getLevel() != null && price != null) {
-                BigDecimal cashbackPercentage = BigDecimal.valueOf(user.getLevel().getCashbackPercentage())
-                        .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-                this.cashback = price.multiply(cashbackPercentage)
-                        .setScale(2, RoundingMode.HALF_UP);
-            }
-        }
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Entity
     @Table(name = "insurance_packages")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     public static class InsurancePackage {
@@ -280,7 +194,7 @@ public class Insurance {
         private String title;
 
         @NotBlank(message = "Описание справочника обязательно")
-        @Column(name = "description", nullable = false, columnDefinition = "TEXT")
+        @Column(name = "description", nullable = false)
         private String description;
 
         @NotBlank(message = "Тип страхования обязателен")
@@ -288,15 +202,15 @@ public class Insurance {
         private String insuranceType;
 
         @NotBlank(message = "Важные заметки обязательны")
-        @Column(name = "important_notes", nullable = false, columnDefinition = "TEXT")
+        @Column(name = "important_notes", nullable = false)
         private String importantNotes;
 
         @NotBlank(message = "Необходимые документы обязательны")
-        @Column(name = "required_documents", nullable = false, columnDefinition = "TEXT")
+        @Column(name = "required_documents", nullable = false)
         private String requiredDocuments;
 
         @NotBlank(message = "Детали покрытия обязательны")
-        @Column(name = "coverage_details", nullable = false, columnDefinition = "TEXT")
+        @Column(name = "coverage_details", nullable = false)
         private String coverageDetails;
 
         @Column(name = "active", nullable = false)

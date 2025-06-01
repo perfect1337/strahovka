@@ -1,17 +1,13 @@
 package com.strahovka.config;
 
-import com.strahovka.security.CurrentUserArgumentResolver;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.util.List;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
-
     @Override
-    public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(new CurrentUserArgumentResolver());
+    public void addInterceptors(InterceptorRegistry registry) {
+        // If no other interceptors, this method can be empty or the class doesn't need to implement WebMvcConfigurer
     }
 } 

@@ -1,6 +1,6 @@
 package com.strahovka.delivery;
 
-import com.strahovka.delivery.Insurance.InsurancePolicy;
+import com.strahovka.delivery.InsurancePolicy;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;

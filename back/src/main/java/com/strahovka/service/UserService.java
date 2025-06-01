@@ -43,7 +43,7 @@ public class UserService {
 
         // Set default role if not set
         if (user.getRole() == null) {
-        user.setRole(Role.ROLE_USER);
+        user.setRole(Role.USER);
         }
         
         // Hash the password
@@ -114,5 +114,21 @@ public class UserService {
                 .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION))
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    public User createUser(String email, String password, String firstName, String lastName) {
+        if (userRepository.existsByEmail(email)) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        User user = User.builder()
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .firstName(firstName)
+                .lastName(lastName)
+                .role(Role.USER)
+                .build();
+
+        return userRepository.save(user);
     }
 } 

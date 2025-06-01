@@ -6,7 +6,9 @@ import com.strahovka.delivery.Claims.InsuranceClaim;
 import com.strahovka.delivery.Claims.ClaimStatus;
 import com.strahovka.service.InsuranceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/insurance")
 @RequiredArgsConstructor
@@ -50,6 +53,11 @@ public class InsuranceController {
     // Policy endpoints
     @GetMapping("/policies")
     public ResponseEntity<List<InsurancePolicy>> getUserPolicies(@AuthenticationPrincipal UserDetails userDetails) {
+        log.info("getUserPolicies called. UserDetails: {}", userDetails);
+        if (userDetails == null) {
+            log.error("UserDetails is NULL in getUserPolicies");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserPolicies(userDetails.getUsername()));
     }
 
@@ -100,28 +108,66 @@ public class InsuranceController {
     }
 
     // Application endpoints
+    @PostMapping("/applications/kasko")
+    public ResponseEntity<KaskoApplication> createKaskoApplication(
+            @RequestBody KaskoApplication kaskoApplication,
+            Authentication authentication) {
+        log.info("createKaskoApplication called. Authentication: {}, Payload: {}", authentication, kaskoApplication);
+        if (authentication == null || authentication.getName() == null) {
+            log.error("Authentication is NULL or user is not authenticated in createKaskoApplication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        KaskoApplication createdApplication = insuranceService.createKaskoApplication(kaskoApplication, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
     @GetMapping("/applications/kasko")
     public ResponseEntity<List<KaskoApplication>> getUserKaskoApplications(Authentication auth) {
+        log.info("getUserKaskoApplications called. Authentication: {}", auth);
+        if (auth == null) {
+            log.error("Authentication is NULL in getUserKaskoApplications");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserKaskoApplications(auth.getName()));
     }
 
     @GetMapping("/applications/osago")
     public ResponseEntity<List<OsagoApplication>> getUserOsagoApplications(Authentication auth) {
+        log.info("getUserOsagoApplications called. Authentication: {}", auth);
+        if (auth == null) {
+            log.error("Authentication is NULL in getUserOsagoApplications");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserOsagoApplications(auth.getName()));
     }
 
     @GetMapping("/applications/property")
     public ResponseEntity<List<PropertyApplication>> getUserPropertyApplications(Authentication auth) {
+        log.info("getUserPropertyApplications called. Authentication: {}", auth);
+        if (auth == null) {
+            log.error("Authentication is NULL in getUserPropertyApplications");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserPropertyApplications(auth.getName()));
     }
 
     @GetMapping("/applications/health")
     public ResponseEntity<List<HealthApplication>> getUserHealthApplications(Authentication auth) {
+        log.info("getUserHealthApplications called. Authentication: {}", auth);
+        if (auth == null) {
+            log.error("Authentication is NULL in getUserHealthApplications");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserHealthApplications(auth.getName()));
     }
 
     @GetMapping("/applications/travel")
     public ResponseEntity<List<TravelApplication>> getUserTravelApplications(Authentication auth) {
+        log.info("getUserTravelApplications called. Authentication: {}", auth);
+        if (auth == null) {
+            log.error("Authentication is NULL in getUserTravelApplications");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserTravelApplications(auth.getName()));
     }
 
@@ -156,7 +202,7 @@ public class InsuranceController {
     }
 
     // Public endpoints
-    @GetMapping("/public/packages")
+    @GetMapping("/packages/public")
     public ResponseEntity<List<InsurancePackage>> getPublicPackages() {
         return ResponseEntity.ok(insuranceService.getPublicPackages());
     }
@@ -167,11 +213,21 @@ public class InsuranceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Authentication auth) {
+        log.info("getUserClaims called. Authentication: {}, Page: {}, Size: {}", auth, page, size);
+        if (auth == null) {
+            log.error("Authentication is NULL in getUserClaims");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.getUserClaims(auth.getName(), page, size));
     }
 
     @PostMapping("/claims")
     public ResponseEntity<InsuranceClaim> createClaim(@RequestBody InsuranceClaim claim, Authentication auth) {
+        log.info("createClaim called. Authentication: {}", auth);
+        if (auth == null) {
+            log.error("Authentication is NULL in createClaim");
+            return ResponseEntity.status(500).build();
+        }
         return ResponseEntity.ok(insuranceService.createClaim(claim, auth.getName()));
     }
 } 

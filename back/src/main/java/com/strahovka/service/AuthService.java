@@ -1,130 +1,93 @@
 package com.strahovka.service;
 
-import com.strahovka.delivery.*;
+import com.strahovka.delivery.Role;
+import com.strahovka.delivery.User;
+import com.strahovka.dto.LoginRequest;
+import com.strahovka.dto.LoginResponse;
+import com.strahovka.dto.RegisterRequest;
 import com.strahovka.repository.UserRepository;
-import com.strahovka.security.JwtService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
+    private final BCryptPasswordEncoder passwordEncoder;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email уже зарегистрирован");
+    public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid password");
         }
 
-        User user = new User();
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setRole(Role.ROLE_USER);
-        user.setRefreshToken(UUID.randomUUID().toString());
+        String token = jwtService.generateToken(user.getEmail());
+        String refreshToken = jwtService.generateRefreshToken(user.getEmail());
 
-        String accessToken = jwtService.generateToken(user);
-        user.setAccessToken(accessToken);
-        
-        userRepository.save(user);
-
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(user.getRefreshToken())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .role(user.getRole())
-                .level(user.getLevel())
-                .policyCount(user.getPolicyCount())
-                .build();
-    }
-
-    @Transactional
-    public AuthResponse authenticate(AuthRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
-
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-
-        String accessToken = jwtService.generateToken(user);
-        String refreshToken = UUID.randomUUID().toString();
-        
-        user.setAccessToken(accessToken);
+        user.setAccessToken(token);
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .role(user.getRole())
-                .level(user.getLevel())
-                .policyCount(user.getPolicyCount())
-                .build();
+        return new LoginResponse(token, refreshToken);
     }
 
     @Transactional
-    public AuthResponse refreshToken(String refreshToken) {
-        User user = userRepository.findByRefreshToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+    public LoginResponse register(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already registered");
+        }
 
-        String accessToken = jwtService.generateToken(user);
-        String newRefreshToken = UUID.randomUUID().toString();
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .middleName(request.getMiddleName())
+                .phone(request.getPhone())
+                .role(Role.USER)
+                .build();
 
-        user.setAccessToken(accessToken);
+        userRepository.save(user);
+
+        String token = jwtService.generateToken(user.getEmail());
+        String refreshToken = jwtService.generateRefreshToken(user.getEmail());
+
+        user.setAccessToken(token);
+        user.setRefreshToken(refreshToken);
+        userRepository.save(user);
+
+        return new LoginResponse(token, refreshToken);
+    }
+
+    @Transactional
+    public LoginResponse refreshToken(String refreshToken) {
+        if (refreshToken == null || !refreshToken.startsWith("Bearer ")) {
+            throw new RuntimeException("Invalid refresh token");
+        }
+
+        String token = refreshToken.substring(7);
+        String userEmail = jwtService.extractUsername(token);
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!token.equals(user.getRefreshToken())) {
+            throw new RuntimeException("Invalid refresh token");
+        }
+
+        String newToken = jwtService.generateToken(userEmail);
+        String newRefreshToken = jwtService.generateRefreshToken(userEmail);
+
+        user.setAccessToken(newToken);
         user.setRefreshToken(newRefreshToken);
         userRepository.save(user);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(newRefreshToken)
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .role(user.getRole())
-                .level(user.getLevel())
-                .policyCount(user.getPolicyCount())
-                .build();
-    }
-
-    @Transactional
-    public void logout(String refreshToken) {
-        User user = userRepository.findByRefreshToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
-        
-        user.setAccessToken(null);
-        user.setRefreshToken(null);
-        userRepository.save(user);
-    }
-
-    public String generateToken(User user) {
-        String accessToken = jwtService.generateToken(user);
-        String refreshToken = UUID.randomUUID().toString();
-        
-        user.setAccessToken(accessToken);
-        user.setRefreshToken(refreshToken);
-        userRepository.save(user);
-        
-        return accessToken;
+        return new LoginResponse(newToken, newRefreshToken);
     }
 } 

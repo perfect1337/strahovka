@@ -205,7 +205,7 @@ const Profile = () => {
 
   const fetchPolicies = async () => {
     try {
-      const response = await api.get('/api/insurance/policies/user');
+      const response = await api.get('/api/insurance/policies');
       setPolicies(response.data);
     } catch (error) {
       console.error('Error fetching policies:', error);
@@ -215,11 +215,11 @@ const Profile = () => {
   const fetchAllApplications = async () => {
     try {
       const [kasko, osago, travel, health, property] = await Promise.all([
-        api.get('/api/insurance/applications/user/kasko'),
-        api.get('/api/insurance/applications/user/osago'),
-        api.get('/api/insurance/applications/user/travel'),
-        api.get('/api/insurance/applications/user/health'),
-        api.get('/api/insurance/applications/user/property')
+        api.get('/api/insurance/applications/kasko'),
+        api.get('/api/insurance/applications/osago'),
+        api.get('/api/insurance/applications/travel'),
+        api.get('/api/insurance/applications/health'),
+        api.get('/api/insurance/applications/property')
       ]);
 
       setApplications({

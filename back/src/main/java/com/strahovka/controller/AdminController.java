@@ -5,8 +5,6 @@ import com.strahovka.delivery.User;
 import com.strahovka.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,44 +15,43 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminController {
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
 
-    @GetMapping("/moderators")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<User>> getModerators() {
-        List<User> moderators = userRepository.findByRole(Role.ROLE_MODERATOR);
-        return ResponseEntity.ok(moderators);
+    @GetMapping("/users")
+    public ResponseEntity<List<User>> getAllUsers() {
+        return ResponseEntity.ok(userRepository.findAll());
     }
 
-    @PostMapping("/moderators")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<User> createModerator(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        String password = request.get("password");
-        String firstName = request.get("firstName");
-        String lastName = request.get("lastName");
+    @PostMapping("/users/{id}/promote")
+    public ResponseEntity<?> promoteUser(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (userRepository.existsByEmail(email)) {
-            return ResponseEntity.badRequest().build();
+        if (user.getRole() == Role.ADMIN) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "User is already an admin"));
         }
 
-        User moderator = new User();
-        moderator.setEmail(email);
-        moderator.setPassword(passwordEncoder.encode(password));
-        moderator.setFirstName(firstName);
-        moderator.setLastName(lastName);
-        moderator.setRole(Role.ROLE_MODERATOR);
+        user.setRole(Role.ADMIN);
+        userRepository.save(user);
 
-        return ResponseEntity.ok(userRepository.save(moderator));
+        return ResponseEntity.ok()
+                .body(Map.of("message", "User promoted to admin successfully"));
     }
 
-    @DeleteMapping("/moderators/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteModerator(@PathVariable Long id) {
-        if (!userRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+    @PostMapping("/users/{id}/demote")
+    public ResponseEntity<?> demoteUser(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() == Role.USER) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "User is already a regular user"));
         }
-        userRepository.deleteById(id);
-        return ResponseEntity.ok().build();
+
+        user.setRole(Role.USER);
+        userRepository.save(user);
+
+        return ResponseEntity.ok()
+                .body(Map.of("message", "User demoted to regular user successfully"));
     }
 } 

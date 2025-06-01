@@ -6,254 +6,109 @@ import com.strahovka.dto.RegisterRequest;
 import com.strahovka.delivery.Role;
 import com.strahovka.delivery.User;
 import com.strahovka.repository.UserRepository;
-import com.strahovka.security.JwtService;
+import com.strahovka.service.JwtService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final BCryptPasswordEncoder passwordEncoder;
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        String password = request.get("password");
-        String firstName = request.get("firstName");
-        String lastName = request.get("lastName");
-        String middleName = request.get("middleName");
-        String phone = request.get("phone");
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (userRepository.existsByEmail(email)) {
-            return ResponseEntity.badRequest().body(new HashMap<String, String>() {{
-                put("message", "Email already exists");
-            }});
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid password");
         }
 
-        User user = new User();
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(password));
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setMiddleName(middleName);
-        user.setPhone(phone);
-        user.setRole(Role.ROLE_USER);
-        String token = jwtService.generateToken(user);
-        String refreshToken = UUID.randomUUID().toString();
-        
-        // Save tokens
+        String token = jwtService.generateToken(user.getEmail());
+        String refreshToken = jwtService.generateRefreshToken(user.getEmail());
+
         user.setAccessToken(token);
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("accessToken", token);
-        response.put("refreshToken", refreshToken);
-        response.put("email", user.getEmail());
-        response.put("firstName", user.getFirstName());
-        response.put("lastName", user.getLastName());
-        response.put("middleName", user.getMiddleName());
-        response.put("phone", user.getPhone());
-        response.put("role", user.getRole().name());
-        response.put("level", user.getLevel().name());
-        response.put("policyCount", user.getPolicyCount());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new LoginResponse(token, refreshToken));
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        String password = request.get("password");
+    @PostMapping("/register")
+    @Transactional
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+        log.info("Starting registration process for email: {}", request.getEmail());
+        
+        if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Email already registered: {}", request.getEmail());
+            throw new RuntimeException("Email already registered");
+        }
 
         try {
-            Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, password)
-            );
+            User user = User.builder()
+                    .email(request.getEmail())
+                    .password(passwordEncoder.encode(request.getPassword()))
+                    .firstName(request.getFirstName())
+                    .lastName(request.getLastName())
+                    .role(Role.USER)
+                    .build();
 
-            User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+            log.info("Saving user to database...");
+            user = userRepository.save(user);
+            log.info("User saved successfully with ID: {}", user.getId());
 
-            String token = jwtService.generateToken(user);
-            String refreshToken = UUID.randomUUID().toString();
-            
-            // Save tokens
+            String token = jwtService.generateToken(user.getEmail());
+            String refreshToken = jwtService.generateRefreshToken(user.getEmail());
+
             user.setAccessToken(token);
             user.setRefreshToken(refreshToken);
-            userRepository.save(user);
+            
+            log.info("Updating user with tokens...");
+            user = userRepository.save(user);
+            log.info("User updated with tokens successfully");
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("accessToken", token);
-            response.put("refreshToken", refreshToken);
-            response.put("email", user.getEmail());
-            response.put("firstName", user.getFirstName());
-            response.put("lastName", user.getLastName());
-            response.put("role", user.getRole().name());
-            response.put("level", user.getLevel().name());
-            response.put("policyCount", user.getPolicyCount());
-
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new LoginResponse(token, refreshToken));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new HashMap<String, String>() {{
-                put("message", "Invalid credentials");
-            }});
+            log.error("Error during registration", e);
+            throw new RuntimeException("Registration failed: " + e.getMessage());
         }
-    }
-
-    @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).body(new HashMap<String, String>() {{
-                put("message", "Not authenticated");
-            }});
-        }
-
-        User user = (User) authentication.getPrincipal();
-        Map<String, Object> response = new HashMap<>();
-        response.put("email", user.getEmail());
-        response.put("firstName", user.getFirstName());
-        response.put("lastName", user.getLastName());
-        response.put("role", user.getRole().name());
-        response.put("level", user.getLevel().name());
-        response.put("policyCount", user.getPolicyCount());
-
-        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> request) {
-        try {
-            String email = request.get("email");
-            String refreshToken = request.get("refreshToken");
+    public ResponseEntity<?> refreshToken(@RequestHeader("Authorization") String refreshToken) {
+        if (refreshToken == null || !refreshToken.startsWith("Bearer ")) {
+            throw new RuntimeException("Invalid refresh token");
+        }
 
-            System.out.println("Refreshing token for user: " + email);
-            System.out.println("Refresh token: " + refreshToken);
+        String token = refreshToken.substring(7);
+        String userEmail = jwtService.extractUsername(token);
 
-            if (email == null || refreshToken == null) {
-                return ResponseEntity.badRequest().body(new HashMap<String, String>() {{
-                    put("message", "Email and refresh token are required");
-                }});
-            }
-
-            User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // Verify refresh token
-            if (!refreshToken.equals(user.getRefreshToken())) {
-                System.out.println("Refresh token mismatch");
-                return ResponseEntity.status(401).body(new HashMap<String, String>() {{
-                    put("message", "Invalid refresh token");
-                }});
-            }
+        if (!token.equals(user.getRefreshToken())) {
+            throw new RuntimeException("Invalid refresh token");
+        }
 
-            // Generate new tokens
-            String newToken = jwtService.generateToken(user);
-            String newRefreshToken = UUID.randomUUID().toString();
-            
-            // Update tokens in database
-            user.setAccessToken(newToken);
-            user.setRefreshToken(newRefreshToken);
-            userRepository.save(user);
-            
-            System.out.println("New tokens generated successfully");
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("accessToken", newToken);
-            response.put("refreshToken", newRefreshToken);
-            response.put("email", user.getEmail());
-            response.put("firstName", user.getFirstName());
-            response.put("lastName", user.getLastName());
-            response.put("role", user.getRole().name());
-            response.put("level", user.getLevel().name());
-            response.put("policyCount", user.getPolicyCount());
-            
-            System.out.println("Token refresh response prepared");
-            System.out.println("Role in response: " + response.get("role"));
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            System.out.println("Error refreshing token: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.status(500)
-                .body(new HashMap<String, String>() {{
-                    put("message", "Error refreshing token: " + e.getMessage());
-                }});
-        }
-    }
+        String newToken = jwtService.generateToken(userEmail);
+        String newRefreshToken = jwtService.generateRefreshToken(userEmail);
 
-    @GetMapping("/debug-token")
-    public ResponseEntity<?> debugToken() {
-        try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String token = null;
-            
-            // Try to extract token from request
-            if (auth != null && auth.getCredentials() instanceof String) {
-                token = (String) auth.getCredentials();
-            }
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("isAuthenticated", auth != null && auth.isAuthenticated());
-            response.put("principal", auth != null ? auth.getPrincipal() : null);
-            response.put("name", auth != null ? auth.getName() : null);
-            response.put("authorities", auth != null ? 
-                auth.getAuthorities().stream()
-                    .map(a -> Map.of(
-                        "authority", a.getAuthority(),
-                        "class", a.getClass().getSimpleName()
-                    ))
-                    .collect(Collectors.toList()) : null);
-            
-            // Include token info if available
-            if (token != null) {
-                try {
-                    response.put("token", token.substring(0, Math.min(token.length(), 20)) + "...");
-                    response.put("tokenLength", token.length());
-                    response.put("tokenInfo", extractTokenInfo(token));
-                } catch (Exception e) {
-                    response.put("tokenError", e.getMessage());
-                }
-            } else {
-                response.put("token", "Not available in authentication object");
-            }
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(500)
-                .body(Map.of(
-                    "error", "Error debugging token", 
-                    "message", e.getMessage(),
-                    "stackTrace", Arrays.toString(e.getStackTrace())
-                ));
-        }
-    }
-    
-    private Map<String, Object> extractTokenInfo(String token) {
-        Map<String, Object> tokenInfo = new HashMap<>();
-        try {
-            tokenInfo.put("claims", jwtService.extractAllClaims(token));
-            tokenInfo.put("isExpired", jwtService.isTokenExpired(token));
-            tokenInfo.put("subject", jwtService.extractUsername(token));
-        } catch (Exception e) {
-            tokenInfo.put("error", e.getMessage());
-        }
-        return tokenInfo;
+        user.setAccessToken(newToken);
+        user.setRefreshToken(newRefreshToken);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(new LoginResponse(newToken, newRefreshToken));
     }
 } 

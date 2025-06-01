@@ -34,7 +34,7 @@ public class InsurancePolicy {
     private String name;
 
     @NotBlank(message = "Описание полиса обязательно")
-    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "description", nullable = false)
     private String description;
 
     @NotNull(message = "Цена обязательна")
@@ -66,7 +66,7 @@ public class InsurancePolicy {
     @Builder.Default
     private Insurance.PolicyStatus status = Insurance.PolicyStatus.ACTIVE;
 
-    @Column(name = "details", columnDefinition = "TEXT")
+    @Column(name = "details")
     private String details;
 
     @Column(name = "cashback", nullable = false, precision = 10, scale = 2)
@@ -81,7 +81,7 @@ public class InsurancePolicy {
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
-    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    @Column(name = "cancellation_reason")
     private String cancellationReason;
 
     @Column(name = "refund_amount", precision = 10, scale = 2)

@@ -55,9 +55,8 @@ public class User implements UserDetails {
     private String accessToken;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    @Builder.Default
-    private Role role = Role.ROLE_USER;
+    @Column(name = "role")
+    private Role role = Role.USER;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "level", nullable = false)

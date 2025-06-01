@@ -41,27 +41,27 @@ export const cancelClaim = async (claimId) => {
 };
 
 export const getKaskoApplications = async () => {
-    const response = await api.get('/api/insurance/kasko/user');
+    const response = await api.get('/api/insurance/applications/kasko');
     return response.data;
 };
 
 export const getOsagoApplications = async () => {
-    const response = await api.get('/api/insurance/osago/user');
+    const response = await api.get('/api/insurance/applications/osago');
     return response.data;
 };
 
 export const getTravelApplications = async () => {
-    const response = await api.get('/api/insurance/travel/user');
+    const response = await api.get('/api/insurance/applications/travel');
     return response.data;
 };
 
 export const getHealthApplications = async () => {
-    const response = await api.get('/api/insurance/health/user');
+    const response = await api.get('/api/insurance/applications/health');
     return response.data;
 };
 
 export const getPropertyApplications = async () => {
-    const response = await api.get('/api/insurance/property/user');
+    const response = await api.get('/api/insurance/applications/property');
     return response.data;
 };
 

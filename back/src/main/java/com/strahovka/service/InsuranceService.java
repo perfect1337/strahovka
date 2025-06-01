@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -19,6 +21,7 @@ import java.util.List;
 public class InsuranceService {
 
     private final InsuranceRepository insuranceRepository;
+    private final ApplicationRepository applicationRepository;
     private final ClaimsRepository claimsRepository;
     private final UserRepository userRepository;
 
@@ -152,6 +155,25 @@ public class InsuranceService {
     }
 
     // Application operations
+    @Transactional
+    public KaskoApplication createKaskoApplication(KaskoApplication kaskoApplication, String usernameOrEmail) {
+        User user = findUser(usernameOrEmail);
+        kaskoApplication.setUser(user);
+        kaskoApplication.setApplicationDate(LocalDateTime.now());
+        kaskoApplication.setStatus("PENDING");
+
+        LocalDate startDate = LocalDate.now();
+        kaskoApplication.setStartDate(startDate);
+        if (kaskoApplication.getDuration() != null) {
+            kaskoApplication.setEndDate(startDate.plusMonths(kaskoApplication.getDuration()));
+        }
+        
+        // Устанавливаем временное значение для суммы
+        kaskoApplication.setCalculatedAmount(new BigDecimal("1000.00"));
+
+        return applicationRepository.save(kaskoApplication);
+    }
+
     @Transactional(readOnly = true)
     public List<KaskoApplication> getUserKaskoApplications(String usernameOrEmail) {
         return insuranceRepository.findKaskoApplicationsByUsername(usernameOrEmail);
