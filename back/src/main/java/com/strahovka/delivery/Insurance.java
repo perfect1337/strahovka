@@ -229,6 +229,10 @@ public class Insurance {
         @Column(name = "updated_at", nullable = false)
         private LocalDateTime updatedAt;
 
+        @NotBlank(message = "Содержание справочника обязательно")
+        @Column(name = "content", nullable = false, columnDefinition = "text")
+        private String content;
+
         @PrePersist
         protected void onCreate() {
             createdAt = LocalDateTime.now();

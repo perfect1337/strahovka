@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,14 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Modifying
     @Query("DELETE FROM Insurance$InsuranceGuide g WHERE g.id = :id")
     void deleteGuideById(@Param("id") Long id);
+
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO insurance_guides (title, description, insurance_type, important_notes, required_documents, coverage_details, calculation_rules, active, display_order, created_at, updated_at) " +
+           "VALUES (:#{#guide.title}, :#{#guide.description}, :#{#guide.insuranceType}, :#{#guide.importantNotes}, " +
+           ":#{#guide.requiredDocuments}, :#{#guide.coverageDetails}, :#{#guide.calculationRules}, :#{#guide.active}, " +
+           ":#{#guide.displayOrder}, :#{#guide.createdAt}, :#{#guide.updatedAt}) RETURNING *", nativeQuery = true)
+    InsuranceGuide saveGuide(@Param("guide") InsuranceGuide guide);
 
     // Package operations
     @Query("SELECT p FROM Insurance$InsurancePackage p WHERE p.user.email = :email")
@@ -89,6 +98,9 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Query("DELETE FROM Insurance$InsuranceCategory c WHERE c.id = :id")
     void deleteCategoryById(@Param("id") Long id);
 
+    @Query("SELECT c FROM Insurance$InsuranceCategory c WHERE c.name = :name")
+    InsuranceCategory findCategoryByName(@Param("name") String name);
+
     // Application operations
     @Query("SELECT a FROM Insurance$KaskoApplication a WHERE a.user.email = :email")
     List<KaskoApplication> findKaskoApplicationsByUsername(@Param("email") String email);
@@ -108,9 +120,6 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Modifying
     @Query("DELETE FROM Insurance$BaseApplication a WHERE a.id = :id")
     void deleteApplicationById(@Param("id") Long id);
-
-    @Query("SELECT c FROM Insurance$InsuranceCategory c WHERE c.name = :name")
-    InsuranceCategory findCategoryByName(@Param("name") String name);
 
     Optional<InsurancePolicy> findByIdAndUser(Long policyId, User user);
 } 

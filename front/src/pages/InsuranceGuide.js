@@ -20,6 +20,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   FormControlLabel,
+  FormHelperText,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../context/AuthContext';
@@ -43,7 +44,9 @@ const InsuranceGuide = () => {
     requiredDocuments: '',
     coverageDetails: '',
     calculationRules: '',
-    active: true
+    active: true,
+    displayOrder: 0,
+    content: ''
   });
 
   const insuranceTypes = [
@@ -84,7 +87,9 @@ const InsuranceGuide = () => {
         requiredDocuments: guide.requiredDocuments || '',
         coverageDetails: guide.coverageDetails || '',
         calculationRules: guide.calculationRules || '',
-        active: guide.active
+        active: guide.active,
+        displayOrder: guide.displayOrder || 0,
+        content: guide.content || ''
       });
       setSelectedGuide(guide);
     } else {
@@ -96,7 +101,9 @@ const InsuranceGuide = () => {
         requiredDocuments: '',
         coverageDetails: '',
         calculationRules: '',
-        active: true
+        active: true,
+        displayOrder: 0,
+        content: ''
       });
       setSelectedGuide(null);
     }
@@ -109,6 +116,14 @@ const InsuranceGuide = () => {
   };
 
   const handleSubmit = async () => {
+    // Validate required fields
+    if (!formData.title || !formData.description || !formData.insuranceType ||
+        !formData.importantNotes || !formData.requiredDocuments || !formData.coverageDetails ||
+        formData.displayOrder === null) {
+      alert('Пожалуйста, заполните все обязательные поля');
+      return;
+    }
+
     try {
       if (selectedGuide) {
         await api.put(`/api/insurance/guides/${selectedGuide.id}`, formData);
@@ -119,6 +134,11 @@ const InsuranceGuide = () => {
       fetchGuides();
     } catch (error) {
       console.error('Error saving guide:', error);
+      if (error.response?.data) {
+        alert(`Ошибка: ${error.response.data}`);
+      } else {
+        alert('Произошла ошибка при сохранении справочника');
+      }
     }
   };
 
@@ -236,6 +256,8 @@ const InsuranceGuide = () => {
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               margin="normal"
               required
+              error={!formData.title}
+              helperText={!formData.title ? "Название справочника обязательно" : ""}
             />
             <TextField
               fullWidth
@@ -246,8 +268,10 @@ const InsuranceGuide = () => {
               multiline
               rows={4}
               required
+              error={!formData.description}
+              helperText={!formData.description ? "Описание справочника обязательно" : ""}
             />
-            <FormControl fullWidth margin="normal" required>
+            <FormControl fullWidth margin="normal" required error={!formData.insuranceType}>
               <InputLabel>Тип страхования</InputLabel>
               <Select
                 value={formData.insuranceType}
@@ -260,6 +284,9 @@ const InsuranceGuide = () => {
                   </MenuItem>
                 ))}
               </Select>
+              {!formData.insuranceType && (
+                <FormHelperText>Тип страхования обязателен</FormHelperText>
+              )}
             </FormControl>
             <TextField
               fullWidth
@@ -269,6 +296,9 @@ const InsuranceGuide = () => {
               margin="normal"
               multiline
               rows={3}
+              required
+              error={!formData.importantNotes}
+              helperText={!formData.importantNotes ? "Важные заметки обязательны" : ""}
             />
             <TextField
               fullWidth
@@ -278,6 +308,9 @@ const InsuranceGuide = () => {
               margin="normal"
               multiline
               rows={3}
+              required
+              error={!formData.requiredDocuments}
+              helperText={!formData.requiredDocuments ? "Необходимые документы обязательны" : ""}
             />
             <TextField
               fullWidth
@@ -287,6 +320,9 @@ const InsuranceGuide = () => {
               margin="normal"
               multiline
               rows={4}
+              required
+              error={!formData.coverageDetails}
+              helperText={!formData.coverageDetails ? "Детали покрытия обязательны" : ""}
             />
             <TextField
               fullWidth
@@ -297,6 +333,17 @@ const InsuranceGuide = () => {
               multiline
               rows={4}
             />
+            <TextField
+              fullWidth
+              label="Порядок отображения"
+              type="number"
+              value={formData.displayOrder}
+              onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
+              margin="normal"
+              required
+              error={formData.displayOrder === null}
+              helperText={formData.displayOrder === null ? "Порядок отображения обязателен" : ""}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
@@ -305,7 +352,9 @@ const InsuranceGuide = () => {
             onClick={handleSubmit}
             variant="contained"
             color="primary"
-            disabled={!formData.title || !formData.description || !formData.insuranceType}
+            disabled={!formData.title || !formData.description || !formData.insuranceType ||
+                     !formData.importantNotes || !formData.requiredDocuments || !formData.coverageDetails ||
+                     formData.displayOrder === null}
           >
             {selectedGuide ? 'Сохранить' : 'Создать'}
           </Button>

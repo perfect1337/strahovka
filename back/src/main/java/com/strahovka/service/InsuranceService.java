@@ -59,11 +59,53 @@ public class InsuranceService {
     public InsuranceGuide createGuide(InsuranceGuide guide) {
         guide.setCreatedAt(LocalDateTime.now());
         guide.setUpdatedAt(LocalDateTime.now());
+        if (guide.getDisplayOrder() == null) {
+            guide.setDisplayOrder(0); // Set default display order if not provided
+        }
         setCalculationRulesForGuide(guide);
+
+        // Set the content field by combining description and calculation rules
+        StringBuilder content = new StringBuilder();
+        if (guide.getDescription() != null) {
+            content.append(guide.getDescription()).append("\n\n");
+        }
+        if (guide.getCalculationRules() != null) {
+            content.append("Правила расчета:\n").append(guide.getCalculationRules());
+        }
+        guide.setContent(content.toString());
+
+        // Find or create the category based on insurance type
+        Insurance.InsuranceCategory category = insuranceRepository.findCategoryByName(guide.getInsuranceType());
+        if (category == null) {
+            category = new Insurance.InsuranceCategory();
+            category.setName(guide.getInsuranceType());
+            category.setDescription("Category for " + guide.getInsuranceType());
+            category.setBasePrice(BigDecimal.ZERO);
+            category.setType(guide.getInsuranceType());
+            insuranceRepository.saveCategory(category);
+            category = insuranceRepository.findCategoryByName(guide.getInsuranceType());
+        }
+
+        // Save the guide using EntityManager
+        entityManager.persist(guide);
+        entityManager.flush();
+
+        // Create and set up the policy
         InsurancePolicy policy = new InsurancePolicy();
-        policy.setGuide(guide);
-        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
-        return savedPolicy.getGuide();
+        policy.setName("Guide: " + guide.getTitle());
+        policy.setDescription(guide.getDescription());
+        policy.setPrice(BigDecimal.ZERO); // Set default price for guide policies
+        policy.setStartDate(LocalDate.now());
+        policy.setEndDate(LocalDate.now().plusYears(100)); // Set a far future end date for guides
+        policy.setActive(true);
+        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+        policy.setCategory(category);
+        policy.setGuide(guide); // Set the guide reference in the policy
+
+        // Save the policy
+        insuranceRepository.save(policy);
+        
+        return guide;
     }
 
     @Transactional

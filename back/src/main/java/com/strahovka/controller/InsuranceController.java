@@ -36,22 +36,22 @@ public class InsuranceController {
     private final InsuranceService insuranceService;
 
 
-    @PostMapping
+    @PostMapping("/guides")
     public ResponseEntity<InsuranceGuide> createGuide(@RequestBody InsuranceGuide guide) {
         return ResponseEntity.ok(insuranceService.createGuide(guide));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/guides/{id}")
     public ResponseEntity<InsuranceGuide> updateGuide(@PathVariable Long id, @RequestBody InsuranceGuide guide) {
         return ResponseEntity.ok(insuranceService.updateGuide(id, guide));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/guides/{id}")
     public ResponseEntity<Void> deleteGuide(@PathVariable Long id) {
         insuranceService.deleteGuide(id);
         return ResponseEntity.ok().build();
     }
-    // Guide endpoints
+
     @GetMapping("/guides")
     public ResponseEntity<List<InsuranceGuide>> getAllGuides() {
         return ResponseEntity.ok(insuranceService.getAllGuides());
