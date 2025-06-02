@@ -3,6 +3,7 @@ package com.strahovka.delivery;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.strahovka.entity.ClaimStatus;
 import com.strahovka.delivery.InsurancePolicy;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -188,13 +189,5 @@ public class Claims {
         protected void onUpdate() {
             updatedAt = LocalDateTime.now();
         }
-    }
-
-    public enum ClaimStatus {
-        PENDING,
-        IN_PROGRESS,
-        APPROVED,
-        REJECTED,
-        CLOSED
     }
 } 

@@ -1,7 +1,7 @@
 package com.strahovka.service;
 
-import com.strahovka.delivery.Role;
 import com.strahovka.delivery.User;
+import com.strahovka.entity.Role;
 import com.strahovka.dto.LoginRequest;
 import com.strahovka.dto.LoginResponse;
 import com.strahovka.dto.RegisterRequest;
@@ -101,7 +101,7 @@ public class AuthService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found for refresh token"));
 
-        if (!jwtService.isTokenValid(tokenValue, user.getEmail()) || !tokenValue.equals(user.getRefreshToken())) {
+        if (!jwtService.isTokenValid(tokenValue, user) || !tokenValue.equals(user.getRefreshToken())) {
             throw new RuntimeException("Invalid or expired refresh token");
         }
 
@@ -125,5 +125,17 @@ public class AuthService {
                 .level(user.getLevel())
                 .policyCount(user.getPolicyCount())
                 .build();
+    }
+
+    public User validateToken(String token) {
+        String userEmail = jwtService.extractUsername(token);
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!jwtService.isTokenValid(token, user)) {
+            throw new RuntimeException("Token is invalid or expired");
+        }
+
+        return user;
     }
 } 

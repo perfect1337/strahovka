@@ -1,5 +1,7 @@
 package com.strahovka.delivery;
 
+import com.strahovka.entity.Role;
+import com.strahovka.entity.UserLevel;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -25,12 +27,16 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
-    @Column(name = "first_name", nullable = false)
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(name = "first_name")
     private String firstName;
 
-    @NotBlank
-    @Column(name = "last_name", nullable = false)
+    @Column(name = "last_name")
     private String lastName;
 
     @Column(name = "middle_name")
@@ -39,25 +45,14 @@ public class User implements UserDetails {
     @Column(name = "phone")
     private String phone;
 
-    @NotBlank
-    @Email
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    @NotBlank
-    @Column(nullable = false)
-    private String password;
-
-    @Column(name = "refresh_token")
-    private String refreshToken;
+    @Enumerated(EnumType.STRING)
+    private Role role;
 
     @Column(name = "access_token")
     private String accessToken;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    @Builder.Default
-    private Role role = Role.USER;
+    @Column(name = "refresh_token")
+    private String refreshToken;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "level", nullable = false)
@@ -70,23 +65,12 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        System.out.println("=== User Authorities ===");
-        System.out.println("User email: " + email);
-        System.out.println("Role from entity: " + role.name());
-        
-        String authority = role.name();
-        System.out.println("Creating authority: " + authority);
-        return List.of(new SimpleGrantedAuthority(authority));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override
     public String getUsername() {
         return email;
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
     }
 
     @Override

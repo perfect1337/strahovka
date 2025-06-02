@@ -3,11 +3,12 @@ package com.strahovka.service;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import com.strahovka.repository.UserRepository;
-import com.strahovka.delivery.User;
 import jakarta.annotation.PostConstruct;
 
 import java.security.Key;
@@ -25,6 +26,9 @@ public class JwtService {
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    @Value("${jwt.refresh-token.expiration}")
+    private long refreshExpiration;
 
     private final UserRepository userRepository;
     private SecretKey key;
@@ -63,41 +67,34 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
 
-    public Boolean isTokenValid(String token, String userEmail) {
+    public Boolean isTokenValid(String token, UserDetails userDetails) {
         try {
             final String username = extractUsername(token);
-            return (username.equals(userEmail) && !isTokenExpired(token));
+            return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
         } catch (Exception e) {
             return false;
         }
     }
 
-    public String generateToken(String userEmail) {
-        Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userEmail);
+    public String generateToken(String username) {
+        return generateToken(new HashMap<>(), username);
     }
 
-    public String generateRefreshToken(String userEmail) {
-        Map<String, Object> claims = new HashMap<>();
-        return createRefreshToken(claims, userEmail);
+    public String generateToken(Map<String, Object> extraClaims, String username) {
+        return buildToken(extraClaims, username, jwtExpiration);
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
+    public String generateRefreshToken(String username) {
+        return buildToken(new HashMap<>(), username, refreshExpiration);
+    }
+
+    private String buildToken(Map<String, Object> extraClaims, String username, long expiration) {
+        return Jwts
+                .builder()
+                .setClaims(extraClaims)
+                .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
-                .signWith(key)
-                .compact();
-    }
-
-    private String createRefreshToken(Map<String, Object> claims, String subject) {
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) // 7 days
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key)
                 .compact();
     }

@@ -1,7 +1,7 @@
 package com.strahovka.dto;
 
-import com.strahovka.delivery.Role;
-import com.strahovka.delivery.UserLevel;
+import com.strahovka.entity.Role;
+import com.strahovka.entity.UserLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class LoginResponse {
     private String accessToken;
     private String refreshToken;
@@ -22,5 +22,5 @@ public class LoginResponse {
     private String phone;
     private Role role;
     private UserLevel level;
-    private Integer policyCount;
+    private int policyCount;
 } 

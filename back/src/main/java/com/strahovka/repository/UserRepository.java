@@ -1,7 +1,7 @@
 package com.strahovka.repository;
 
-import com.strahovka.delivery.Role;
 import com.strahovka.delivery.User;
+import com.strahovka.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

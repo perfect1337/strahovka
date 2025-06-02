@@ -1,7 +1,7 @@
 package com.strahovka.service;
 
 import com.strahovka.delivery.User;
-import com.strahovka.delivery.Role;
+import com.strahovka.entity.Role;
 import com.strahovka.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;

@@ -1,5 +1,6 @@
 package com.strahovka.delivery;
 
+import com.strahovka.entity.Role;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 

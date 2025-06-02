@@ -1,8 +1,8 @@
 package com.strahovka.controller;
 
-import com.strahovka.delivery.Role;
 import com.strahovka.delivery.User;
-import com.strahovka.delivery.UserLevel;
+import com.strahovka.entity.Role;
+import com.strahovka.entity.UserLevel;
 import com.strahovka.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

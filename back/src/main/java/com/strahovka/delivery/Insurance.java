@@ -2,6 +2,9 @@ package com.strahovka.delivery;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.strahovka.entity.ApplicationStatus;
+import com.strahovka.entity.PolicyStatus;
+import com.strahovka.entity.PackageType;
+import com.strahovka.entity.PackageStatus;
 import com.strahovka.config.ApplicationStatusType;
 import com.strahovka.delivery.Claims.InsuranceClaim;
 import jakarta.persistence.*;
@@ -539,30 +542,5 @@ public class Insurance {
 
         @Column(name = "planned_sports_activities")
         private String plannedSportsActivities;
-    }
-
-    public enum PolicyStatus {
-        PENDING_PAYMENT,
-        ACTIVE,
-        PAID,
-        INACTIVE,
-        COMPLETED,
-        CANCELLED,
-        EXPIRED
-    }
-
-    public enum PackageType {
-        KASKO_OSAGO,
-        PROPERTY_LIABILITY,
-        HEALTH_TRAVEL,
-        CUSTOM,
-        STANDARD
-    }
-
-    public enum PackageStatus {
-        PENDING,
-        PARTIALLY_COMPLETED,
-        COMPLETED,
-        CANCELLED
     }
 } 

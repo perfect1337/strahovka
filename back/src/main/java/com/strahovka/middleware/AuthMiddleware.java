@@ -17,11 +17,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class AuthMiddleware implements Filter {
+public class AuthMiddleware implements Filter, HandlerInterceptor {
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
@@ -94,7 +95,7 @@ public class AuthMiddleware implements Filter {
 
             if (userDetails != null) {
                 log.debug("UserDetails found for email: {}. User: {}", userEmail, userDetails.getUsername());
-                if (jwtService.isTokenValid(token, userDetails.getUsername())) {
+                if (jwtService.isTokenValid(token, userDetails)) {
                     log.debug("Token is valid for user: {}", userDetails.getUsername());
                     UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
@@ -151,5 +152,38 @@ public class AuthMiddleware implements Filter {
     @Override
     public void destroy() {
         log.info("AuthMiddleware Filter destroyed.");
+    }
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String userEmail;
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return true;
+        }
+
+        jwt = authHeader.substring(7);
+        userEmail = jwtService.extractUsername(jwt);
+
+        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (jwtService.isTokenValid(jwt, userDetails)) {
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    userDetails,
+                    null,
+                    userDetails.getAuthorities()
+                );
+                authToken.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request)
+                );
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+
+        return true;
     }
 } 

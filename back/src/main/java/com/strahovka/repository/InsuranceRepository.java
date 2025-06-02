@@ -3,6 +3,8 @@ package com.strahovka.repository;
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.User;
+import com.strahovka.entity.PolicyStatus;
+import com.strahovka.entity.PackageStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

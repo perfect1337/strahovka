@@ -4,9 +4,13 @@ import com.strahovka.delivery.Claims;
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.Claims.InsuranceClaim;
-import com.strahovka.delivery.Claims.ClaimStatus;
+import com.strahovka.entity.ClaimStatus;
 import com.strahovka.delivery.Claims.ClaimAttachment;
+import com.strahovka.delivery.User;
+import com.strahovka.entity.Role;
 import com.strahovka.service.InsuranceService;
+import com.strahovka.repository.UserRepository;
+import com.strahovka.service.JwtService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,18 +19,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Slf4j
 @RestController
@@ -34,6 +41,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class InsuranceController {
     private final InsuranceService insuranceService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
 
     @PostMapping("/guides")
@@ -517,5 +527,73 @@ public class InsuranceController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(insuranceService.cancelClaim(claimId, auth.getName()));
+    }
+
+    @PostMapping("/unauthorized/kasko")
+    public ResponseEntity<?> createUnauthorizedKaskoApplication(@RequestBody Map<String, Object> payload) {
+        try {
+            // Extract user registration data
+            String email = (String) payload.get("email");
+            String password = (String) payload.get("password");
+            String firstName = (String) payload.get("firstName");
+            String lastName = (String) payload.get("lastName");
+            String middleName = (String) payload.get("middleName");
+
+            // Create user first
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user != null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User with this email already exists"));
+            }
+
+            user = User.builder()
+                    .email(email)
+                    .password(passwordEncoder.encode(password))
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .middleName(middleName)
+                    .role(Role.USER)
+                    .build();
+            user = userRepository.save(user);
+
+            // Create KASKO application
+            KaskoApplication kaskoApplication = new KaskoApplication();
+            kaskoApplication.setCarMake((String) payload.get("carMake"));
+            kaskoApplication.setCarModel((String) payload.get("carModel"));
+            kaskoApplication.setCarYear(Integer.parseInt(payload.get("carYear").toString()));
+            kaskoApplication.setVinNumber((String) payload.get("vinNumber"));
+            kaskoApplication.setLicensePlate((String) payload.get("licensePlate"));
+            kaskoApplication.setCarValue(new BigDecimal(payload.get("carValue").toString()));
+            kaskoApplication.setDriverLicenseNumber((String) payload.get("driverLicenseNumber"));
+            kaskoApplication.setDriverExperienceYears(Integer.parseInt(payload.get("driverExperienceYears").toString()));
+            kaskoApplication.setHasAntiTheftSystem(Boolean.parseBoolean(payload.get("hasAntiTheftSystem").toString()));
+            kaskoApplication.setGarageParking(Boolean.parseBoolean(payload.get("garageParking").toString()));
+            kaskoApplication.setPreviousInsuranceNumber((String) payload.get("previousInsuranceNumber"));
+            kaskoApplication.setDuration(Integer.parseInt(payload.get("duration").toString()));
+
+            KaskoApplication createdApplication = insuranceService.createKaskoApplication(kaskoApplication, email);
+
+            // Generate tokens for the new user
+            String accessToken = jwtService.generateToken(email);
+            String refreshToken = jwtService.generateRefreshToken(email);
+            user.setAccessToken(accessToken);
+            user.setRefreshToken(refreshToken);
+            userRepository.save(user);
+
+            // Return response with application, user details and tokens
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", createdApplication.getId());
+            response.put("calculatedAmount", createdApplication.getCalculatedAmount());
+            response.put("email", email);
+            response.put("password", password);
+            response.put("accessToken", accessToken);
+            response.put("refreshToken", refreshToken);
+            response.put("user", user);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.error("Error creating unauthorized KASKO application", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 } 

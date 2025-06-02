@@ -1,5 +1,7 @@
 package com.strahovka.delivery;
 
+import com.strahovka.entity.Role;
+import com.strahovka.entity.UserLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

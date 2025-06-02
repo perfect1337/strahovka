@@ -7,7 +7,10 @@ import com.strahovka.delivery.Insurance;
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.User;
-import com.strahovka.delivery.Role;
+import com.strahovka.entity.Role;
+import com.strahovka.entity.PackageStatus;
+import com.strahovka.entity.PolicyStatus;
+import com.strahovka.entity.ClaimStatus;
 import com.strahovka.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -98,7 +101,7 @@ public class InsuranceService {
         policy.setStartDate(LocalDate.now());
         policy.setEndDate(LocalDate.now().plusYears(100)); // Set a far future end date for guides
         policy.setActive(true);
-        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+        policy.setStatus(PolicyStatus.ACTIVE);
         policy.setCategory(category);
         policy.setGuide(guide); // Set the guide reference in the policy
 
@@ -482,7 +485,7 @@ public class InsuranceService {
         } else {
             policy.setEndDate(policy.getStartDate().plusYears(1)); // По умолчанию на год, если нет длительности
         }
-        policy.setStatus(Insurance.PolicyStatus.ACTIVE); // Статус полиса - АКТИВЕН
+        policy.setStatus(PolicyStatus.ACTIVE); // Статус полиса - АКТИВЕН
         // Связываем полис с заявкой (если нужно)
         // application.setPolicy(policy); // Раскомментировать, если в BaseApplication есть поле policy и связь настроена
 
@@ -534,7 +537,7 @@ public class InsuranceService {
         } else {
             policy.setEndDate(policy.getStartDate().plusDays(14)); // Default to 2 weeks if not specified
         }
-        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+        policy.setStatus(PolicyStatus.ACTIVE);
 
         InsurancePolicy savedPolicy = insuranceRepository.save(policy);
 
@@ -580,7 +583,7 @@ public class InsuranceService {
         policy.setStartDate(application.getStartDate() != null ? application.getStartDate() : LocalDate.now());
         // Assuming property insurance is typically for a year if not specified otherwise
         policy.setEndDate(policy.getStartDate().plusYears(1)); 
-        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+        policy.setStatus(PolicyStatus.ACTIVE);
 
         InsurancePolicy savedPolicy = insuranceRepository.save(policy);
 
@@ -631,7 +634,7 @@ public class InsuranceService {
         } else {
             policy.setEndDate(policy.getStartDate().plusYears(1)); // По умолчанию на год
         }
-        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+        policy.setStatus(PolicyStatus.ACTIVE);
 
         InsurancePolicy savedPolicy = insuranceRepository.save(policy);
 
@@ -680,7 +683,7 @@ public class InsuranceService {
         } else {
             policy.setEndDate(policy.getStartDate().plusYears(1)); // По умолчанию на год
         }
-        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+        policy.setStatus(PolicyStatus.ACTIVE);
 
         InsurancePolicy savedPolicy = insuranceRepository.save(policy);
 
@@ -750,7 +753,7 @@ public class InsuranceService {
         User user = findUser(email);
         claim.setUser(user);
         claim.setCreatedAt(LocalDateTime.now());
-        claim.setStatus(Claims.ClaimStatus.PENDING);
+        claim.setStatus(ClaimStatus.PENDING);
         return claimsRepository.save(claim);
     }
 
@@ -806,13 +809,13 @@ public class InsuranceService {
         InsuranceClaim claim = claimsRepository.findByIdAndUser(claimId, user)
                 .orElseThrow(() -> new EntityNotFoundException("Claim not found with id " + claimId + " for user " + username));
 
-        Claims.ClaimStatus currentStatus = claim.getStatus();
+        ClaimStatus currentStatus = claim.getStatus();
 
-        if (currentStatus == Claims.ClaimStatus.CLOSED || currentStatus == Claims.ClaimStatus.APPROVED) {
+        if (currentStatus == ClaimStatus.CANCELLED || currentStatus == ClaimStatus.APPROVED) {
             throw new IllegalStateException("Claim cannot be cancelled as it's already " + currentStatus);
         }
 
-        claim.setStatus(Claims.ClaimStatus.CLOSED);
+        claim.setStatus(ClaimStatus.CANCELLED);
         return claimsRepository.save(claim);
     }
 
@@ -824,7 +827,7 @@ public class InsuranceService {
         InsurancePolicy policy = insuranceRepository.findByIdAndUser(policyId, user)
                 .orElseThrow(() -> new EntityNotFoundException("Policy not found with id " + policyId + " for user " + username));
 
-        if (policy.getStatus() != Insurance.PolicyStatus.ACTIVE) {
+        if (policy.getStatus() != PolicyStatus.ACTIVE) {
             throw new IllegalStateException("Policy cannot be cancelled. Current status: " + policy.getStatus() + ". Policy must be ACTIVE to be cancelled.");
         }
 
@@ -860,7 +863,7 @@ public class InsuranceService {
             refundAmount = BigDecimal.ZERO;
         }
 
-        policy.setStatus(Insurance.PolicyStatus.CANCELLED);
+        policy.setStatus(PolicyStatus.CANCELLED);
         policy.setActive(false);
         insuranceRepository.save(policy);
 

@@ -1,6 +1,7 @@
 package com.strahovka.delivery;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.strahovka.entity.PolicyStatus;
 import com.strahovka.delivery.Claims.InsuranceClaim;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -64,7 +65,7 @@ public class InsurancePolicy {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private Insurance.PolicyStatus status = Insurance.PolicyStatus.ACTIVE;
+    private PolicyStatus status = PolicyStatus.ACTIVE;
 
     @Column(name = "details")
     private String details;

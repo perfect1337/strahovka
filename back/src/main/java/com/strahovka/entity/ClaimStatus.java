@@ -1,4 +1,4 @@
-package com.strahovka.delivery;
+package com.strahovka.entity;
 
 public enum ClaimStatus {
     PENDING,
