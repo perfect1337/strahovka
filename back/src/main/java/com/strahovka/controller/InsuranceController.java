@@ -93,6 +93,33 @@ public class InsuranceController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/policies/{policyId}/cancel")
+    public ResponseEntity<?> cancelPolicy(
+            @PathVariable Long policyId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+        log.info("cancelPolicy called for policy ID: {}, by user: {}", policyId, authentication.getName());
+        if (authentication == null || authentication.getName() == null) {
+            log.error("Authentication is NULL or user is not authenticated in cancelPolicy");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+        try {
+            String reason = payload.getOrDefault("reason", "Отмена по запросу клиента");
+            // Предполагается, что insuranceService.cancelPolicy вернет Map или объект с полями message и refundAmount
+            Map<String, Object> result = insuranceService.cancelPolicy(policyId, authentication.getName(), reason);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException e) {
+            log.error("Error cancelling policy - policy not found or not owned by user: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("Error cancelling policy - illegal state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error cancelling policy: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred while cancelling the policy.");
+        }
+    }
+
     // Package endpoints
     @GetMapping("/packages")
     public ResponseEntity<List<InsurancePackage>> getUserPackages(@AuthenticationPrincipal UserDetails userDetails) {
@@ -141,6 +168,95 @@ public class InsuranceController {
         }
         KaskoApplication createdApplication = insuranceService.createKaskoApplication(kaskoApplication, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
+    @PostMapping("/applications/osago")
+    public ResponseEntity<OsagoApplication> createOsagoApplication(
+            @RequestBody OsagoApplication osagoApplication,
+            Authentication authentication) {
+        log.info("createOsagoApplication called. Authentication: {}, Payload: {}", authentication, osagoApplication);
+        if (authentication == null || authentication.getName() == null) {
+            log.error("Authentication is NULL or user is not authenticated in createOsagoApplication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        // Предполагается, что в insuranceService есть метод createOsagoApplication
+        OsagoApplication createdApplication = insuranceService.createOsagoApplication(osagoApplication, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
+    @PostMapping("/applications/travel")
+    public ResponseEntity<TravelApplication> createTravelApplication(
+            @RequestBody TravelApplication travelApplication,
+            Authentication authentication) {
+        log.info("createTravelApplication called. Authentication: {}, Payload: {}", authentication, travelApplication);
+        if (authentication == null || authentication.getName() == null) {
+            log.error("Authentication is NULL or user is not authenticated in createTravelApplication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        TravelApplication createdApplication = insuranceService.createTravelApplication(travelApplication, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
+    @PostMapping("/applications/health")
+    public ResponseEntity<HealthApplication> createHealthApplication(
+            @RequestBody HealthApplication healthApplication,
+            Authentication authentication) {
+        log.info("createHealthApplication called. Authentication: {}, Payload: {}", authentication, healthApplication);
+        if (authentication == null || authentication.getName() == null) {
+            log.error("Authentication is NULL or user is not authenticated in createHealthApplication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        HealthApplication createdApplication = insuranceService.createHealthApplication(healthApplication, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
+    @PostMapping("/applications/property")
+    public ResponseEntity<PropertyApplication> createPropertyApplication(
+            @RequestBody PropertyApplication propertyApplication,
+            Authentication authentication) {
+        log.info("createPropertyApplication called. Authentication: {}, Payload: {}", authentication, propertyApplication);
+        if (authentication == null || authentication.getName() == null) {
+            log.error("Authentication is NULL or user is not authenticated in createPropertyApplication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        PropertyApplication createdApplication = insuranceService.createPropertyApplication(propertyApplication, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
+    @PostMapping("/health/{applicationId}/pay")
+    public ResponseEntity<?> processHealthPayment(@PathVariable Long applicationId, Authentication authentication) {
+        log.info("Processing Health payment for application ID: {} by user: {}", applicationId, authentication.getName());
+        try {
+            InsurancePolicy policy = insuranceService.processHealthPayment(applicationId, authentication.getName());
+            return ResponseEntity.ok(policy);
+        } catch (EntityNotFoundException e) {
+            log.error("Error processing Health payment - application not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("Error processing Health payment - illegal state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error processing Health payment: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred.");
+        }
+    }
+
+    @PostMapping("/osago/{applicationId}/pay")
+    public ResponseEntity<?> processOsagoPayment(@PathVariable Long applicationId, Authentication authentication) {
+        log.info("Processing OSAGO payment for application ID: {} by user: {}", applicationId, authentication.getName());
+        try {
+            InsurancePolicy policy = insuranceService.processOsagoPayment(applicationId, authentication.getName());
+            return ResponseEntity.ok(policy);
+        } catch (EntityNotFoundException e) {
+            log.error("Error processing OSAGO payment - application not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("Error processing OSAGO payment - illegal state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error processing OSAGO payment: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred.");
+        }
     }
 
     @PostMapping("/kasko/{applicationId}/pay")

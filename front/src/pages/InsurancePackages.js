@@ -407,32 +407,6 @@ const InsurancePackages = ({ adminView = false }) => {
         </Box>
       </Grid>
 
-      <Grid item xs={12} sm={6} md={4}>
-        <Box>
-          <Typography variant="h6" gutterBottom>
-            Страхование квартиры
-          </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-            Защита квартиры и имущества
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button 
-              variant="contained" 
-              fullWidth
-              onClick={() => handleCreatePolicy({ type: 'APARTMENT' }, 'policy')}
-            >
-              ОФОРМИТЬ
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<HelpOutlineIcon />}
-              onClick={() => navigate('/insurance-guide', { state: { type: 'PROPERTY' } })}
-            >
-              СПРАВКА
-            </Button>
-          </Stack>
-        </Box>
-      </Grid>
     </Grid>
   );
 

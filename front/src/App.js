@@ -26,7 +26,6 @@ import KaskoForm from './components/forms/KaskoForm';
 import TravelForm from './pages/forms/TravelForm';
 import HealthForm from './pages/forms/HealthForm';
 import RealEstateForm from './pages/forms/RealEstateForm';
-import ApartmentForm from './pages/forms/ApartmentForm';
 import ModeratorClaims from './pages/ModeratorClaims';
 import ApplicationsList from './pages/ApplicationsList';
 import InsuranceGuide from './pages/InsuranceGuide';
@@ -243,10 +242,6 @@ function App() {
                 <Route
                   path="/insurance/realestate"
                   element={<RealEstateForm />}
-                />
-                <Route
-                  path="/insurance/apartment"
-                  element={<ApartmentForm />}
                 />
                 <Route
                   path="/applications"

@@ -36,11 +36,6 @@ const insuranceTypes = [
     title: 'Страхование недвижимости',
     description: 'Защита домов, коттеджей и коммерческой недвижимости',
     path: '/insurance/realestate'
-  },
-  {
-    title: 'Страхование квартиры',
-    description: 'Защита квартиры и имущества',
-    path: '/insurance/apartment'
   }
 ];
 

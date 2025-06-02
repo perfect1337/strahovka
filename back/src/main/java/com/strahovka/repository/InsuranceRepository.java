@@ -2,6 +2,7 @@ package com.strahovka.repository;
 
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
+import com.strahovka.delivery.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -9,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long> {
@@ -109,4 +111,6 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
 
     @Query("SELECT c FROM Insurance$InsuranceCategory c WHERE c.name = :name")
     InsuranceCategory findCategoryByName(@Param("name") String name);
+
+    Optional<InsurancePolicy> findByIdAndUser(Long policyId, User user);
 } 

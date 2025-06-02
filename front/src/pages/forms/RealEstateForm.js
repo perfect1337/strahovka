@@ -128,7 +128,7 @@ const RealEstateForm = () => {
         description: form.description
       };
 
-      const response = await api.post('/api/insurance/property', formData);
+      const response = await api.post('/api/insurance/applications/property', formData);
       setCalculatedAmount(response.data.calculatedAmount);
       setSuccess(true);
       

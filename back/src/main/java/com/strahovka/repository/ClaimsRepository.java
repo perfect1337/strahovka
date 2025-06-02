@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ClaimsRepository extends JpaRepository<InsuranceClaim, Long> {
@@ -74,4 +75,9 @@ public interface ClaimsRepository extends JpaRepository<InsuranceClaim, Long> {
     @Modifying
     @Query("DELETE FROM Claims$ClaimComment c WHERE c.id = :id")
     void deleteComment(@Param("id") Long id);
+
+    @Query("SELECT m FROM com.strahovka.delivery.Claims$InsuranceClaim ic JOIN ic.messages m WHERE ic.id = :claimId")
+    List<Object[]> findMessagesByClaimRaw(@Param("claimId") Long claimId);
+
+    Optional<InsuranceClaim> findByIdAndUser(Long claimId, User user);
 } 

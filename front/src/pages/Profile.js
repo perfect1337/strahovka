@@ -49,7 +49,7 @@ import {
   EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
 import { formatDate } from '../utils/dateUtils';
-import { processKaskoPayment, processTravelPayment, processPropertyPayment } from '../api/insurance';
+import { processKaskoPayment, processTravelPayment, processPropertyPayment, processOsagoPayment, processHealthPayment } from '../api/insurance';
 import { getKaskoApplications, getOsagoApplications, getTravelApplications, getHealthApplications, getPropertyApplications } from '../api/insurance';
 
 const UserLevelInfo = ({ level, policyCount }) => {
@@ -292,21 +292,27 @@ const Profile = () => {
     try {
       setLoading(true);
       let response;
+      const upperCaseType = type.toUpperCase();
       
-      switch (type) {
-        case 'kasko':
-          response = await processKaskoPayment(applicationId);
-          break;
-        case 'travel':
-          response = await processTravelPayment(applicationId);
-          break;
-        case 'property':
-          response = await processPropertyPayment(applicationId);
-          break;
-        default:
-          throw new Error('Unsupported application type');
+      if (upperCaseType === 'KASKO') {
+        response = await processKaskoPayment(applicationId);
+      } else if (upperCaseType === 'TRAVEL') {
+        response = await processTravelPayment(applicationId);
+      } else if (upperCaseType === 'PROPERTY') {
+        response = await processPropertyPayment(applicationId);
+      } else if (upperCaseType === 'OSAGO') {
+        response = await processOsagoPayment(applicationId);
+      } else if (upperCaseType === 'HEALTH') {
+        response = await processHealthPayment(applicationId);
+      } else {
+        console.error('Unsupported application type in handlePayment:', type);
+        setSnackbarMessage(`Неподдерживаемый тип заявки: ${type}`);
+        setSnackbarSeverity('error');
+        setOpenSnackbar(true);
+        setLoading(false);
+        return;
       }
-
+      
       // Refresh applications after payment
       await fetchAllApplications();
       
@@ -315,7 +321,28 @@ const Profile = () => {
       setOpenSnackbar(true);
     } catch (error) {
       console.error('Payment error:', error);
-      setSnackbarMessage('Ошибка при проведении оплаты');
+      let errorMessage = 'Ошибка при проведении оплаты';
+      
+      if (error) {
+        if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error.message && typeof error.message === 'string') {
+          errorMessage = error.message;
+        } else if (error.response) {
+          if (error.response.data) {
+            if (typeof error.response.data === 'string') {
+              errorMessage = error.response.data;
+            } else if (error.response.data.message) {
+              errorMessage = error.response.data.message;
+            } else if (error.response.data.error) {
+              errorMessage = error.response.data.error;
+            }
+          }
+        }
+      }
+      
+      // Ensure we're setting a string
+      setSnackbarMessage(String(errorMessage));
       setSnackbarSeverity('error');
       setOpenSnackbar(true);
     } finally {
@@ -363,8 +390,44 @@ const Profile = () => {
       ]);
     } catch (error) {
       console.error('Error cancelling policy:', error);
-      const errorMessage = error.response?.data || error.message;
-      setError(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
+      let errorMessage = 'Ошибка при отмене полиса';
+      if (error) {
+        if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error.message && typeof error.message === 'string') {
+          errorMessage = error.message;
+        } else if (error.response) {
+          if (error.response.data) {
+            if (typeof error.response.data === 'string') {
+              errorMessage = error.response.data;
+            } else if (error.response.data.message && typeof error.response.data.message === 'string') {
+              errorMessage = error.response.data.message;
+            } else if (error.response.data.error && typeof error.response.data.error === 'string') {
+              errorMessage = error.response.data.error;
+            } else if (Array.isArray(error.response.data) && error.response.data.length > 0 && typeof error.response.data[0] === 'string') {
+              errorMessage = error.response.data[0];
+            } else if (typeof error.response.data === 'object') {
+                // Attempt to stringify the object if it's not too complex
+                try {
+                    const errStr = JSON.stringify(error.response.data);
+                    if (errStr !== '{}') { // Avoid empty object strings
+                        errorMessage = errStr;
+                    } else if (error.response.statusText) {
+                        errorMessage = error.response.statusText;
+                    }
+                } catch (e) {
+                    // Fallback if stringification fails or is empty
+                    if (error.response.statusText) {
+                        errorMessage = error.response.statusText;
+                    }
+                }
+            } else if (error.response.statusText) {
+                errorMessage = error.response.statusText;
+            }
+          }
+        } 
+      }
+      setError(String(errorMessage)); // Ensure error is always a string
     } finally {
       setLoading(false);
       setCancelDialogOpen(false);
@@ -378,6 +441,7 @@ const Profile = () => {
         <TableHead>
           <TableRow>
             <TableCell>Тип страхования</TableCell>
+            <TableCell>Номер полиса</TableCell>
             <TableCell>Дата подачи</TableCell>
             <TableCell>Дата окончания</TableCell>
             <TableCell>Статус</TableCell>
@@ -406,6 +470,7 @@ const Profile = () => {
             return (
               <TableRow key={app.id}>
                 <TableCell>{displayName}</TableCell>
+                <TableCell>{app.policy ? app.policy.id : '-'}</TableCell>
                 <TableCell>{formatDate(app.applicationDate)}</TableCell>
                 <TableCell>
                   {type === 'travel' 

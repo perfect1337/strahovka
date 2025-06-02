@@ -382,6 +382,12 @@ public class Insurance {
 
         @Column(name = "previous_policy_number")
         private String previousPolicyNumber;
+
+        @Column(name = "is_unlimited_drivers")
+        private Boolean isUnlimitedDrivers;
+
+        @Column(name = "duration_months")
+        private Integer duration;
     }
 
     @Data
@@ -405,7 +411,7 @@ public class Insurance {
         @Column(name = "construction_type", nullable = false)
         private String constructionType;
 
-        @Column(name = "property_value", nullable = false, precision = 10, scale = 2)
+        @Column(name = "property_value", nullable = false, precision = 19, scale = 2)
         private BigDecimal propertyValue;
 
         @Column(name = "has_security_system")
