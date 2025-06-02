@@ -86,7 +86,7 @@ const Home = () => {
                 {pkg.description}
               </Typography>
               <Typography variant="h6" color="primary" gutterBottom>
-                {pkg.basePrice.toLocaleString('ru-RU')} ₽
+                {pkg.basePrice ? pkg.basePrice.toLocaleString('ru-RU') : '0'} ₽
               </Typography>
               {pkg.discount > 0 && (
                 <Typography variant="body2" color="error">

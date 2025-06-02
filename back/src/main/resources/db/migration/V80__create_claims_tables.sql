@@ -1,16 +1,16 @@
 -- Drop existing tables in reverse order to avoid foreign key constraints
-DROP TABLE IF EXISTS claim_comments;
-DROP TABLE IF EXISTS claim_messages;
-DROP TABLE IF EXISTS claim_attachments;
-DROP TABLE IF EXISTS insurance_claims;
+DROP TABLE IF EXISTS claim_comments CASCADE;
+DROP TABLE IF EXISTS claim_messages CASCADE;
+DROP TABLE IF EXISTS claim_attachments CASCADE;
+DROP TABLE IF EXISTS insurance_claims CASCADE;
 
 -- Drop application tables in reverse order
-DROP TABLE IF EXISTS travel_applications;
-DROP TABLE IF EXISTS health_applications;
-DROP TABLE IF EXISTS property_applications;
-DROP TABLE IF EXISTS osago_applications;
-DROP TABLE IF EXISTS kasko_applications;
-DROP TABLE IF EXISTS base_applications;
+DROP TABLE IF EXISTS travel_applications CASCADE;
+DROP TABLE IF EXISTS health_applications CASCADE;
+DROP TABLE IF EXISTS property_applications CASCADE;
+DROP TABLE IF EXISTS osago_applications CASCADE;
+DROP TABLE IF EXISTS kasko_applications CASCADE;
+DROP TABLE IF EXISTS base_applications CASCADE;
 
 -- Create base application table
 CREATE TABLE base_applications (

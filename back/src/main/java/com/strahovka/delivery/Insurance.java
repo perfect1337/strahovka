@@ -74,7 +74,7 @@ public class Insurance {
             inverseJoinColumns = @JoinColumn(name = "application_id"),
             foreignKey = @ForeignKey(name = "fk_package_kasko_application")
         )
-        @Where(clause = "ka1_0.application_type = 'KASKO'")
+        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'KASKO')")
         @Builder.Default
         private List<KaskoApplication> kaskoApplications = List.of();
 
@@ -85,7 +85,7 @@ public class Insurance {
             inverseJoinColumns = @JoinColumn(name = "application_id"),
             foreignKey = @ForeignKey(name = "fk_package_osago_application")
         )
-        @Where(clause = "ka1_0.application_type = 'OSAGO'")
+        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'OSAGO')")
         @Builder.Default
         private List<OsagoApplication> osagoApplications = List.of();
 
@@ -96,7 +96,7 @@ public class Insurance {
             inverseJoinColumns = @JoinColumn(name = "application_id"),
             foreignKey = @ForeignKey(name = "fk_package_property_application")
         )
-        @Where(clause = "ka1_0.application_type = 'PROPERTY'")
+        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'PROPERTY')")
         @Builder.Default
         private List<PropertyApplication> propertyApplications = List.of();
 
@@ -107,7 +107,7 @@ public class Insurance {
             inverseJoinColumns = @JoinColumn(name = "application_id"),
             foreignKey = @ForeignKey(name = "fk_package_health_application")
         )
-        @Where(clause = "ka1_0.application_type = 'HEALTH'")
+        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'HEALTH')")
         @Builder.Default
         private List<HealthApplication> healthApplications = List.of();
 
@@ -118,7 +118,7 @@ public class Insurance {
             inverseJoinColumns = @JoinColumn(name = "application_id"),
             foreignKey = @ForeignKey(name = "fk_package_travel_application")
         )
-        @Where(clause = "ka1_0.application_type = 'TRAVEL'")
+        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'TRAVEL')")
         @Builder.Default
         private List<TravelApplication> travelApplications = List.of();
 

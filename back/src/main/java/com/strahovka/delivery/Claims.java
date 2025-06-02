@@ -33,6 +33,8 @@ public class Claims {
         private InsurancePolicy policy;
 
         private String description;
+
+        @Column(name = "created_at")
         private LocalDateTime createdAt;
 
         @Enumerated(EnumType.STRING)
@@ -126,7 +128,10 @@ public class Claims {
         @JsonIgnoreProperties({"claims", "policies", "password", "refreshToken", "accessToken"})
         private User user;
 
+        @Column(name = "content", nullable = false)
         private String message;
+
+        @Column(name = "created_at", nullable = false)
         private LocalDateTime sentAt;
 
         @Column(name = "is_read", nullable = false)

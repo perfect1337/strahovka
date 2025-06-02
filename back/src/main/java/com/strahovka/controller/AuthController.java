@@ -27,6 +27,39 @@ public class AuthController {
     private final JwtService jwtService;
     private final BCryptPasswordEncoder passwordEncoder;
 
+    @GetMapping("/validate")
+    public ResponseEntity<?> validateToken(@RequestHeader("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body("Invalid authorization header");
+        }
+
+        String token = authHeader.substring(7);
+        try {
+            String userEmail = jwtService.extractUsername(token);
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (!jwtService.isTokenValid(token, userEmail)) {
+                return ResponseEntity.status(401).body("Token is invalid or expired");
+            }
+
+            return ResponseEntity.ok(LoginResponse.builder()
+                    .id(user.getId())
+                    .email(user.getEmail())
+                    .firstName(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .middleName(user.getMiddleName())
+                    .phone(user.getPhone())
+                    .role(user.getRole())
+                    .level(user.getLevel())
+                    .policyCount(user.getPolicyCount())
+                    .build());
+        } catch (Exception e) {
+            log.error("Token validation error", e);
+            return ResponseEntity.status(401).body("Token validation failed");
+        }
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())

@@ -25,7 +25,15 @@ const Login = () => {
 
     try {
       await login(email, password);
-      navigate('/profile');
+      
+      // Check if there's a redirect path stored
+      const redirectPath = localStorage.getItem('redirectAfterLogin');
+      if (redirectPath) {
+        localStorage.removeItem('redirectAfterLogin');
+        navigate(redirectPath);
+      } else {
+        navigate('/profile');
+      }
     } catch (error) {
       console.error('Login error:', error);
       setError('Неверный email или пароль');
@@ -34,16 +42,18 @@ const Login = () => {
 
   return (
     <Container maxWidth="sm">
-      <Box sx={{ mt: 8 }}>
+      <Box sx={{ mt: 8, mb: 4 }}>
         <Paper elevation={3} sx={{ p: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom align="center">
             Вход в систему
           </Typography>
+          
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
+
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
@@ -53,7 +63,9 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)}
               margin="normal"
               required
+              autoComplete="email"
             />
+            
             <TextField
               fullWidth
               label="Пароль"
@@ -62,7 +74,9 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               margin="normal"
               required
+              autoComplete="current-password"
             />
+            
             <Button
               type="submit"
               fullWidth
@@ -72,12 +86,13 @@ const Login = () => {
             >
               Войти
             </Button>
-            <Box sx={{ textAlign: 'center' }}>
-              <Link href="/register" variant="body2">
-                Нет аккаунта? Зарегистрируйтесь
-              </Link>
-            </Box>
           </form>
+
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Link href="/register" variant="body2">
+              Нет аккаунта? Зарегистрируйтесь
+            </Link>
+          </Box>
         </Paper>
       </Box>
     </Container>

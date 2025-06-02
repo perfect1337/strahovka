@@ -7,14 +7,22 @@ DROP TYPE IF EXISTS user_role_enum CASCADE;
 -- Create a new enum type for roles
 CREATE TYPE user_role_enum AS ENUM ('USER', 'ADMIN', 'MODERATOR');
 
--- Temporarily change the role column to text to avoid any type conflicts
-ALTER TABLE users ALTER COLUMN role TYPE text;
+-- Add a new column for the role enum
+ALTER TABLE users ADD COLUMN role_enum user_role_enum DEFAULT 'USER';
 
--- Update any existing roles to ensure they match our enum values
-UPDATE users SET role = 'USER' WHERE role NOT IN ('USER', 'ADMIN', 'MODERATOR');
+-- Update the new column based on the old role values
+UPDATE users SET role_enum = 'USER'::user_role_enum WHERE role NOT IN ('USER', 'ADMIN', 'MODERATOR') OR role IS NULL;
+UPDATE users SET role_enum = role::user_role_enum WHERE role IN ('USER', 'ADMIN', 'MODERATOR');
+UPDATE users SET role_enum = UPPER(role)::user_role_enum WHERE role IN ('user', 'admin', 'moderator');
 
--- Change the column type to use the new enum
-ALTER TABLE users ALTER COLUMN role TYPE user_role_enum USING role::user_role_enum;
+-- Drop the old role column
+ALTER TABLE users DROP COLUMN role;
 
--- Add a default value
-ALTER TABLE users ALTER COLUMN role SET DEFAULT 'USER'; 
+-- Rename the new column to role
+ALTER TABLE users RENAME COLUMN role_enum TO role;
+
+-- Make the role column NOT NULL
+ALTER TABLE users ALTER COLUMN role SET NOT NULL;
+
+-- Set the default value
+ALTER TABLE users ALTER COLUMN role SET DEFAULT 'USER'::user_role_enum; 

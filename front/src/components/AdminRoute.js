@@ -1,23 +1,41 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { CircularProgress, Box, Typography } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { checkIfAdmin } from '../utils/roleUtils';
 
 const AdminRoute = ({ children }) => {
-  const { user } = useAuth();
-  const isAdmin = user && checkIfAdmin(user.role);
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        minHeight="50vh"
+      >
+        <CircularProgress />
+        <Typography variant="body1" mt={2}>
+          Проверка прав доступа...
+        </Typography>
+      </Box>
+    );
+  }
 
   if (!user) {
-    // Not logged in, redirect to login page
+    // Store the current location to redirect back after login
+    const currentLocation = window.location.pathname;
+    localStorage.setItem('redirectAfterLogin', currentLocation);
     return <Navigate to="/login" />;
   }
 
+  const isAdmin = checkIfAdmin(user.role);
   if (!isAdmin) {
-    // Logged in but not admin, redirect to home page
     return <Navigate to="/" />;
   }
 
-  // Authorized, render component
   return children;
 };
 

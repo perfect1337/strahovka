@@ -63,9 +63,23 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
 
-    public String generateToken(String email) {
+    public Boolean isTokenValid(String token, String userEmail) {
+        try {
+            final String username = extractUsername(token);
+            return (username.equals(userEmail) && !isTokenExpired(token));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public String generateToken(String userEmail) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, email);
+        return createToken(claims, userEmail);
+    }
+
+    public String generateRefreshToken(String userEmail) {
+        Map<String, Object> claims = new HashMap<>();
+        return createRefreshToken(claims, userEmail);
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
@@ -74,21 +88,17 @@ public class JwtService {
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(key)
                 .compact();
     }
 
-    public boolean isTokenValid(String token, String userEmail) {
-        final String username = extractUsername(token);
-        return (username.equals(userEmail)) && !isTokenExpired(token);
-    }
-
-    public String generateRefreshToken(String email) {
+    private String createRefreshToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
-                .setSubject(email)
+                .setClaims(claims)
+                .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + (jwtExpiration * 7))) // 7 days
-                .signWith(key, SignatureAlgorithm.HS512)
+                .setExpiration(new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000)) // 7 days
+                .signWith(key)
                 .compact();
     }
 } 

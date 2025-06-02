@@ -22,7 +22,7 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-// Add request interceptor for authentication
+// Add request interceptor to add token to all requests
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -53,9 +53,7 @@ api.interceptors.response.use(
                 '/api/auth/login',
                 '/api/auth/register',
                 '/api/auth/refresh',
-                '/api/insurance/packages/public',
-                '/api/insurance/categories',
-                '/api/insurance/guides'
+                '/api/auth/validate'
             ];
             
             // Only handle token refresh for protected endpoints
@@ -69,7 +67,7 @@ api.interceptors.response.use(
                         const token = await new Promise((resolve, reject) => {
                             failedQueue.push({ resolve, reject });
                         });
-                        originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                        originalRequest.headers.Authorization = `Bearer ${token}`;
                         return api(originalRequest);
                     } catch (err) {
                         return Promise.reject(err);
@@ -85,20 +83,22 @@ api.interceptors.response.use(
                         throw new Error('No refresh token available');
                     }
 
-                    const response = await api.post('/api/auth/refresh', {
-                        refreshToken: refreshToken
+                    const response = await api.post('/api/auth/refresh', null, {
+                        headers: {
+                            'Authorization': `Bearer ${refreshToken}`
+                        }
                     });
 
                     const { accessToken, newRefreshToken } = response.data;
                     localStorage.setItem('token', accessToken);
                     localStorage.setItem('refreshToken', newRefreshToken);
-
+                    
+                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                     processQueue(null, accessToken);
-                    originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+                    
                     return api(originalRequest);
                 } catch (refreshError) {
                     processQueue(refreshError, null);
-                    // Clear invalid tokens
                     localStorage.removeItem('token');
                     localStorage.removeItem('refreshToken');
                     localStorage.removeItem('user');
@@ -109,6 +109,7 @@ api.interceptors.response.use(
                 }
             }
         }
+        
         return Promise.reject(error);
     }
 );

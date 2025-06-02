@@ -2,7 +2,7 @@
 CREATE TABLE users_temp AS SELECT * FROM users;
 
 -- Удаляем существующую таблицу
-DROP TABLE users;
+DROP TABLE users CASCADE;
 
 -- Создаем таблицу заново с правильными ограничениями
 CREATE TABLE users (
@@ -35,4 +35,29 @@ FROM users_temp;
 DROP TABLE users_temp;
 
 -- Сбрасываем последовательность id
-SELECT setval('users_id_seq', (SELECT MAX(id) FROM users)); 
+SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
+
+-- Восстанавливаем внешние ключи
+ALTER TABLE insurance_policies
+    ADD CONSTRAINT insurance_policies_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES users(id);
+
+ALTER TABLE insurance_packages
+    ADD CONSTRAINT fk_insurance_package_user
+    FOREIGN KEY (user_id) REFERENCES users(id);
+
+ALTER TABLE base_applications
+    ADD CONSTRAINT base_applications_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES users(id);
+
+ALTER TABLE insurance_claims
+    ADD CONSTRAINT insurance_claims_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES users(id);
+
+ALTER TABLE claim_messages
+    ADD CONSTRAINT claim_messages_sender_id_fkey
+    FOREIGN KEY (sender_id) REFERENCES users(id);
+
+ALTER TABLE claim_comments
+    ADD CONSTRAINT claim_comments_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES users(id); 
