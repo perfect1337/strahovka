@@ -5,7 +5,9 @@ import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.User;
 import com.strahovka.repository.ClaimsRepository;
 import com.strahovka.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +22,9 @@ import java.util.List;
 public class ClaimService {
     private final ClaimsRepository claimsRepository;
     private final UserRepository userRepository;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private User findUser(String email) {
         return userRepository.findByEmail(email)
@@ -83,7 +88,9 @@ public class ClaimService {
     @Transactional
     public ClaimMessage saveMessage(ClaimMessage message) {
         message.setSentAt(LocalDateTime.now());
-        return claimsRepository.saveMessage(message);
+        entityManager.persist(message);
+        entityManager.flush();
+        return message;
     }
 
     @Transactional
@@ -116,5 +123,15 @@ public class ClaimService {
     @Transactional
     public void deleteComment(Long id) {
         claimsRepository.deleteComment(id);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<InsuranceClaim> findById(Long id) {
+        return claimsRepository.findById(id);
+    }
+
+    @Transactional
+    public InsuranceClaim save(InsuranceClaim claim) {
+        return claimsRepository.save(claim);
     }
 } 

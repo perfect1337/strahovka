@@ -8,11 +8,17 @@
  * @returns {boolean} - True if the user has admin privileges
  */
 export const checkIfAdmin = (role) => {
-  if (!role) return false;
-  return role === 'ADMIN' || 
+  console.log('checkIfAdmin called with role:', role);
+  if (!role) {
+    console.log('No role provided, returning false');
+    return false;
+  }
+  const isAdmin = role === 'ADMIN' || 
          role === 'ROLE_ADMIN' || 
          role.includes('ADMIN') || 
          role.includes('ROLE_ADMIN');
+  console.log('isAdmin result:', isAdmin);
+  return isAdmin;
 };
 
 /**

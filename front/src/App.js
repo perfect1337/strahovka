@@ -202,7 +202,7 @@ function App() {
                 <Route
                   path="/admin/claims"
                   element={
-                    <PrivateRoute roles={['ROLE_ADMIN']}>
+                    <PrivateRoute roles={['ADMIN']}>
                       <ModeratorClaims />
                     </PrivateRoute>
                   }
@@ -210,7 +210,7 @@ function App() {
                 <Route
                   path="/moderator/claims"
                   element={
-                    <PrivateRoute roles={['ROLE_MODERATOR', 'ROLE_ADMIN']}>
+                    <PrivateRoute roles={['MODERATOR', 'ADMIN']}>
                       <ModeratorClaims />
                     </PrivateRoute>
                   }

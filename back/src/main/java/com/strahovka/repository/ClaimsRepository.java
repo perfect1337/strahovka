@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Repository
@@ -39,17 +40,16 @@ public interface ClaimsRepository extends JpaRepository<InsuranceClaim, Long> {
     void deleteAttachment(@Param("id") Long id);
 
     // Claim messages
-    @Query("SELECT m FROM Claims$ClaimMessage m WHERE m.claim.id = :claimId")
+    @Query("SELECT m FROM com.strahovka.delivery.Claims$ClaimMessage m WHERE m.claim.id = :claimId ORDER BY m.sentAt DESC")
     List<ClaimMessage> findMessagesByClaim(@Param("claimId") Long claimId);
 
     @Query("SELECT m FROM Claims$ClaimMessage m WHERE m.id = :id")
     ClaimMessage findMessageById(@Param("id") Long id);
 
     @Modifying
-    @Query("INSERT INTO Claims$ClaimMessage (claim, user, message, sentAt, isRead, readAt) " +
-           "VALUES (:#{#message.claim}, :#{#message.user}, :#{#message.message}, " +
-           ":#{#message.sentAt}, :#{#message.isRead}, :#{#message.readAt})")
-    ClaimMessage saveMessage(@Param("message") ClaimMessage message);
+    @Query("INSERT INTO Claims$ClaimMessage (claim, user, message, sentAt) " +
+           "VALUES (:#{#message.claim}, :#{#message.user}, :#{#message.message}, :#{#message.sentAt})")
+    void saveMessage(@Param("message") ClaimMessage message);
 
     @Modifying
     @Query("DELETE FROM Claims$ClaimMessage m WHERE m.id = :id")
@@ -66,9 +66,9 @@ public interface ClaimsRepository extends JpaRepository<InsuranceClaim, Long> {
     ClaimComment findCommentById(@Param("id") Long id);
 
     @Modifying
-    @Query("INSERT INTO Claims$ClaimComment (claim, user, comment, createdAt, createdBy, updatedAt, updatedBy) " +
-           "VALUES (:#{#comment.claim}, :#{#comment.user}, :#{#comment.comment}, " +
-           ":#{#comment.createdAt}, :#{#comment.createdBy}, :#{#comment.updatedAt}, :#{#comment.updatedBy})")
+    @Query("INSERT INTO Claims$ClaimComment (claim, comment, createdAt, createdBy, updatedAt, updatedBy) " +
+           "VALUES (:#{#comment.claim}, :#{#comment.comment}, :#{#comment.createdAt}, " +
+           ":#{#comment.createdBy}, :#{#comment.updatedAt}, :#{#comment.updatedBy})")
     ClaimComment saveComment(@Param("comment") ClaimComment comment);
 
     @Modifying

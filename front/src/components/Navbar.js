@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useAuth } from '../context/AuthContext';
-import { checkIfAdmin } from '../utils/roleUtils';
+import { checkIfAdmin, checkIfModerator } from '../utils/roleUtils';
 import { Link } from 'react-router-dom';
 
 const Navbar = () => {
@@ -39,6 +39,7 @@ const Navbar = () => {
   console.log('Current user in Navbar:', user);
   // Проверка на админа, учитывающая разные форматы роли
   const isAdmin = user && checkIfAdmin(user.role);
+  const isModerator = user && (checkIfModerator(user.role) || checkIfAdmin(user.role));
   console.log('Is Admin check:', { userRole: user?.role, isAdmin });
 
   return (

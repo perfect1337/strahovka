@@ -7,10 +7,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
         globally_quoted_identifiers: true
         physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
@@ -38,14 +38,14 @@ server:
 
 logging:
   level:
-    root: INFO
-    org.springframework.web: INFO
-    org.hibernate: INFO
-    org.hibernate.SQL: INFO
+    root: WARN
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql: WARN
     com.strahovka: INFO
-    org.springframework.transaction: INFO
-    org.springframework.orm.jpa: INFO
+    org.springframework.transaction: WARN
+    org.springframework.orm.jpa: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

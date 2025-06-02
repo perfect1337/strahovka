@@ -2,24 +2,35 @@ package com.strahovka.controller;
 
 import com.strahovka.delivery.Claims.*;
 import com.strahovka.service.ClaimService;
+import com.strahovka.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/claims")
 @RequiredArgsConstructor
 public class ClaimController {
     private final ClaimService claimService;
+    private final UserRepository userRepository;
 
     // Main claim operations
     @GetMapping
-    public ResponseEntity<Page<InsuranceClaim>> getAllClaims(Pageable pageable) {
+    public ResponseEntity<Page<InsuranceClaim>> getAllClaims(
+            @RequestParam(required = false) ClaimStatus status,
+            Pageable pageable) {
+        if (status != null) {
+            return ResponseEntity.ok(claimService.getClaimsByStatus(status, pageable));
+        }
         return ResponseEntity.ok(claimService.getAllClaims(pageable));
     }
 
@@ -106,5 +117,37 @@ public class ClaimController {
     public ResponseEntity<Void> deleteComment(@PathVariable Long id) {
         claimService.deleteComment(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{claimId}/process")
+    public ResponseEntity<InsuranceClaim> processClaim(
+            @PathVariable Long claimId,
+            @RequestBody Map<String, Object> payload,
+            Authentication auth) {
+        if (auth == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String status = (String) payload.get("status");
+        String response = (String) payload.get("response");
+        Double amount = payload.get("amount") != null ? ((Number) payload.get("amount")).doubleValue() : null;
+
+        InsuranceClaim claim = claimService.findById(claimId)
+                .orElseThrow(() -> new EntityNotFoundException("Claim not found: " + claimId));
+
+        claim.setStatus(ClaimStatus.valueOf(status));
+        claim.setAmountApproved(amount);
+        claim.setProcessedBy(auth.getName());
+        claim.setProcessedAt(LocalDateTime.now());
+
+        // Add response as a message
+        ClaimMessage message = new ClaimMessage();
+        message.setClaim(claim);
+        message.setUser(userRepository.findByEmail(auth.getName()).orElseThrow());
+        message.setMessage(response);
+        message.setSentAt(LocalDateTime.now());
+        claimService.saveMessage(message);
+
+        return ResponseEntity.ok(claimService.save(claim));
     }
 } 

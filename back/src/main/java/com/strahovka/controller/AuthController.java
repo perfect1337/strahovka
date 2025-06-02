@@ -43,7 +43,19 @@ public class AuthController {
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
-        return ResponseEntity.ok(new LoginResponse(token, refreshToken));
+        return ResponseEntity.ok(LoginResponse.builder()
+                .accessToken(token)
+                .refreshToken(refreshToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .level(user.getLevel())
+                .policyCount(user.getPolicyCount())
+                .build());
     }
 
     @PostMapping("/register")
@@ -79,14 +91,26 @@ public class AuthController {
             user = userRepository.save(user);
             log.info("User updated with tokens successfully");
 
-            return ResponseEntity.ok(new LoginResponse(token, refreshToken));
+            return ResponseEntity.ok(LoginResponse.builder()
+                    .accessToken(token)
+                    .refreshToken(refreshToken)
+                    .id(user.getId())
+                    .email(user.getEmail())
+                    .firstName(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .middleName(user.getMiddleName())
+                    .phone(user.getPhone())
+                    .role(user.getRole())
+                    .level(user.getLevel())
+                    .policyCount(user.getPolicyCount())
+                    .build());
         } catch (Exception e) {
             log.error("Error during registration", e);
             throw new RuntimeException("Registration failed: " + e.getMessage());
         }
     }
 
-    @PostMapping("/refresh-token")
+    @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@RequestHeader("Authorization") String refreshToken) {
         if (refreshToken == null || !refreshToken.startsWith("Bearer ")) {
             throw new RuntimeException("Invalid refresh token");
@@ -109,6 +133,18 @@ public class AuthController {
         user.setRefreshToken(newRefreshToken);
         userRepository.save(user);
 
-        return ResponseEntity.ok(new LoginResponse(newToken, newRefreshToken));
+        return ResponseEntity.ok(LoginResponse.builder()
+                .accessToken(newToken)
+                .refreshToken(newRefreshToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .level(user.getLevel())
+                .policyCount(user.getPolicyCount())
+                .build());
     }
 } 

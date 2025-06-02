@@ -1,19 +1,26 @@
 package com.strahovka.service;
 
+import com.strahovka.delivery.Claims;
 import com.strahovka.delivery.Claims.ClaimStatus;
 import com.strahovka.delivery.Claims.InsuranceClaim;
+import com.strahovka.delivery.Claims.ClaimAttachment;
+import com.strahovka.delivery.Insurance;
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.User;
+import com.strahovka.delivery.Role;
 import com.strahovka.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -24,6 +31,8 @@ public class InsuranceService {
     private final ApplicationRepository applicationRepository;
     private final ClaimsRepository claimsRepository;
     private final UserRepository userRepository;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private User findUser(String email) {
         return userRepository.findByEmail(email)
@@ -47,21 +56,38 @@ public class InsuranceService {
     public InsuranceGuide createGuide(InsuranceGuide guide) {
         guide.setCreatedAt(LocalDateTime.now());
         guide.setUpdatedAt(LocalDateTime.now());
+        setCalculationRulesForGuide(guide);
         InsurancePolicy policy = new InsurancePolicy();
         policy.setGuide(guide);
-        return insuranceRepository.save(policy).getGuide();
+        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
+        return savedPolicy.getGuide();
     }
 
     @Transactional
-    public InsuranceGuide updateGuide(Long id, InsuranceGuide guide) {
-        InsuranceGuide existingGuide = getGuideById(id);
-        guide.setId(id);
-        guide.setCreatedAt(existingGuide.getCreatedAt());
-        guide.setUpdatedAt(LocalDateTime.now());
-        InsurancePolicy policy = insuranceRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Policy not found: " + id));
-        policy.setGuide(guide);
-        return insuranceRepository.save(policy).getGuide();
+    public InsuranceGuide updateGuide(Long id, InsuranceGuide guideUpdates) {
+        InsurancePolicy existingPolicy = insuranceRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Policy (and thus Guide) not found with id: " + id));
+
+        InsuranceGuide existingGuide = existingPolicy.getGuide();
+        if (existingGuide == null) {
+            existingGuide = new InsuranceGuide();
+            existingPolicy.setGuide(existingGuide);
+        }
+        
+        existingGuide.setTitle(guideUpdates.getTitle());
+        existingGuide.setDescription(guideUpdates.getDescription());
+        existingGuide.setInsuranceType(guideUpdates.getInsuranceType());
+        existingGuide.setImportantNotes(guideUpdates.getImportantNotes());
+        existingGuide.setRequiredDocuments(guideUpdates.getRequiredDocuments());
+        existingGuide.setCoverageDetails(guideUpdates.getCoverageDetails());
+        existingGuide.setActive(guideUpdates.isActive());
+        existingGuide.setDisplayOrder(guideUpdates.getDisplayOrder());
+        existingGuide.setUpdatedAt(LocalDateTime.now());
+        
+        setCalculationRulesForGuide(existingGuide);
+
+        insuranceRepository.save(existingPolicy);
+        return existingGuide;
     }
 
     @Transactional
@@ -111,13 +137,15 @@ public class InsuranceService {
 
     @Transactional
     public InsuranceCategory createCategory(InsuranceCategory category) {
-        return insuranceRepository.saveCategory(category);
+        insuranceRepository.saveCategory(category);
+        return category;
     }
 
     @Transactional
     public InsuranceCategory updateCategory(Long id, InsuranceCategory category) {
         category.setId(id);
-        return insuranceRepository.saveCategory(category);
+        insuranceRepository.saveCategory(category);
+        return category;
     }
 
     @Transactional
@@ -155,6 +183,47 @@ public class InsuranceService {
     }
 
     // Application operations
+    private BigDecimal calculateKaskoPrice(KaskoApplication app) {
+        if (app.getCarValue() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal basePrice = app.getCarValue().multiply(new BigDecimal("0.05"));
+        BigDecimal calculatedPrice = basePrice;
+
+        if (app.getCarYear() != null) {
+            int carAge = LocalDate.now().getYear() - app.getCarYear();
+            if (carAge > 10) {
+                calculatedPrice = calculatedPrice.add(basePrice.multiply(new BigDecimal("0.10")));
+            } else if (carAge > 5) {
+                calculatedPrice = calculatedPrice.add(basePrice.multiply(new BigDecimal("0.05")));
+            }
+        }
+
+        if (app.getDriverExperienceYears() != null) {
+            if (app.getDriverExperienceYears() < 3) {
+                calculatedPrice = calculatedPrice.add(basePrice.multiply(new BigDecimal("0.15")));
+            } else if (app.getDriverExperienceYears() < 5) {
+                calculatedPrice = calculatedPrice.add(basePrice.multiply(new BigDecimal("0.07")));
+            }
+        }
+
+        if (Boolean.TRUE.equals(app.getHasAntiTheftSystem())) {
+            calculatedPrice = calculatedPrice.subtract(basePrice.multiply(new BigDecimal("0.05")));
+        }
+
+        if (Boolean.TRUE.equals(app.getGarageParking())) {
+            calculatedPrice = calculatedPrice.subtract(basePrice.multiply(new BigDecimal("0.03")));
+        }
+        
+        if (app.getDuration() != null && app.getDuration() != 12) {
+            calculatedPrice = calculatedPrice.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP)
+                                           .multiply(BigDecimal.valueOf(app.getDuration()));
+        }
+
+        return calculatedPrice.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    }
+
     @Transactional
     public KaskoApplication createKaskoApplication(KaskoApplication kaskoApplication, String usernameOrEmail) {
         User user = findUser(usernameOrEmail);
@@ -168,10 +237,160 @@ public class InsuranceService {
             kaskoApplication.setEndDate(startDate.plusMonths(kaskoApplication.getDuration()));
         }
         
-        // Устанавливаем временное значение для суммы
-        kaskoApplication.setCalculatedAmount(new BigDecimal("1000.00"));
+        kaskoApplication.setCalculatedAmount(calculateKaskoPrice(kaskoApplication));
 
         return applicationRepository.save(kaskoApplication);
+    }
+
+    @Transactional
+    public InsurancePolicy processKaskoPayment(Long applicationId, String usernameOrEmail) {
+        User user = findUser(usernameOrEmail);
+        KaskoApplication application = applicationRepository.findById(applicationId)
+                .filter(app -> app instanceof KaskoApplication && app.getUser().equals(user))
+                .map(app -> (KaskoApplication) app)
+                .orElseThrow(() -> new EntityNotFoundException("KaskoApplication not found with id " + applicationId + " for user " + usernameOrEmail));
+
+        if (!"PENDING".equalsIgnoreCase(application.getStatus())) {
+            throw new IllegalStateException("Application is not in PENDING status, cannot process payment. Current status: " + application.getStatus());
+        }
+
+        // Пытаемся найти категорию "KASKO" или создаем временную, если не найдена.
+        Insurance.InsuranceCategory kaskoCategory = insuranceRepository.findCategoryByName("KASKO");
+        if (kaskoCategory == null) {
+            // Это временное решение. Категории должны существовать.
+            kaskoCategory = new Insurance.InsuranceCategory();
+            kaskoCategory.setName("KASKO");
+            kaskoCategory.setDescription("Стандартная категория КАСКО");
+            kaskoCategory.setBasePrice(BigDecimal.ZERO); // Установите базовую цену, если необходимо
+            kaskoCategory.setType("AUTO");
+            // Save the category
+            insuranceRepository.saveCategory(kaskoCategory);
+            // After saving, find the category to get the persisted instance
+            kaskoCategory = insuranceRepository.findCategoryByName("KASKO");
+        }
+
+        // Create and set up the policy with the saved category
+        InsurancePolicy policy = new InsurancePolicy();
+        policy.setUser(user);
+        policy.setName("КАСКО Полис для " + application.getCarMake() + " " + application.getCarModel());
+        policy.setDescription("Полис КАСКО, сформированный на основе заявки #" + application.getId());
+        policy.setPrice(application.getCalculatedAmount());
+        policy.setCategory(kaskoCategory);
+        policy.setActive(true);
+        policy.setStartDate(application.getStartDate() != null ? application.getStartDate() : LocalDate.now());
+        if (application.getEndDate() != null) {
+            policy.setEndDate(application.getEndDate());
+        } else if (application.getDuration() != null) {
+            policy.setEndDate(policy.getStartDate().plusMonths(application.getDuration()));
+        } else {
+            policy.setEndDate(policy.getStartDate().plusYears(1)); // По умолчанию на год, если нет длительности
+        }
+        policy.setStatus(Insurance.PolicyStatus.ACTIVE); // Статус полиса - АКТИВЕН
+        // Связываем полис с заявкой (если нужно)
+        // application.setPolicy(policy); // Раскомментировать, если в BaseApplication есть поле policy и связь настроена
+
+        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
+
+        // Обновляем статус заявки
+        application.setStatus("ACTIVE"); // Или "COMPLETED", или другой соответствующий статус
+        application.setPolicy(savedPolicy);
+        application.setProcessedAt(LocalDateTime.now());
+        applicationRepository.save(application);
+
+        return savedPolicy;
+    }
+
+    @Transactional
+    public InsurancePolicy processTravelPayment(Long applicationId, String usernameOrEmail) {
+        User user = findUser(usernameOrEmail);
+        TravelApplication application = applicationRepository.findById(applicationId)
+                .filter(app -> app instanceof TravelApplication && app.getUser().equals(user))
+                .map(app -> (TravelApplication) app)
+                .orElseThrow(() -> new EntityNotFoundException("TravelApplication not found with id " + applicationId + " for user " + usernameOrEmail));
+
+        if (!"PENDING".equalsIgnoreCase(application.getStatus())) {
+            throw new IllegalStateException("Application is not in PENDING status, cannot process payment. Current status: " + application.getStatus());
+        }
+
+        InsurancePolicy policy = new InsurancePolicy();
+        policy.setUser(user);
+        policy.setName("Полис Путешественника для " + application.getDestinationCountry());
+        policy.setDescription("Полис для путешествий, сформированный на основе заявки #" + application.getId());
+        policy.setPrice(application.getCalculatedAmount());
+
+        Insurance.InsuranceCategory travelCategory = insuranceRepository.findCategoryByName("TRAVEL");
+        if (travelCategory == null) {
+            travelCategory = new Insurance.InsuranceCategory();
+            travelCategory.setName("TRAVEL");
+            travelCategory.setDescription("Стандартная категория TRAVEL");
+            travelCategory.setBasePrice(BigDecimal.ZERO);
+            travelCategory.setType("TRAVEL");
+            insuranceRepository.saveCategory(travelCategory); // Ensure new category is saved
+        }
+        policy.setCategory(travelCategory);
+
+        policy.setActive(true);
+        policy.setStartDate(application.getTravelStartDate() != null ? application.getTravelStartDate() : LocalDate.now());
+        if (application.getTravelEndDate() != null) {
+            policy.setEndDate(application.getTravelEndDate());
+        } else {
+            policy.setEndDate(policy.getStartDate().plusDays(14)); // Default to 2 weeks if not specified
+        }
+        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+
+        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
+
+        application.setStatus("ACTIVE");
+        application.setPolicy(savedPolicy);
+        application.setProcessedAt(LocalDateTime.now());
+        applicationRepository.save(application);
+
+        return savedPolicy;
+    }
+
+    @Transactional
+    public InsurancePolicy processPropertyPayment(Long applicationId, String usernameOrEmail) {
+        User user = findUser(usernameOrEmail);
+        PropertyApplication application = applicationRepository.findById(applicationId)
+                .filter(app -> app instanceof PropertyApplication && app.getUser().equals(user))
+                .map(app -> (PropertyApplication) app)
+                .orElseThrow(() -> new EntityNotFoundException("PropertyApplication not found with id " + applicationId + " for user " + usernameOrEmail));
+
+        if (!"PENDING".equalsIgnoreCase(application.getStatus())) {
+            throw new IllegalStateException("Application is not in PENDING status, cannot process payment. Current status: " + application.getStatus());
+        }
+
+        InsurancePolicy policy = new InsurancePolicy();
+        policy.setUser(user);
+        policy.setName("Полис Имущества для " + application.getPropertyType());
+        policy.setDescription("Полис для имущества, сформированный на основе заявки #" + application.getId());
+        policy.setPrice(application.getCalculatedAmount());
+
+        Insurance.InsuranceCategory propertyCategory = insuranceRepository.findCategoryByName("PROPERTY");
+        if (propertyCategory == null) {
+            propertyCategory = new Insurance.InsuranceCategory();
+            propertyCategory.setName("PROPERTY");
+            propertyCategory.setDescription("Стандартная категория PROPERTY");
+            propertyCategory.setBasePrice(BigDecimal.ZERO);
+            propertyCategory.setType("PROPERTY");
+            insuranceRepository.saveCategory(propertyCategory); // Ensure new category is saved
+        }
+        policy.setCategory(propertyCategory);
+
+        policy.setActive(true);
+        policy.setStartDate(application.getStartDate() != null ? application.getStartDate() : LocalDate.now());
+        // Assuming property insurance is typically for a year if not specified otherwise
+        policy.setEndDate(policy.getStartDate().plusYears(1)); 
+        policy.setStatus(Insurance.PolicyStatus.ACTIVE);
+
+        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
+
+        application.setStatus("ACTIVE");
+        application.setPolicy(savedPolicy);
+        application.setProcessedAt(LocalDateTime.now());
+        applicationRepository.save(application);
+
+        return savedPolicy;
     }
 
     @Transactional(readOnly = true)
@@ -205,8 +424,14 @@ public class InsuranceService {
     }
 
     // Public methods
+    @Transactional(readOnly = true)
     public List<InsurancePackage> getPublicPackages() {
         return insuranceRepository.findByActiveTrue();
+    }
+
+    @Transactional(readOnly = true)
+    public List<InsurancePackage> getAllPackages() {
+        return insuranceRepository.findAllPackages();
     }
 
     @Transactional(readOnly = true)
@@ -228,5 +453,93 @@ public class InsuranceService {
         claim.setCreatedAt(LocalDateTime.now());
         claim.setStatus(ClaimStatus.PENDING);
         return claimsRepository.save(claim);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<InsurancePolicy> findPolicyById(Long id) {
+        return insuranceRepository.findById(id);
+    }
+
+    @Transactional
+    public ClaimAttachment saveAttachment(ClaimAttachment attachment) {
+        return claimsRepository.saveAttachment(attachment);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Claims.ClaimMessage> getClaimMessages(Long claimId, String email) {
+        User user = findUser(email);
+        InsuranceClaim claim = claimsRepository.findById(claimId)
+                .orElseThrow(() -> new EntityNotFoundException("Claim not found: " + claimId));
+        
+        // Verify the user has access to this claim
+        if (!claim.getUser().equals(user) && !user.getRole().equals(Role.ADMIN)) {
+            throw new SecurityException("User does not have access to this claim");
+        }
+        
+        return claimsRepository.findMessagesByClaim(claimId);
+    }
+
+    @Transactional
+    public Claims.ClaimMessage addClaimMessage(Long claimId, String messageContent, String email) {
+        User user = findUser(email);
+        InsuranceClaim claim = claimsRepository.findById(claimId)
+                .orElseThrow(() -> new EntityNotFoundException("Claim not found: " + claimId));
+        
+        // Verify the user has access to this claim
+        if (!claim.getUser().equals(user) && !user.getRole().equals(Role.ADMIN)) {
+            throw new SecurityException("User does not have access to this claim");
+        }
+        
+        Claims.ClaimMessage message = new Claims.ClaimMessage();
+        message.setClaim(claim);
+        message.setUser(user);
+        message.setMessage(messageContent);
+        message.setSentAt(LocalDateTime.now());
+        
+        entityManager.persist(message);
+        entityManager.flush();
+        return message;
+    }
+
+    @Transactional
+    public InsuranceClaim cancelClaim(Long claimId, String email) {
+        User user = findUser(email);
+        InsuranceClaim claim = claimsRepository.findById(claimId)
+                .orElseThrow(() -> new EntityNotFoundException("Claim not found: " + claimId));
+        
+        // Verify the user has access to this claim
+        if (!claim.getUser().equals(user) && !user.getRole().equals("ADMIN")) {
+            throw new SecurityException("User does not have access to this claim");
+        }
+        
+        // Check if claim can be cancelled
+        if (claim.getStatus() != ClaimStatus.PENDING) {
+            throw new IllegalStateException("Only pending claims can be cancelled");
+        }
+        
+        claim.setStatus(ClaimStatus.CLOSED);
+        claim.setProcessedAt(LocalDateTime.now());
+        claim.setProcessedBy(email);
+        
+        return claimsRepository.save(claim);
+    }
+
+    private void setCalculationRulesForGuide(InsuranceGuide guide) {
+        if ("KASKO".equalsIgnoreCase(guide.getInsuranceType())) {
+            guide.setCalculationRules(
+                "Базовая ставка: 5% от стоимости автомобиля.\\n" +
+                "Год выпуска: +10% к базовой ставке, если авто старше 10 лет; +5%, если старше 5 лет.\\n" +
+                "Стаж вождения: +15% к базовой ставке, если стаж < 3 лет; +7%, если стаж < 5 лет.\\n" +
+                "Противоугонная система: -5% от базовой ставки.\\n" +
+                "Гаражное хранение: -3% от базовой ставки.\\n" +
+                "Длительность: Стоимость корректируется пропорционально сроку, если он не равен 12 месяцам."
+            );
+        } else if ("OSAGO".equalsIgnoreCase(guide.getInsuranceType())) {
+            guide.setCalculationRules(
+                "Для ОСАГО расчет зависит от мощности двигателя, региона, стажа, КБМ и др. (Упрощенная логика будет добавлена позже)."
+            );
+        } else {
+            guide.setCalculationRules("Правила расчета для данного типа страхования пока не определены.");
+        }
     }
 } 

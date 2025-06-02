@@ -1,5 +1,8 @@
 package com.strahovka.delivery;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.strahovka.delivery.InsurancePolicy;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -13,6 +16,7 @@ public class Claims {
     @Table(name = "insurance_claims")
     @Data
     @NoArgsConstructor
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     public static class InsuranceClaim {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,10 +24,12 @@ public class Claims {
 
         @ManyToOne
         @JoinColumn(name = "user_id")
+        @JsonIgnoreProperties({"claims", "policies", "password", "refreshToken", "accessToken"})
         private User user;
 
         @ManyToOne
         @JoinColumn(name = "policy_id")
+        @JsonIgnoreProperties({"claims", "user"})
         private InsurancePolicy policy;
 
         private String description;
@@ -33,12 +39,15 @@ public class Claims {
         private ClaimStatus status;
 
         @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+        @JsonManagedReference
         private List<ClaimAttachment> attachments = new ArrayList<>();
 
         @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+        @JsonManagedReference
         private List<ClaimMessage> messages = new ArrayList<>();
 
         @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+        @JsonManagedReference
         private List<ClaimComment> comments = new ArrayList<>();
 
         @Column(name = "amount_requested")
@@ -69,6 +78,7 @@ public class Claims {
     @Table(name = "claim_attachments")
     @Data
     @NoArgsConstructor
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     public static class ClaimAttachment {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,6 +86,7 @@ public class Claims {
 
         @ManyToOne
         @JoinColumn(name = "claim_id")
+        @JsonBackReference
         private InsuranceClaim claim;
 
         private String fileName;
@@ -99,6 +110,7 @@ public class Claims {
     @Table(name = "claim_messages")
     @Data
     @NoArgsConstructor
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     public static class ClaimMessage {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -106,10 +118,12 @@ public class Claims {
 
         @ManyToOne
         @JoinColumn(name = "claim_id")
+        @JsonBackReference
         private InsuranceClaim claim;
 
         @ManyToOne
         @JoinColumn(name = "user_id")
+        @JsonIgnoreProperties({"claims", "policies", "password", "refreshToken", "accessToken"})
         private User user;
 
         private String message;
@@ -131,6 +145,7 @@ public class Claims {
     @Table(name = "claim_comments")
     @Data
     @NoArgsConstructor
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     public static class ClaimComment {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -138,10 +153,12 @@ public class Claims {
 
         @ManyToOne
         @JoinColumn(name = "claim_id")
+        @JsonBackReference
         private InsuranceClaim claim;
 
         @ManyToOne
         @JoinColumn(name = "user_id")
+        @JsonIgnoreProperties({"claims", "policies", "password", "refreshToken", "accessToken"})
         private User user;
 
         private String comment;

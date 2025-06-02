@@ -213,6 +213,9 @@ public class Insurance {
         @Column(name = "coverage_details", nullable = false)
         private String coverageDetails;
 
+        @Column(name = "calculation_rules", columnDefinition = "text")
+        private String calculationRules;
+
         @Column(name = "active", nullable = false)
         private boolean active = true;
 

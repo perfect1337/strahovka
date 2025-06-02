@@ -19,6 +19,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControlLabel,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +42,7 @@ const InsuranceGuide = () => {
     importantNotes: '',
     requiredDocuments: '',
     coverageDetails: '',
+    calculationRules: '',
     active: true
   });
 
@@ -81,6 +83,7 @@ const InsuranceGuide = () => {
         importantNotes: guide.importantNotes || '',
         requiredDocuments: guide.requiredDocuments || '',
         coverageDetails: guide.coverageDetails || '',
+        calculationRules: guide.calculationRules || '',
         active: guide.active
       });
       setSelectedGuide(guide);
@@ -92,6 +95,7 @@ const InsuranceGuide = () => {
         importantNotes: '',
         requiredDocuments: '',
         coverageDetails: '',
+        calculationRules: '',
         active: true
       });
       setSelectedGuide(null);
@@ -187,6 +191,14 @@ const InsuranceGuide = () => {
                     <Typography paragraph>{guide.coverageDetails}</Typography>
                   </>
                 )}
+                {guide.calculationRules && (
+                  <>
+                    <Typography variant="h6" gutterBottom>Правила расчета</Typography>
+                    <Typography paragraph sx={{ whiteSpace: 'pre-line' }}>
+                      {guide.calculationRules}
+                    </Typography>
+                  </>
+                )}
                 {isAdmin && (
                   <Box mt={2}>
                     <Button
@@ -274,7 +286,16 @@ const InsuranceGuide = () => {
               onChange={(e) => setFormData({ ...formData, coverageDetails: e.target.value })}
               margin="normal"
               multiline
-              rows={3}
+              rows={4}
+            />
+            <TextField
+              fullWidth
+              label="Правила расчета стоимости"
+              value={formData.calculationRules}
+              onChange={(e) => setFormData({ ...formData, calculationRules: e.target.value })}
+              margin="normal"
+              multiline
+              rows={4}
             />
           </Box>
         </DialogContent>

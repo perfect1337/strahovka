@@ -19,7 +19,7 @@ const AdminPanel = () => {
     email: '',
     password: '',
     firstName: '',
-    lastName: '',
+    lastName: ''
   });
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const AdminPanel = () => {
       email: '',
       password: '',
       firstName: '',
-      lastName: '',
+      lastName: ''
     });
   };
 
@@ -62,7 +62,9 @@ const AdminPanel = () => {
     try {
       await api.post('/api/admin/moderators', {
         ...newModerator,
-        role: 'ROLE_MODERATOR',
+        role: 'MODERATOR',
+        level: 'WOODEN',
+        policyCount: 0
       });
       fetchModerators();
       handleCloseDialog();
@@ -178,7 +180,7 @@ const AdminPanel = () => {
             <TextField
               fullWidth
               label="Email"
-              value={newModerator.email}
+              value={newModerator.email || ''}
               onChange={(e) => setNewModerator({ ...newModerator, email: e.target.value })}
               margin="normal"
               required
@@ -187,7 +189,7 @@ const AdminPanel = () => {
               fullWidth
               label="Пароль"
               type="password"
-              value={newModerator.password}
+              value={newModerator.password || ''}
               onChange={(e) => setNewModerator({ ...newModerator, password: e.target.value })}
               margin="normal"
               required
@@ -195,7 +197,7 @@ const AdminPanel = () => {
             <TextField
               fullWidth
               label="Имя"
-              value={newModerator.firstName}
+              value={newModerator.firstName || ''}
               onChange={(e) => setNewModerator({ ...newModerator, firstName: e.target.value })}
               margin="normal"
               required
@@ -203,7 +205,7 @@ const AdminPanel = () => {
             <TextField
               fullWidth
               label="Фамилия"
-              value={newModerator.lastName}
+              value={newModerator.lastName || ''}
               onChange={(e) => setNewModerator({ ...newModerator, lastName: e.target.value })}
               margin="normal"
               required

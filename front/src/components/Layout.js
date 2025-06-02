@@ -15,12 +15,17 @@ import {
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useAuth } from '../context/AuthContext';
 import SideMenu from './SideMenu';
+import { checkIfAdmin, checkIfModerator } from '../utils/roleUtils';
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = React.useState(null);
+
+  // Add debug logging
+  console.log('Layout - Current user:', user);
+  console.log('Layout - User role:', user?.role);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -40,6 +45,12 @@ const Layout = () => {
     handleClose();
     navigate('/profile');
   };
+
+  const isAdmin = user && checkIfAdmin(user.role);
+  const isModerator = user && (checkIfModerator(user.role) || checkIfAdmin(user.role));
+
+  // Add debug logging for role checks
+  console.log('Layout - Role checks:', { isAdmin, isModerator });
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -98,12 +109,12 @@ const Layout = () => {
                 onClose={handleClose}
               >
                 <MenuItem onClick={handleProfile}>Личный кабинет</MenuItem>
-                {user.role === 'ADMIN' && (
+                {isAdmin && (
                   <MenuItem onClick={() => { handleClose(); navigate('/admin'); }}>
                     Панель администратора
                   </MenuItem>
                 )}
-                {(user.role === 'ADMIN' || user.role === 'MODERATOR') && (
+                {isModerator && (
                   <MenuItem onClick={() => { handleClose(); navigate('/moderator/claims'); }}>
                     Управление заявками
                   </MenuItem>

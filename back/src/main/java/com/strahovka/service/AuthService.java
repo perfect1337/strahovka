@@ -34,7 +34,19 @@ public class AuthService {
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
-        return new LoginResponse(token, refreshToken);
+        return LoginResponse.builder()
+                .accessToken(token)
+                .refreshToken(refreshToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .level(user.getLevel())
+                .policyCount(user.getPolicyCount())
+                .build();
     }
 
     @Transactional
@@ -62,32 +74,56 @@ public class AuthService {
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
-        return new LoginResponse(token, refreshToken);
+        return LoginResponse.builder()
+                .accessToken(token)
+                .refreshToken(refreshToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .level(user.getLevel())
+                .policyCount(user.getPolicyCount())
+                .build();
     }
 
     @Transactional
     public LoginResponse refreshToken(String refreshToken) {
         if (refreshToken == null || !refreshToken.startsWith("Bearer ")) {
-            throw new RuntimeException("Invalid refresh token");
+            throw new RuntimeException("Invalid refresh token format");
         }
 
-        String token = refreshToken.substring(7);
-        String userEmail = jwtService.extractUsername(token);
+        String tokenValue = refreshToken.substring(7);
+        String userEmail = jwtService.extractUsername(tokenValue);
 
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found for refresh token"));
 
-        if (!token.equals(user.getRefreshToken())) {
-            throw new RuntimeException("Invalid refresh token");
+        if (!jwtService.isTokenValid(tokenValue, user.getEmail()) || !tokenValue.equals(user.getRefreshToken())) {
+            throw new RuntimeException("Invalid or expired refresh token");
         }
 
-        String newToken = jwtService.generateToken(userEmail);
-        String newRefreshToken = jwtService.generateRefreshToken(userEmail);
+        String newAccessToken = jwtService.generateToken(userEmail);
+        String newGeneratedRefreshToken = jwtService.generateRefreshToken(userEmail);
 
-        user.setAccessToken(newToken);
-        user.setRefreshToken(newRefreshToken);
+        user.setAccessToken(newAccessToken);
+        user.setRefreshToken(newGeneratedRefreshToken);
         userRepository.save(user);
 
-        return new LoginResponse(newToken, newRefreshToken);
+        return LoginResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newGeneratedRefreshToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .level(user.getLevel())
+                .policyCount(user.getPolicyCount())
+                .build();
     }
 } 

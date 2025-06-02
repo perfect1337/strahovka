@@ -50,6 +50,9 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Query("SELECT p FROM Insurance$InsurancePackage p WHERE p.active = true")
     List<InsurancePackage> findByActiveTrue();
 
+    @Query("SELECT p FROM Insurance$InsurancePackage p")
+    List<InsurancePackage> findAllPackages();
+
     @Modifying
     @Query("INSERT INTO Insurance$InsurancePackage (name, description, basePrice, discount, active, user, status) " +
            "VALUES (:#{#package.name}, :#{#package.description}, :#{#package.basePrice}, " +
@@ -78,7 +81,7 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Modifying
     @Query("INSERT INTO Insurance$InsuranceCategory (name, description, basePrice, type) " +
            "VALUES (:#{#category.name}, :#{#category.description}, :#{#category.basePrice}, :#{#category.type})")
-    InsuranceCategory saveCategory(@Param("category") InsuranceCategory category);
+    void saveCategory(@Param("category") InsuranceCategory category);
 
     @Modifying
     @Query("DELETE FROM Insurance$InsuranceCategory c WHERE c.id = :id")
@@ -103,4 +106,7 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Modifying
     @Query("DELETE FROM Insurance$BaseApplication a WHERE a.id = :id")
     void deleteApplicationById(@Param("id") Long id);
+
+    @Query("SELECT c FROM Insurance$InsuranceCategory c WHERE c.name = :name")
+    InsuranceCategory findCategoryByName(@Param("name") String name);
 } 

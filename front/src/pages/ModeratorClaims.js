@@ -46,7 +46,7 @@ const ModeratorClaims = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalClaims, setTotalClaims] = useState(0);
   const [filter, setFilter] = useState('PENDING');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState('0');
 
   useEffect(() => {
     fetchClaims();
@@ -54,11 +54,11 @@ const ModeratorClaims = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await api.get('/api/insurance/claims/all', {
+      const response = await api.get('/api/claims', {
         params: {
           page,
           size: rowsPerPage,
-          status: filter,
+          status: filter !== 'ALL' ? filter : undefined,
         },
       });
       setClaims(response.data.content);
@@ -96,7 +96,7 @@ const ModeratorClaims = () => {
 
   const handleProcessClaim = async () => {
     try {
-      await api.post(`/api/insurance/claims/${selectedClaim.id}/process`, {
+      await api.post(`/api/claims/${selectedClaim.id}/process`, {
         status,
         response,
         amount: amount ? parseFloat(amount) : null
@@ -231,7 +231,7 @@ const ModeratorClaims = () => {
                 <TableRow key={claim.id}>
                   <TableCell>{claim.id}</TableCell>
                   <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{claim.policy.user.firstName} {claim.policy.user.lastName}</TableCell>
+                  <TableCell>{claim.user.firstName} {claim.user.lastName}</TableCell>
                   <TableCell>
                     <Chip
                       label={claim.policy.category.name}
@@ -398,7 +398,7 @@ const ModeratorClaims = () => {
                   InputProps={{
                     endAdornment: <Typography>₽</Typography>
                   }}
-                  value={amount}
+                  value={amount || '0'}
                   onChange={(e) => setAmount(e.target.value)}
                 />
               </Grid>

@@ -98,7 +98,7 @@ const ClaimChatButton = ({ claimId, claimDescription }) => {
                                     <ListItem 
                                         key={message.id}
                                         sx={{
-                                            backgroundColor: message.user.role === 'ROLE_ADMIN' || message.user.role === 'ROLE_MODERATOR' 
+                                            backgroundColor: message.user.role === 'ADMIN' || message.user.role === 'MODERATOR' 
                                                 ? '#e3f2fd' 
                                                 : 'transparent',
                                             borderRadius: '4px',
@@ -109,7 +109,7 @@ const ClaimChatButton = ({ claimId, claimDescription }) => {
                                             primary={
                                                 <Typography variant="subtitle2">
                                                     {message.user.firstName} {message.user.lastName} 
-                                                    {(message.user.role === 'ROLE_ADMIN' || message.user.role === 'ROLE_MODERATOR') && 
+                                                    {(message.user.role === 'ADMIN' || message.user.role === 'MODERATOR') && 
                                                         ' (Администратор)'}
                                                 </Typography>
                                             }
@@ -119,7 +119,7 @@ const ClaimChatButton = ({ claimId, claimDescription }) => {
                                                         {message.message}
                                                     </Typography>
                                                     <Typography variant="caption" color="textSecondary">
-                                                        {format(new Date(message.createdAt), 'dd.MM.yyyy HH:mm')}
+                                                        {format(new Date(message.sentAt), 'dd.MM.yyyy HH:mm')}
                                                     </Typography>
                                                 </>
                                             }
