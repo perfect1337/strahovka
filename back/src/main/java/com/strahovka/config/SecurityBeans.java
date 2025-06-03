@@ -35,6 +35,7 @@ public class SecurityBeans {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh-token").permitAll()
                 .requestMatchers("/api/insurance/packages/public", "/api/insurance/categories", "/api/insurance/guides").permitAll()
+                .requestMatchers("/api/insurance/unauthorized/**").permitAll()
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                 .anyRequest().authenticated()
             )

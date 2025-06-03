@@ -20,16 +20,16 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit }) => {
             const kaskoData = {
                 carMake: valuesFromForm.carMake?.trim(),
                 carModel: valuesFromForm.carModel?.trim(),
-                carYear: valuesFromForm.carYear?.toString(),
+                carYear: valuesFromForm.carYear,
                 vinNumber: valuesFromForm.vinNumber?.trim()?.toUpperCase(),
                 licensePlate: valuesFromForm.licensePlate?.trim(),
-                carValue: valuesFromForm.carValue?.toString(),
+                carValue: valuesFromForm.carValue,
                 driverLicenseNumber: valuesFromForm.driverLicenseNumber?.trim(),
-                driverExperienceYears: valuesFromForm.driverExperienceYears?.toString(),
-                hasAntiTheftSystem: valuesFromForm.hasAntiTheftSystem?.toString() || "false",
-                garageParking: valuesFromForm.garageParking?.toString() || "false",
+                driverExperienceYears: valuesFromForm.driverExperienceYears,
+                hasAntiTheftSystem: Boolean(valuesFromForm.hasAntiTheftSystem),
+                garageParking: Boolean(valuesFromForm.garageParking),
                 previousInsuranceNumber: valuesFromForm.previousInsuranceNumber?.trim() || null,
-                duration: valuesFromForm.insuranceDuration?.toString()
+                duration: valuesFromForm.insuranceDuration
             };
 
             // 2. Если пользователь не аутентифицирован, добавляем "owner" поля как есть
