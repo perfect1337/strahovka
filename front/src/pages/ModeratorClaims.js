@@ -28,10 +28,12 @@ import {
   Paper,
   TablePagination,
   Stack,
+  InputAdornment,
 } from '@mui/material';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ClaimChatButton from '../components/admin/ClaimChatButton';
+import styled from '@emotion/styled';
 
 const ModeratorClaims = () => {
   const { user } = useAuth();
@@ -175,6 +177,10 @@ const ModeratorClaims = () => {
     }
   };
 
+  const DialogContentStyled = styled(DialogContent)(({ theme }) => ({
+    paddingTop: theme.spacing(2),
+  }));
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -223,6 +229,7 @@ const ModeratorClaims = () => {
                 <TableCell>Тип страховки</TableCell>
                 <TableCell>Описание</TableCell>
                 <TableCell>Статус</TableCell>
+                <TableCell>Сумма выплаты</TableCell>
                 <TableCell>Действия</TableCell>
               </TableRow>
             </TableHead>
@@ -246,6 +253,11 @@ const ModeratorClaims = () => {
                       color={getStatusColor(claim.status)}
                       size="small"
                     />
+                  </TableCell>
+                  <TableCell>
+                    {claim.amountApproved && claim.amountApproved > 0
+                      ? `${claim.amountApproved.toLocaleString()} руб.`
+                      : '-'}
                   </TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -283,7 +295,7 @@ const ModeratorClaims = () => {
         <DialogTitle>
           Обработка страхового случая #{selectedClaim?.id}
         </DialogTitle>
-        <DialogContent>
+        <DialogContentStyled>
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
@@ -392,14 +404,16 @@ const ModeratorClaims = () => {
 
               <Grid item xs={12} md={6}>
                 <TextField
-                  fullWidth
-                  label="Сумма выплаты"
+                  margin="dense"
+                  label="Сумма выплаты (если применимо)"
                   type="number"
-                  InputProps={{
-                    endAdornment: <Typography>₽</Typography>
-                  }}
-                  value={amount || '0'}
+                  fullWidth
+                  variant="outlined"
+                  value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">руб.</InputAdornment>,
+                  }}
                 />
               </Grid>
 
@@ -415,7 +429,7 @@ const ModeratorClaims = () => {
               </Grid>
             </Grid>
           </Box>
-        </DialogContent>
+        </DialogContentStyled>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Отмена</Button>
           <Button 

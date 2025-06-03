@@ -9,7 +9,9 @@ import com.strahovka.service.AuthService;
 import com.strahovka.service.JwtService;
 import com.strahovka.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -33,5 +35,16 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponse> refreshToken(@RequestHeader("Authorization") String refreshToken) {
         return ResponseEntity.ok(authService.refreshToken(refreshToken));
+    }
+
+    @GetMapping("/validate")
+    public ResponseEntity<com.strahovka.delivery.User> validateToken(Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof com.strahovka.delivery.User) {
+            com.strahovka.delivery.User currentUser = (com.strahovka.delivery.User) authentication.getPrincipal();
+            // Optionally, re-fetch user from DB if fresh data is critical
+            // For now, returning the principal from token.
+            return ResponseEntity.ok(currentUser);
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 } 

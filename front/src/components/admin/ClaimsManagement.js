@@ -104,17 +104,18 @@ const ClaimsManagement = () => {
                             <TableCell>Тип страховки</TableCell>
                             <TableCell>Описание</TableCell>
                             <TableCell>Статус</TableCell>
+                            <TableCell>Сумма выплаты</TableCell>
                             <TableCell align="right">Действия</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={7} align="center">Загрузка...</TableCell>
+                                <TableCell colSpan={8} align="center">Загрузка...</TableCell>
                             </TableRow>
                         ) : claims.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} align="center">Нет страховых случаев</TableCell>
+                                <TableCell colSpan={8} align="center">Нет страховых случаев</TableCell>
                             </TableRow>
                         ) : (
                             claims.map((claim) => (
@@ -124,10 +125,10 @@ const ClaimsManagement = () => {
                                         {new Date(claim.createdAt).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell>
-                                        {claim.policy.user.email}
+                                        {claim.policy?.user?.email || 'N/A'}
                                     </TableCell>
                                     <TableCell>
-                                        {claim.policy.category.name}
+                                        {claim.policy?.category?.name || 'N/A'}
                                     </TableCell>
                                     <TableCell>{claim.description}</TableCell>
                                     <TableCell>
@@ -144,6 +145,11 @@ const ClaimsManagement = () => {
                                         >
                                             {getStatusLabel(claim.status)}
                                         </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        {claim.amountApproved && parseFloat(claim.amountApproved) > 0
+                                            ? `${Number(claim.amountApproved).toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}`
+                                            : '-'}
                                     </TableCell>
                                     <TableCell align="right">
                                         <Stack direction="row" spacing={1} justifyContent="flex-end">

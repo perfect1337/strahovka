@@ -242,7 +242,7 @@ const Home = () => {
             <Button 
               variant="contained" 
               fullWidth
-              onClick={() => handleCreatePolicy('REALESTATE')}
+              onClick={() => handleCreatePolicy('PROPERTY')}
             >
               ОФОРМИТЬ
             </Button>

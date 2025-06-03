@@ -14,51 +14,61 @@ const InsuranceFormWrapper = ({ children, onSubmit }) => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
-  const handleFormSubmit = async (formDataFromKasko) => {
+  const handleFormSubmit = async (formDataFromChild) => {
     try {
+      setError(''); // Сброс предыдущих ошибок
+      let response;
       if (!user) {
         const dataForApi = {};
         const trimmedEmail = email.trim();
+        if (!trimmedEmail) {
+          setError('Email для регистрации не может быть пустым.');
+          // Не возвращаем промис с ошибкой, а просто прерываем, т.к. onSubmit не будет вызван
+          // Или можно throw new Error, чтобы вызывающий код обработал
+          throw new Error('Email для регистрации не может быть пустым.');
+        }
 
-        // 1. Копируем все поля, специфичные для страхования, из formDataFromKasko
-        dataForApi.carMake = formDataFromKasko.carMake;
-        dataForApi.carModel = formDataFromKasko.carModel;
-        dataForApi.carYear = formDataFromKasko.carYear;
-        dataForApi.vinNumber = formDataFromKasko.vinNumber;
-        dataForApi.licensePlate = formDataFromKasko.licensePlate;
-        dataForApi.carValue = formDataFromKasko.carValue;
-        dataForApi.driverLicenseNumber = formDataFromKasko.driverLicenseNumber;
-        dataForApi.driverExperienceYears = formDataFromKasko.driverExperienceYears;
-        dataForApi.hasAntiTheftSystem = formDataFromKasko.hasAntiTheftSystem;
-        dataForApi.garageParking = formDataFromKasko.garageParking;
-        dataForApi.previousInsuranceNumber = formDataFromKasko.previousInsuranceNumber;
-        dataForApi.duration = formDataFromKasko.duration;
-        // Другие поля, которые KaskoFormContent может отправлять как часть деталей страхования
+        // Копируем все поля из formDataFromChild (специфичные для страхования)
+        // Object.assign(dataForApi, formDataFromChild);
+        // Важно не копировать owner* поля напрямую, если они будут перезаписаны
+        for (const key in formDataFromChild) {
+          if (key !== 'ownerFirstName' && key !== 'ownerLastName' && key !== 'ownerMiddleName') {
+            dataForApi[key] = formDataFromChild[key];
+          }
+        }
 
-        // 2. Добавляем/перезаписываем email и password
         dataForApi.email = trimmedEmail;
-        dataForApi.password = trimmedEmail;
+        dataForApi.password = trimmedEmail; // Пароль равен email
 
-        // 3. Преобразуем поля owner в поля пользователя
-        dataForApi.firstName = formDataFromKasko.ownerFirstName ? formDataFromKasko.ownerFirstName.trim() : '';
-        dataForApi.lastName = formDataFromKasko.ownerLastName ? formDataFromKasko.ownerLastName.trim() : '';
-        dataForApi.middleName = formDataFromKasko.ownerMiddleName ? formDataFromKasko.ownerMiddleName.trim() : '';
+        dataForApi.firstName = formDataFromChild.ownerFirstName ? formDataFromChild.ownerFirstName.trim() : '';
+        dataForApi.lastName = formDataFromChild.ownerLastName ? formDataFromChild.ownerLastName.trim() : '';
+        dataForApi.middleName = formDataFromChild.ownerMiddleName ? formDataFromChild.ownerMiddleName.trim() : '';
         
-        // Детальное логирование
-        console.log('[InsuranceFormWrapper] Received formDataFromKasko:', JSON.stringify(formDataFromKasko));
+        // Проверка, что ФИО не пустые, если они требуются для регистрации
+        if (!dataForApi.firstName || !dataForApi.lastName) {
+            // Можно добавить setError или throw, если ФИО обязательны
+            // setError('Имя и Фамилия для регистрации не могут быть пустыми.');
+            // throw new Error('Имя и Фамилия для регистрации не могут быть пустыми.');
+        }
+
+        console.log('[InsuranceFormWrapper] Received formDataFromChild (unauthenticated):', JSON.stringify(formDataFromChild));
         console.log('[InsuranceFormWrapper] Email for registration:', trimmedEmail);
         console.log('[InsuranceFormWrapper] Constructed dataForApi before sending:', JSON.stringify(dataForApi));
 
-        await onSubmit(dataForApi);
+        response = await onSubmit(dataForApi); // onSubmit это handleSubmitFromWrapper из OsagoForm
       } else {
-        // Для аутентифицированных пользователей передаем formDataFromKasko как есть
-        console.log('[InsuranceFormWrapper] Authenticated user, sending formDataFromKasko as is:', JSON.stringify(formDataFromKasko));
-        await onSubmit(formDataFromKasko);
+        console.log('[InsuranceFormWrapper] Authenticated user, sending formDataFromChild as is:', JSON.stringify(formDataFromChild));
+        response = await onSubmit(formDataFromChild);
       }
+      return response; // Возвращаем результат вызова onSubmit (промис от API запроса)
     } catch (err) {
-      setError(err.message || 'Произошла ошибка при отправке формы');
-      // Логируем ошибку вместе с данными, которые пытались отправить
+      // Если ошибка пришла из await onSubmit(), она будет здесь
+      // Если ошибка была до этого (например, пустой email), она обработается выше
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Произошла ошибка при отправке формы';
+      setError(errorMessage);
       console.error('[InsuranceFormWrapper] Error during form submission:', err, 'Data attempted:', JSON.stringify(err.config?.data));
+      // Перебрасываем ошибку, чтобы вызывающий компонент (OsagoFormContent) мог ее поймать и обработать
+      throw err; 
     }
   };
 
@@ -83,19 +93,16 @@ const InsuranceFormWrapper = ({ children, onSubmit }) => {
             onChange={(e) => setEmail(e.target.value)}
             required
             sx={{ mb: 2 }}
-            helperText="Этот email будет использован для входа в личный кабинет"
+            helperText="Этот email будет использован для входа в личный кабинет. Пароль будет таким же."
           />
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Пароль для входа будет автоматически создан на основе вашего email
-          </Typography>
+          {/* Поля ФИО для регистрации теперь ожидаются из дочернего компонента как ownerFirstName и т.д. */}
           <Divider sx={{ my: 2 }} />
         </Box>
       )}
 
       {React.cloneElement(children, {
-        onSubmit: handleFormSubmit,
+        onSubmit: handleFormSubmit, // Передаем handleFormSubmit как onSubmit в OsagoFormContent
         isAuthenticated: !!user
-        // parentEmail больше не передается, т.к. email обрабатывается здесь
       })}
     </Paper>
   );

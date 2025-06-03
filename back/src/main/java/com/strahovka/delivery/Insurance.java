@@ -372,10 +372,10 @@ public class Insurance {
         @Column(name = "registration_certificate", nullable = false)
         private String registrationCertificate;
 
-        @Column(name = "driver_license_number", nullable = false)
+        @Column(name = "driver_license_number", nullable = true)
         private String driverLicenseNumber;
 
-        @Column(name = "driver_experience_years", nullable = false)
+        @Column(name = "driver_experience_years", nullable = true)
         private Integer driverExperienceYears;
 
         @Column(name = "engine_power", nullable = false)

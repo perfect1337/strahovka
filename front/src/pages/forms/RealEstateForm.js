@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Button, 
@@ -6,13 +6,15 @@ import {
   Alert, 
   Snackbar,
   Grid,
-  Paper
+  Paper,
+  Container
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
+import InsuranceFormWrapper from '../../components/InsuranceFormWrapper';
 import Decimal from 'decimal.js';
 
 // Form section components
@@ -33,7 +35,6 @@ const initialFormState = {
   ownerFullName: '',
   ownerPassport: '',
   ownerPhone: '',
-  ownerEmail: '',
   constructionType: '',
   hasSecuritySystem: false,
   hasFireAlarm: false,
@@ -45,14 +46,38 @@ const initialFormState = {
   description: ''
 };
 
-const RealEstateForm = () => {
+// Helper to format date
+const formatDateForApi = (date) => {
+  if (!date) return null;
+  if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) return date;
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0];
+  } catch (e) {
+    return null;
+  }
+};
+
+const RealEstateFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) => {
   const [form, setForm] = useState(initialFormState);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [formError, setFormError] = useState(null);
+  const [successInfo, setSuccessInfo] = useState(null);
   const [calculatedAmount, setCalculatedAmount] = useState(null);
-  const { user } = useAuth();
+  
   const navigate = useNavigate();
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && auth.user) {
+      setForm(prev => ({
+        ...prev,
+        ownerFullName: `${auth.user.firstName || ''} ${auth.user.lastName || ''} ${auth.user.middleName || ''}`.trim(),
+      }));
+    }
+  }, [isAuthenticated, auth.user]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -70,76 +95,103 @@ const RealEstateForm = () => {
   };
 
   const validateForm = () => {
-    const requiredFields = [
+    const requiredFieldsBase = [
       'propertyType',
       'address',
       'totalArea',
       'yearBuilt',
       'cadastralNumber',
       'ownershipDocumentNumber',
-      'ownerFullName',
-      'ownerPassport',
-      'ownerPhone',
-      'ownerEmail',
       'constructionType',
       'propertyValue',
       'startDate',
       'endDate'
     ];
+    
+    const requiredOwnerFields = isAuthenticated ? ['ownerFullName', 'ownerPassport', 'ownerPhone'] : ['ownerFullName', 'ownerPassport', 'ownerPhone'];
+    
+    const allRequired = [...requiredFieldsBase, ...requiredOwnerFields];
 
-    return requiredFields.every(field => form[field]);
+    for (const field of allRequired) {
+      if (!form[field]) {
+        setFormError(`Поле "${field}" обязательно для заполнения.`);
+        return false;
+      }
+    }
+    setFormError(null);
+    return true;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      setError('Необходимо авторизоваться для отправки заявки');
-      return;
-    }
-
-    if (!validateForm()) {
-      setError('Пожалуйста, заполните все обязательные поля');
-      return;
-    }
+  const handleSubmitClick = async () => {
+    if (!validateForm()) return;
 
     setLoading(true);
-    setError(null);
+    setApiError(null);
+    setFormError(null);
+    setSuccessInfo(null);
+
+    const nameParts = form.ownerFullName.trim().split(' ');
+    const ownerFirstName = nameParts[0] || '';
+    const ownerLastName = nameParts.length > 1 ? nameParts[1] : '';
+    const ownerMiddleName = nameParts.length > 2 ? nameParts.slice(2).join(' ') : '';
+
+    const applicationDataForWrapper = {
+      ownerFirstName: ownerFirstName,
+      ownerLastName: ownerLastName,
+      ownerMiddleName: ownerMiddleName,
+      propertyType: form.propertyType,
+      address: form.address,
+      propertyArea: form.totalArea ? new Decimal(form.totalArea).toString() : null,
+      yearBuilt: form.yearBuilt ? parseInt(form.yearBuilt, 10) : null,
+      constructionType: form.constructionType,
+      propertyValue: form.propertyValue ? new Decimal(form.propertyValue).toString() : null,
+      hasSecuritySystem: form.hasSecuritySystem,
+      hasFireAlarm: form.hasFireAlarm,
+      ownershipDocumentNumber: form.ownershipDocumentNumber,
+      cadastralNumber: form.cadastralNumber,
+      hasMortgage: form.hasMortgage,
+      mortgageBank: form.mortgageBank,
+      passportSeries: form.ownerPassport.substring(0, 4),
+      passportNumber: form.ownerPassport.substring(4),
+      phone: form.ownerPhone,
+      startDate: formatDateForApi(form.startDate),
+      endDate: formatDateForApi(form.endDate),
+      notes: form.description
+    };
     
     try {
-      const formData = {
-        propertyType: form.propertyType,
-        address: form.address,
-        propertyArea: new Decimal(form.totalArea).toString(),
-        yearBuilt: parseInt(form.yearBuilt),
-        constructionType: form.constructionType,
-        propertyValue: new Decimal(form.propertyValue).toString(),
-        hasSecuritySystem: form.hasSecuritySystem,
-        hasFireAlarm: form.hasFireAlarm,
-        ownershipDocumentNumber: form.ownershipDocumentNumber,
-        cadastralNumber: form.cadastralNumber,
-        hasMortgage: form.hasMortgage,
-        mortgageBank: form.mortgageBank,
-        ownerFullName: form.ownerFullName,
-        ownerPassport: form.ownerPassport,
-        ownerPhone: form.ownerPhone,
-        ownerEmail: form.ownerEmail,
-        startDate: form.startDate?.toISOString().split('T')[0],
-        endDate: form.endDate?.toISOString().split('T')[0],
-        description: form.description
-      };
+      const response = await onSubmitFromWrapper(applicationDataForWrapper);
 
-      const response = await api.post('/api/insurance/applications/property', formData);
-      setCalculatedAmount(response.data.calculatedAmount);
-      setSuccess(true);
-      
-      setTimeout(() => {
-        navigate('/profile');
-      }, 3000);
-      
-      setForm(initialFormState);
-    } catch (err) {
-      console.error('Error submitting real estate insurance application:', err);
-      setError('Ошибка при отправке заявки. Пожалуйста, попробуйте позже.');
+      if (response?.data) {
+        if (!isAuthenticated && response.data.accessToken) {
+          localStorage.setItem('token', response.data.accessToken);
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          await auth.validateAndGetUser();
+        }
+        setCalculatedAmount(response.data.calculatedAmount);
+        setSuccessInfo(`Заявка успешно отправлена! ID: ${response.data.id}. Рассчитанная сумма: ${Number(response.data.calculatedAmount || 0).toLocaleString('ru-RU')} ₽. Вы будете перенаправлены через 3 секунды.`);
+        
+        setTimeout(() => {
+          navigate('/profile');
+        }, 3000);
+      } else {
+        setApiError("Не удалось получить ожидаемые данные от сервера.");
+      }
+    } catch (error) {
+      console.error('Property application error (RealEstateFormContent):', error);
+      const errorData = error.response?.data;
+      let errorMessage = 'Ошибка при создании заявки на страхование недвижимости.';
+      if (typeof errorData === 'string') {
+        errorMessage = errorData;
+      } else if (errorData && (errorData.error || errorData.message)) {
+        errorMessage = errorData.error || errorData.message;
+      } else if (Array.isArray(errorData)) {
+        errorMessage = errorData.join(', ');
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setApiError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -147,45 +199,62 @@ const RealEstateForm = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box component="form" onSubmit={handleSubmit}>
-        <Typography variant="h5" gutterBottom>Страхование недвижимости</Typography>
+      <Paper elevation={0} sx={{ p: isAuthenticated ? 0 : 3, mt: isAuthenticated ? 0 : 3 }}>
+        <Typography variant="h5" gutterBottom component="div" sx={{ mb: 3 }}>
+          Страхование недвижимости
+        </Typography>
         
-        {error && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{error}</Alert>}
+        {apiError && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{apiError}</Alert>}
+        {formError && <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>{formError}</Alert>}
         
-        {success && (
+        {successInfo && (
           <Alert severity="success" sx={{ mt: 2, mb: 2 }}>
-            Заявка успешно отправлена! Рассчитанная сумма страхования: {Number(calculatedAmount).toLocaleString('ru-RU')} ₽
-            <br />
-            Через 3 секунды вы будете перенаправлены в личный кабинет.
+            {successInfo}
           </Alert>
         )}
         
         <PropertyInfoSection form={form} handleChange={handleChange} />
-        <OwnerInfoSection form={form} handleChange={handleChange} />
+        <OwnerInfoSection form={form} handleChange={handleChange} isAuthenticated={isAuthenticated} />
         <PropertyDetailsSection form={form} handleChange={handleChange} />
         <InsuranceOptionsSection form={form} handleChange={handleChange} />
         <CoveragePeriodSection form={form} handleDateChange={handleDateChange} />
         <PropertyValueSection form={form} handleChange={handleChange} />
 
         <Button 
-          type="submit" 
           variant="contained" 
           size="large"
           fullWidth
           sx={{ mt: 2 }} 
           disabled={loading}
+          onClick={handleSubmitClick}
         >
           {loading ? 'Отправка...' : 'Отправить заявку'}
         </Button>
-
-        <Snackbar
-          open={success}
-          autoHideDuration={6000}
-          onClose={() => setSuccess(false)}
-          message="Заявка на страхование недвижимости успешно отправлена!"
-        />
-      </Box>
+      </Paper>
     </LocalizationProvider>
+  );
+};
+
+const RealEstateForm = () => {
+  const auth = useAuth();
+
+  const handleSubmitFromWrapper = async (dataFromWrapper) => {
+    let url;
+    if (!auth.user && dataFromWrapper.email) {
+      url = '/api/insurance/unauthorized/property';
+    } else {
+      url = '/api/insurance/applications/property';
+    }
+    console.log(`[RealEstateForm] Submitting to URL: ${url} with payload:`, JSON.stringify(dataFromWrapper));
+    return api.post(url, dataFromWrapper); 
+  };
+
+  return (
+    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <InsuranceFormWrapper onSubmit={handleSubmitFromWrapper}>
+        <RealEstateFormContent />
+      </InsuranceFormWrapper>
+    </Container>
   );
 };
 

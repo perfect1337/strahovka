@@ -10,7 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 
-public class PostgreSQLEnumType<T extends Enum<T>> implements UserType<T> {
+public class    PostgreSQLEnumType<T extends Enum<T>> implements UserType<T> {
     private Class<T> enumClass;
 
     public void setEnumClass(Class<T> enumClass) {
