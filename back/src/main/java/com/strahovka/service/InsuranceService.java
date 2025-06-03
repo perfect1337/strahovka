@@ -7,12 +7,15 @@ import com.strahovka.delivery.Insurance;
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.User;
+import com.strahovka.dto.ApplicationDetailDTO;
+import com.strahovka.dto.UserPackageDetailDTO;
 import com.strahovka.enums.Role;
 import com.strahovka.enums.PackageStatus;
 import com.strahovka.enums.PackageType;
 import com.strahovka.enums.PolicyStatus;
 import com.strahovka.enums.ClaimStatus;
 import com.strahovka.repository.*;
+import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import java.time.temporal.ChronoUnit;
+import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.strahovka.dto.KaskoApplicationRequest;
@@ -37,10 +41,15 @@ import com.strahovka.dto.OsagoApplicationRequest;
 import com.strahovka.dto.PackageApplicationItem;
 import java.util.ArrayList;
 import com.strahovka.delivery.PackageApplicationLink;
+import com.strahovka.repository.PackageApplicationLinkRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @RequiredArgsConstructor
 public class InsuranceService {
+
+    private static final Logger log = LoggerFactory.getLogger(InsuranceService.class);
 
     private final InsuranceRepository insuranceRepository;
     private final ApplicationRepository applicationRepository;
@@ -48,6 +57,7 @@ public class InsuranceService {
     private final UserRepository userRepository;
     private final InsuranceCategoryRepository insuranceCategoryRepository;
     private final InsurancePackageRepository insurancePackageRepository;
+    private final PackageApplicationLinkRepository packageApplicationLinkRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
 
@@ -487,6 +497,19 @@ public class InsuranceService {
 
         policy.setEndDate(endDate);
         policy.setStatus(PolicyStatus.ACTIVE);
+
+        // Check if this application is part of a package
+        String appTypeDiscriminator = getApplicationTypeFromDiscriminator(application);
+        if (appTypeDiscriminator != null && application.getId() != null) {
+            packageApplicationLinkRepository.findByApplicationIdAndApplicationType(application.getId(), appTypeDiscriminator)
+                .ifPresent(link -> {
+                    insurancePackageRepository.findById(link.getPackageId()).ifPresent(pkg -> {
+                        policy.setPackageName(pkg.getName());
+                        policy.setPackageDiscount(pkg.getDiscount());
+                    });
+                });
+        }
+
         return policy;
     }
     
@@ -509,45 +532,61 @@ public class InsuranceService {
 
         InsurancePolicy policy = setupPolicyFromApplication(application, user, policyName, policyDescription, category);
 
-        entityManager.flush();
+        // Update and save the application's status
+        application.setStatus("PAID"); // Mark the original application as PAID
+        applicationRepository.save(application); // Save the updated application
+        log.info("Application ID {} (type: {}) status updated to PAID after policy creation.", application.getId(), categoryTechnicalTypeEnglish);
+
+        // Note: The policy itself is saved by the calling transactional method (e.g., processKaskoPayment)
+        // entityManager.flush(); // Consider if flush is needed here or if handled by the outer transaction
 
         return policy;
     }
 
     @Transactional
     public InsurancePolicy processKaskoPayment(Long applicationId, String usernameOrEmail) {
-        return processGenericPayment(applicationId, usernameOrEmail, KaskoApplication.class,
+        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, KaskoApplication.class,
             "КАСКО", "AUTO", "Добровольное страхование автомобиля",
             app -> "КАСКО Полис для " + app.getCarMake() + " " + app.getCarModel());
+        insuranceRepository.save(policy); // Save the newly created policy
+        return policy;
     }
 
     @Transactional
     public InsurancePolicy processTravelPayment(Long applicationId, String usernameOrEmail) {
-        return processGenericPayment(applicationId, usernameOrEmail, TravelApplication.class,
+        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, TravelApplication.class,
             "Путешествия", "TRAVEL", "Страхование для путешественников",
             app -> "Полис Путешественника для " + app.getDestinationCountry());
+        insuranceRepository.save(policy); // Save the newly created policy
+        return policy;
         }
 
     @Transactional
     public InsurancePolicy processPropertyPayment(Long applicationId, String usernameOrEmail) {
-         return processGenericPayment(applicationId, usernameOrEmail, PropertyApplication.class,
+         InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, PropertyApplication.class,
             "Недвижимость", "PROPERTY", "Страхование недвижимого имущества",
             app -> "Полис Имущества для " + app.getPropertyType());
+        insuranceRepository.save(policy); // Save the newly created policy
+        return policy;
     }
 
     @Transactional
     public InsurancePolicy processOsagoPayment(Long applicationId, String usernameOrEmail) {
-        return processGenericPayment(applicationId, usernameOrEmail, OsagoApplication.class,
+        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, OsagoApplication.class,
             "ОСАГО", "AUTO", "Обязательное страхование автогражданской ответственности",
             app -> "ОСАГО Полис для " + app.getCarMake() + " " + app.getCarModel());
+        insuranceRepository.save(policy); // Save the newly created policy
+        return policy;
     }
 
     @Transactional
     public InsurancePolicy processHealthPayment(Long applicationId, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
-        return processGenericPayment(applicationId, usernameOrEmail, HealthApplication.class,
+        User user = findUser(usernameOrEmail); // user is fetched here for policy name
+        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, HealthApplication.class,
             "Здоровье", "HEALTH", "Добровольное медицинское страхование",
-            app -> "Полис Здоровья для " + user.getFirstName() + " " + user.getLastName());
+            app -> "Полис Здоровья для " + user.getFirstName() + " " + user.getLastName()); // user is used here
+        insuranceRepository.save(policy); // Save the newly created policy
+        return policy;
     }
 
     // Retrieval methods for different application types
@@ -934,5 +973,185 @@ public class InsuranceService {
 
         insurancePackage.setStatus(PackageStatus.PENDING);
         return insurancePackageRepository.save(insurancePackage); // This will cascade save the new PackageApplicationLink entities
+    }
+
+    // Helper to get DiscriminatorValue from BaseApplication instance
+    private String getApplicationTypeFromDiscriminator(BaseApplication application) {
+        DiscriminatorValue discriminatorValue = application.getClass().getAnnotation(DiscriminatorValue.class);
+        return discriminatorValue != null ? discriminatorValue.value() : null;
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserPackageDetailDTO> getUserPackageDetails(String usernameOrEmail) {
+        User user = findUser(usernameOrEmail);
+        List<InsurancePackage> packages = insurancePackageRepository.findByUserEmail(user.getEmail());
+
+        return packages.stream().map(pkg -> {
+            List<ApplicationDetailDTO> applicationDetails = pkg.getApplicationLinks().stream()
+                .map(link -> applicationRepository.findById(link.getApplicationId())
+                    .map(app -> {
+                        // Check if the application belongs to the package's user
+                        if (!app.getUser().getId().equals(user.getId())) {
+                            log.warn("Data integrity issue: Package ID {} (user {}) contains link to Application ID {} (user {}) which belongs to a different user ({}). Skipping application.",
+                                     pkg.getId(), user.getEmail(), app.getId(), app.getUser().getEmail(), app.getUser().getId());
+                            return null; // This application will be filtered out later
+                        }
+
+                        String actualAppType = getApplicationTypeFromDiscriminator(app);
+
+                        // Optional: Check consistency between link's type and actual app type
+                        if (actualAppType == null || !link.getApplicationType().equals(actualAppType)) {
+                            log.warn("Data integrity issue: Package ID {} for Application ID {} has link type '{}' but actual application type is '{}'. Using actual type: {}.",
+                                     pkg.getId(), app.getId(), link.getApplicationType(), actualAppType, actualAppType);
+                            if (actualAppType == null) {
+                                log.error("Critical data issue: Could not determine actual application type for Application ID {}. Linked type was {}. Skipping.", app.getId(), link.getApplicationType());
+                                return null; // Skip this problematic application
+                            }
+                        }
+
+                        // Log details of the application that is about to be included
+                        log.info("Including application in package: AppID={}, DeterminedType={}, User={}, PackageID={}", 
+                                 app.getId(), actualAppType, user.getEmail(), pkg.getId());
+                        
+                        String displayName = actualAppType; // Default display name before refinement
+                        if (app instanceof KaskoApplication) {
+                            displayName = "КАСКО: " + ((KaskoApplication) app).getCarMake() + " " + ((KaskoApplication) app).getCarModel();
+                        } else if (app instanceof OsagoApplication) {
+                            displayName = "ОСАГО: " + ((OsagoApplication) app).getCarMake() + " " + ((OsagoApplication) app).getCarModel();
+                        } // Add more types as needed
+                        
+                        return ApplicationDetailDTO.builder()
+                            .id(app.getId())
+                            .applicationType(actualAppType) // Use the actual determined type
+                            .status(app.getStatus())
+                            .startDate(app.getStartDate())
+                            .endDate(app.getEndDate())
+                            .calculatedAmount(app.getCalculatedAmount())
+                            .displayName(displayName)
+                            .build();
+                    })
+                    .orElseGet(() -> { // Handle if application not found by ID from link
+                        log.warn("Data integrity issue: Package ID {} contains link to non-existent Application ID {}. Type in link was {}.", 
+                                 pkg.getId(), link.getApplicationId(), link.getApplicationType());
+                        return null;
+                    }))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+
+            List<String> categoryNames = pkg.getCategories().stream()
+                                            .map(InsuranceCategory::getName)
+                                            .collect(Collectors.toList());
+
+            return UserPackageDetailDTO.builder()
+                .id(pkg.getId())
+                .name(pkg.getName())
+                .description(pkg.getDescription())
+                .discount(pkg.getDiscount())
+                .active(pkg.isActive())
+                .originalTotalAmount(pkg.getOriginalTotalAmount())
+                .finalAmount(pkg.getFinalAmount())
+                .createdAt(pkg.getCreatedAt())
+                .status(pkg.getStatus())
+                .applicationsInPackage(applicationDetails)
+                .categoryNames(categoryNames)
+                .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void processPackagePayment(Long packageId, String usernameOrEmail) {
+        User user = findUser(usernameOrEmail);
+        InsurancePackage insurancePackage = insurancePackageRepository.findById(packageId)
+                .orElseThrow(() -> new IllegalArgumentException("Package not found with ID: " + packageId));
+
+        if (!insurancePackage.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Package does not belong to the authenticated user.");
+        }
+
+        if (insurancePackage.getStatus() != PackageStatus.PENDING) { 
+            throw new IllegalArgumentException("Package is not in a state that allows payment. Current status: " + insurancePackage.getStatus());
+        }
+
+        log.info("Processing payment for package ID: {}, User: {}", packageId, usernameOrEmail);
+
+        List<BaseApplication> applicationsToProcess = insurancePackage.getApplicationLinks().stream()
+            .map(link -> applicationRepository.findById(link.getApplicationId())
+                .orElseThrow(() -> new IllegalStateException("Application with ID " + link.getApplicationId() + " linked in package " + packageId + " not found.")))
+            .collect(Collectors.toList());
+
+        if (applicationsToProcess.isEmpty()) {
+            log.warn("Package ID: {} has no applications to process. Marking as PAID.", packageId);
+        }
+
+        for (BaseApplication app : applicationsToProcess) {
+            if (!app.getUser().getId().equals(user.getId())) {
+                log.warn("Skipping application ID {} in package {} as it belongs to a different user ({}). This indicates a data integrity issue.", 
+                         app.getId(), packageId, app.getUser().getEmail());
+                continue; // Skip this application
+            }
+
+            String currentAppStatus = app.getStatus();
+            if ("PAID".equals(currentAppStatus) || "ACTIVE".equals(currentAppStatus)) {
+                log.info("Application ID {} in package {} is already paid or active. Skipping policy creation.", app.getId(), packageId);
+                continue;
+            }
+            
+            log.info("Processing application ID {} (type: {}) in package {}. Current status: {}", 
+                     app.getId(), getApplicationTypeFromDiscriminator(app), packageId, app.getStatus());
+
+            app.setStatus("PAID"); // Set status to String "PAID"
+            applicationRepository.save(app);
+            log.info("Application ID {} status updated to PAID.", app.getId());
+
+            try {
+                // Logic to create policy using setupPolicyFromApplication
+                String policyName;
+                String policyDescriptionPrefix;
+                InsuranceCategory category;
+                String appType = getApplicationTypeFromDiscriminator(app);
+
+                if ("KASKO".equals(appType) && app instanceof KaskoApplication) {
+                    KaskoApplication kaskoApp = (KaskoApplication) app;
+                    policyName = "КАСКО Полис для " + kaskoApp.getCarMake() + " " + kaskoApp.getCarModel();
+                    policyDescriptionPrefix = "Полис КАСКО (из пакета) для заявки #";
+                    category = getOrCreateCategory("КАСКО", "AUTO", "Добровольное страхование автомобиля");
+                } else if ("OSAGO".equals(appType) && app instanceof OsagoApplication) {
+                    OsagoApplication osagoApp = (OsagoApplication) app;
+                    policyName = "ОСАГО Полис для " + osagoApp.getCarMake() + " " + osagoApp.getCarModel();
+                    policyDescriptionPrefix = "Полис ОСАГО (из пакета) для заявки #";
+                    category = getOrCreateCategory("ОСАГО", "AUTO", "Обязательное страхование автогражданской ответственности");
+                } else if ("TRAVEL".equals(appType) && app instanceof TravelApplication) {
+                    TravelApplication travelApp = (TravelApplication) app;
+                    policyName = "Полис Путешественника для " + travelApp.getDestinationCountry();
+                    policyDescriptionPrefix = "Полис Путешественника (из пакета) для заявки #";
+                    category = getOrCreateCategory("Путешествия", "TRAVEL", "Страхование для путешественников");
+                } else if ("HEALTH".equals(appType) && app instanceof HealthApplication) {
+                    policyName = "Полис Здоровья для " + user.getFirstName() + " " + user.getLastName();
+                    policyDescriptionPrefix = "Полис Здоровья (из пакета) для заявки #";
+                    category = getOrCreateCategory("Здоровье", "HEALTH", "Добровольное медицинское страхование");
+                } else if ("PROPERTY".equals(appType) && app instanceof PropertyApplication) {
+                    PropertyApplication propApp = (PropertyApplication) app;
+                    policyName = "Полис Имущества для " + propApp.getPropertyType();
+                    policyDescriptionPrefix = "Полис Имущества (из пакета) для заявки #";
+                    category = getOrCreateCategory("Недвижимость", "PROPERTY", "Страхование недвижимого имущества");
+                } else {
+                    log.warn("Unsupported application type '{}' for policy creation in package {}. Skipping policy creation for app ID {}.", appType, packageId, app.getId());
+                    continue; // Skip policy creation for this unsupported type
+                }
+
+                InsurancePolicy createdPolicy = setupPolicyFromApplication(app, user, policyName, policyDescriptionPrefix, category);
+                insuranceRepository.save(createdPolicy); // Save the newly created policy
+                log.info("Policy ID {} created for application ID {} in package {}.", createdPolicy.getId(), app.getId(), packageId);
+
+            } catch (Exception e) {
+                log.error("Error creating policy for application ID {} in package {}: {}", app.getId(), packageId, e.getMessage(), e);
+                // Decide on error handling: continue, or re-throw to fail package payment?
+                // For now, logging and continuing to allow other policies in the package to be created.
+            }
+        }
+
+        insurancePackage.setStatus(PackageStatus.COMPLETED); // Corrected: Set status to COMPLETED after payment
+        insurancePackageRepository.save(insurancePackage);
+        log.info("Package ID {} status updated to PAID (now COMPLETED). Payment processing complete.", packageId);
     }
 } 

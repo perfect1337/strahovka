@@ -22,12 +22,18 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    console.log('Attempting login with email:', email);
 
     try {
-      await login(email, password);
+      console.log('Sending login request...');
+      const response = await login(email, password);
+      console.log('Login response:', response);
+      console.log('Current token:', localStorage.getItem('token'));
       
       // Check if there's a redirect path stored
       const redirectPath = localStorage.getItem('redirectAfterLogin');
+      console.log('Redirect path:', redirectPath);
+      
       if (redirectPath) {
         localStorage.removeItem('redirectAfterLogin');
         navigate(redirectPath);
@@ -36,6 +42,10 @@ const Login = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+      }
       setError('Неверный email или пароль');
     }
   };

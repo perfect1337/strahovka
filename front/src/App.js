@@ -131,6 +131,28 @@ const theme = createTheme({
         },
       },
     },
+    MuiTreeItem: {
+      styleOverrides: {
+        root: {
+          '&:focus > .MuiTreeItem-content': {
+            backgroundColor: 'rgba(178, 32, 52, 0.08)',
+          },
+        },
+        content: {
+          padding: '4px 8px',
+          borderRadius: '4px',
+          '&:hover': {
+            backgroundColor: 'rgba(178, 32, 52, 0.04)',
+          },
+          '&.Mui-focused, &.Mui-selected, &.Mui-selected.Mui-focused': {
+            backgroundColor: 'rgba(178, 32, 52, 0.12)',
+          },
+        },
+        label: {
+          padding: '4px 0',
+        },
+      },
+    },
   },
 });
 

@@ -35,6 +35,9 @@ import java.util.Map;
 import java.util.HashMap;
 import java.time.LocalDate;
 import java.util.stream.Collectors;
+import com.strahovka.dto.UserPackageDetailDTO;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 
 @Slf4j
 @RestController
@@ -182,6 +185,15 @@ public class InsuranceController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/packages/user/details")
+    public ResponseEntity<List<UserPackageDetailDTO>> getUserPackageDetails(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<UserPackageDetailDTO> packageDetails = insuranceService.getUserPackageDetails(userDetails.getUsername());
+        return ResponseEntity.ok(packageDetails);
+    }
+
     @PostMapping("/packages/{packageId}/apply")
     public ResponseEntity<?> applyForPackage(
             @PathVariable Long packageId,
@@ -200,6 +212,25 @@ public class InsuranceController {
         } catch (Exception e) {
             log.error("Error processing package application for packageId {}: {}", packageId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Внутренняя ошибка сервера при обработке пакета."));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/process-payment")
+    @Operation(summary = "Process payment for an entire insurance package", description = "Marks all applications in the package as paid and generates policies.")
+    public ResponseEntity<?> processPackagePayment(
+            @Parameter(description = "ID of the package to process payment for") @PathVariable Long packageId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            insuranceService.processPackagePayment(packageId, userDetails.getUsername());
+            return ResponseEntity.ok().body(Map.of("message", "Package payment processed successfully. Policies are being generated."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error processing package payment for package ID: {}", packageId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "An unexpected error occurred while processing package payment."));
         }
     }
 

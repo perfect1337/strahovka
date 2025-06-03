@@ -106,15 +106,26 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Try to call logout endpoint if available
-      await api.post('/api/auth/logout');
+      // Clear user from context and local storage
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // Remove Authorization header from api defaults
+      delete api.defaults.headers.common['Authorization'];
+      
+      // Make a call to the backend to invalidate the session/token if necessary
+      // Assuming the backend endpoint for logout is /api/auth/signout
+      // Please verify your actual backend endpoint
+      await api.post('/api/auth/signout'); 
+      
+      console.log("User logged out successfully");
+      // Navigate to login or home page after logout
+      // navigate('/login'); // Example navigation
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      setUser(null);
+      // Even if backend logout fails, frontend state is cleared.
+      // Handle specific errors if needed
     }
   };
 

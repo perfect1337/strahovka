@@ -79,6 +79,12 @@ public class InsurancePolicy {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Insurance.InsuranceGuide guide;
 
+    @Column(name = "package_name")
+    private String packageName;
+
+    @Column(name = "package_discount")
+    private Integer packageDiscount;
+
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
@@ -91,6 +97,8 @@ public class InsurancePolicy {
     @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL)
     @Builder.Default
     private List<InsuranceClaim> claims = new ArrayList<>();
+
+    @Column(name = "created_at", nullable = false, updatable = false)
 
     @PrePersist
     @PreUpdate
