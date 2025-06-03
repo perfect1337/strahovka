@@ -1,6 +1,6 @@
 package com.strahovka.delivery;
 
-import com.strahovka.entity.Role;
+import com.strahovka.enums.Role;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 

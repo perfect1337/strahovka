@@ -107,16 +107,16 @@ const RealEstateFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper 
       'startDate',
       'endDate'
     ];
-    
+
     const requiredOwnerFields = isAuthenticated ? ['ownerFullName', 'ownerPassport', 'ownerPhone'] : ['ownerFullName', 'ownerPassport', 'ownerPhone'];
-    
+
     const allRequired = [...requiredFieldsBase, ...requiredOwnerFields];
 
     for (const field of allRequired) {
       if (!form[field]) {
         setFormError(`Поле "${field}" обязательно для заполнения.`);
         return false;
-      }
+    }
     }
     setFormError(null);
     return true;
@@ -139,26 +139,26 @@ const RealEstateFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper 
       ownerFirstName: ownerFirstName,
       ownerLastName: ownerLastName,
       ownerMiddleName: ownerMiddleName,
-      propertyType: form.propertyType,
-      address: form.address,
+        propertyType: form.propertyType,
+        address: form.address,
       propertyArea: form.totalArea ? new Decimal(form.totalArea).toString() : null,
       yearBuilt: form.yearBuilt ? parseInt(form.yearBuilt, 10) : null,
-      constructionType: form.constructionType,
+        constructionType: form.constructionType,
       propertyValue: form.propertyValue ? new Decimal(form.propertyValue).toString() : null,
-      hasSecuritySystem: form.hasSecuritySystem,
-      hasFireAlarm: form.hasFireAlarm,
-      ownershipDocumentNumber: form.ownershipDocumentNumber,
-      cadastralNumber: form.cadastralNumber,
-      hasMortgage: form.hasMortgage,
-      mortgageBank: form.mortgageBank,
+        hasSecuritySystem: form.hasSecuritySystem,
+        hasFireAlarm: form.hasFireAlarm,
+        ownershipDocumentNumber: form.ownershipDocumentNumber,
+        cadastralNumber: form.cadastralNumber,
+        hasMortgage: form.hasMortgage,
+        mortgageBank: form.mortgageBank,
       passportSeries: form.ownerPassport.substring(0, 4),
       passportNumber: form.ownerPassport.substring(4),
       phone: form.ownerPhone,
       startDate: formatDateForApi(form.startDate),
       endDate: formatDateForApi(form.endDate),
       notes: form.description
-    };
-    
+      };
+
     try {
       const response = await onSubmitFromWrapper(applicationDataForWrapper);
 
@@ -169,12 +169,12 @@ const RealEstateFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper 
           localStorage.setItem('user', JSON.stringify(response.data.user));
           await auth.validateAndGetUser();
         }
-        setCalculatedAmount(response.data.calculatedAmount);
+      setCalculatedAmount(response.data.calculatedAmount);
         setSuccessInfo(`Заявка успешно отправлена! ID: ${response.data.id}. Рассчитанная сумма: ${Number(response.data.calculatedAmount || 0).toLocaleString('ru-RU')} ₽. Вы будете перенаправлены через 3 секунды.`);
-        
-        setTimeout(() => {
-          navigate('/profile');
-        }, 3000);
+      
+      setTimeout(() => {
+        navigate('/profile');
+      }, 3000);
       } else {
         setApiError("Не удалось получить ожидаемые данные от сервера.");
       }

@@ -1,10 +1,8 @@
 package com.strahovka.delivery;
 
-import com.strahovka.entity.Role;
-import com.strahovka.entity.UserLevel;
+import com.strahovka.enums.Role;
+import com.strahovka.enums.UserLevel;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;

@@ -82,8 +82,9 @@ const ModeratorClaims = () => {
 
   const handleOpenDialog = (claim) => {
     setSelectedClaim(claim);
-    setStatus(claim.status);
+    setStatus(claim.status != null ? String(claim.status) : '');
     setResponse(claim.response || '');
+    setAmount(claim.amountApproved != null ? String(claim.amountApproved) : '0');
     setOpenDialog(true);
     setError('');
   };

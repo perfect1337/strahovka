@@ -3,7 +3,7 @@ package com.strahovka.service;
 import com.strahovka.delivery.Claims.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.User;
-import com.strahovka.entity.ClaimStatus;
+import com.strahovka.enums.ClaimStatus;
 import com.strahovka.repository.ClaimsRepository;
 import com.strahovka.repository.UserRepository;
 import jakarta.persistence.EntityManager;

@@ -3,7 +3,7 @@ package com.strahovka.controller;
 import com.strahovka.delivery.Claims.*;
 import com.strahovka.service.ClaimService;
 import com.strahovka.repository.UserRepository;
-import com.strahovka.entity.ClaimStatus;
+import com.strahovka.enums.ClaimStatus;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

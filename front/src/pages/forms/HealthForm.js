@@ -29,21 +29,21 @@ const initialFormState = {
   firstName: '',
   lastName: '',
   middleName: '',
-  birthDate: null,
-  passportNumber: '',
-  snils: '',
-  hasChronicDiseases: false,
-  chronicDiseasesDetails: '',
-  hasDisabilities: false,
-  disabilitiesDetails: '',
-  smokingStatus: false,
-  coverDental: false,
-  coverVision: false,
-  coverMaternity: false,
-  coverEmergency: true,
-  preferredClinic: '',
-  familyDoctorNeeded: false,
-  notes: ''
+    birthDate: null,
+    passportNumber: '',
+    snils: '',
+    hasChronicDiseases: false,
+    chronicDiseasesDetails: '',
+    hasDisabilities: false,
+    disabilitiesDetails: '',
+    smokingStatus: false,
+    coverDental: false,
+    coverVision: false,
+    coverMaternity: false,
+    coverEmergency: true,
+    preferredClinic: '',
+    familyDoctorNeeded: false,
+    notes: ''
 };
 
 const formatDateForApi = (date) => {
@@ -86,7 +86,7 @@ const HealthFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
       [name]: type === 'checkbox' ? checked : value
     }));
   };
-  
+
   const handleDateChange = (name, value) => {
     setForm(prev => ({
       ...prev,
@@ -104,7 +104,7 @@ const HealthFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
       if (!form[field]) {
         setFormError(`Поле "${field}" обязательно для заполнения.`);
         return false;
-      }
+    }
     }
     setFormError(null);
     return true;
@@ -188,7 +188,7 @@ const HealthFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
         {formError && <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>{formError}</Alert>}
         {successInfo && <Alert severity="success" sx={{ mt: 2, mb: 2 }}>{successInfo}</Alert>}
         
-        <Grid container spacing={3}>
+          <Grid container spacing={3}>
           {!isAuthenticated && (
             <>
               <Grid item xs={12} md={4}>
@@ -230,168 +230,168 @@ const HealthFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
              </Grid>
           )}
 
-          <Grid item xs={12} md={6}>
-            <DatePicker
-              label="Дата рождения *"
-              value={form.birthDate}
+            <Grid item xs={12} md={6}>
+              <DatePicker
+                label="Дата рождения *"
+                value={form.birthDate}
               onChange={(newValue) => handleDateChange('birthDate', newValue)}
-              renderInput={(params) => <TextField {...params} required fullWidth />}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              required
-              fullWidth
+                renderInput={(params) => <TextField {...params} required fullWidth />}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
               label="Номер и серия паспорта"
-              name="passportNumber"
-              value={form.passportNumber}
-              onChange={handleChange}
+                name="passportNumber"
+                value={form.passportNumber}
+                onChange={handleChange}
               inputProps={{ maxLength: 10 }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              required
-              fullWidth
-              label="СНИЛС"
-              name="snils"
-              value={form.snils}
-              onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                required
+                fullWidth
+                label="СНИЛС"
+                name="snils"
+                value={form.snils}
+                onChange={handleChange}
               inputProps={{ maxLength: 14 }}
-            />
-          </Grid>
+              />
+            </Grid>
 
-          <Grid item xs={12}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.hasChronicDiseases}
+            <Grid item xs={12}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.hasChronicDiseases}
                     onChange={handleChange}
-                    name="hasChronicDiseases"
-                  />
-                }
-                label="Наличие хронических заболеваний"
-              />
-            </FormGroup>
-            {form.hasChronicDiseases && (
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Детали хронических заболеваний"
-                name="chronicDiseasesDetails"
-                value={form.chronicDiseasesDetails}
-                onChange={handleChange}
-                sx={{ mt: 2 }}
-              />
-            )}
-          </Grid>
+                      name="hasChronicDiseases"
+                    />
+                  }
+                  label="Наличие хронических заболеваний"
+                />
+              </FormGroup>
+              {form.hasChronicDiseases && (
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Детали хронических заболеваний"
+                  name="chronicDiseasesDetails"
+                  value={form.chronicDiseasesDetails}
+                  onChange={handleChange}
+                  sx={{ mt: 2 }}
+                />
+              )}
+            </Grid>
 
-          <Grid item xs={12}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.hasDisabilities}
+            <Grid item xs={12}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.hasDisabilities}
                     onChange={handleChange}
-                    name="hasDisabilities"
-                  />
-                }
-                label="Наличие инвалидности"
-              />
-            </FormGroup>
-            {form.hasDisabilities && (
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Детали инвалидности"
-                name="disabilitiesDetails"
-                value={form.disabilitiesDetails}
-                onChange={handleChange}
-                sx={{ mt: 2 }}
-              />
-            )}
-          </Grid>
+                      name="hasDisabilities"
+                    />
+                  }
+                  label="Наличие инвалидности"
+                />
+              </FormGroup>
+              {form.hasDisabilities && (
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Детали инвалидности"
+                  name="disabilitiesDetails"
+                  value={form.disabilitiesDetails}
+                  onChange={handleChange}
+                  sx={{ mt: 2 }}
+                />
+              )}
+            </Grid>
 
-          <Grid item xs={12}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.smokingStatus}
+            <Grid item xs={12}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.smokingStatus}
                     onChange={handleChange}
-                    name="smokingStatus"
-                  />
-                }
-                label="Курение"
-              />
-            </FormGroup>
-          </Grid>
+                      name="smokingStatus"
+                    />
+                  }
+                  label="Курение"
+                />
+              </FormGroup>
+            </Grid>
 
-          <Grid item xs={12}>
+            <Grid item xs={12}>
             <Typography variant="h6" gutterBottom sx={{mt: 2}}>
-              Дополнительное покрытие
-            </Typography>
-            <FormGroup>
+                Дополнительное покрытие
+              </Typography>
+              <FormGroup>
               <FormControlLabel control={<Checkbox checked={form.coverDental} onChange={handleChange} name="coverDental"/>} label="Стоматология"/>
               <FormControlLabel control={<Checkbox checked={form.coverVision} onChange={handleChange} name="coverVision"/>} label="Офтальмология"/>
               <FormControlLabel control={<Checkbox checked={form.coverMaternity} onChange={handleChange} name="coverMaternity"/>} label="Ведение беременности"/>
               <FormControlLabel control={<Checkbox checked={form.coverEmergency} onChange={handleChange} name="coverEmergency"/>} label="Экстренная помощь (включено по умолчанию)"/>
-            </FormGroup>
-          </Grid>
-          
+              </FormGroup>
+            </Grid>
+
           <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Предпочитаемая клиника"
-              name="preferredClinic"
-              value={form.preferredClinic}
-              onChange={handleChange}
+              <TextField
+                fullWidth
+                label="Предпочитаемая клиника"
+                name="preferredClinic"
+                value={form.preferredClinic}
+                onChange={handleChange}
               sx={{ mt: 1 }}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={form.familyDoctorNeeded}
-                    onChange={handleChange}
-                    name="familyDoctorNeeded"
-                  />
-                }
-                label="Нужен семейный врач"
               />
-            </FormGroup>
-          </Grid>
+            </Grid>
 
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
+            <Grid item xs={12}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.familyDoctorNeeded}
+                    onChange={handleChange}
+                      name="familyDoctorNeeded"
+                    />
+                  }
+                  label="Нужен семейный врач"
+                />
+              </FormGroup>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
               rows={3}
               label="Дополнительные примечания"
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
               sx={{ mt: 1 }}
-            />
+              />
           </Grid>
-        </Grid>
+            </Grid>
 
-        <Button 
-          variant="contained" 
+              <Button
+                variant="contained"
           size="large"
           fullWidth
           sx={{ mt: 3 }} 
-          disabled={loading}
+                disabled={loading}
           onClick={handleSubmitClick}
-        >
-          {loading ? 'Отправка...' : 'Отправить заявку'}
-        </Button>
+              >
+                {loading ? 'Отправка...' : 'Отправить заявку'}
+              </Button>
       </Paper>
     </LocalizationProvider>
   );

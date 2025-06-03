@@ -1,11 +1,22 @@
 package com.strahovka.dto;
 
+import com.strahovka.delivery.User; // Assuming User class for common fields
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 public class KaskoApplicationRequest {
+    // User fields (from form data)
+    private String email;
+    private String password; // Optional, can be derived
+    private String firstName;
+    private String lastName;
+    private String middleName;
+    private String phone;
+
+    // Kasko specific fields
     @NotBlank(message = "Car make is required")
     @Size(max = 100, message = "Car make must not exceed 100 characters")
     private String carMake;
@@ -16,37 +27,39 @@ public class KaskoApplicationRequest {
 
     @NotNull(message = "Car year is required")
     @Min(value = 1900, message = "Car year must be 1900 or later")
-    @Max(value = 2025, message = "Car year must not exceed 2025")
+    @Max(value = 2025, message = "Car year cannot be in the future more than one year")
     private Integer carYear;
 
     @NotBlank(message = "VIN number is required")
-    @Size(min = 17, max = 17, message = "VIN number must be exactly 17 characters")
-    @Pattern(regexp = "^[A-HJ-NPR-Z0-9]+$", message = "Invalid VIN number format")
+    @Pattern(regexp = "^[A-HJ-NPR-Z0-9]{17}$", message = "Invalid VIN number format. Must be 17 alphanumeric characters (excluding I, O, Q).")
     private String vinNumber;
 
     @NotBlank(message = "License plate is required")
-    @Size(max = 20, message = "License plate must not exceed 20 characters")
+    @Size(min = 6, max = 15, message = "License plate must be between 6 and 15 characters")
     private String licensePlate;
 
     @NotNull(message = "Car value is required")
-    @DecimalMin(value = "0.01", message = "Car value must be greater than 0")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Car value must be positive")
+    @Digits(integer = 10, fraction = 2, message = "Car value format is invalid")
     private BigDecimal carValue;
 
     @NotBlank(message = "Driver's license number is required")
-    @Size(max = 50, message = "Driver's license number must not exceed 50 characters")
+    @Size(min = 5, max = 20, message = "Driver license number must be between 5 and 20 characters")
     private String driverLicenseNumber;
 
     @NotNull(message = "Driver experience years is required")
     @Min(value = 0, message = "Driver experience cannot be negative")
-    @Max(value = 70, message = "Driver experience cannot exceed 70 years")
+    @Max(value = 70, message = "Driver experience years seems too high (max 70)")
     private Integer driverExperienceYears;
 
-    private Boolean hasAntiTheftSystem = false;
-    private Boolean garageParking = false;
+    private Boolean hasAntiTheftSystem;
+    private Boolean garageParking;
     private String previousInsuranceNumber;
 
-    @NotNull(message = "Insurance duration is required")
+    @NotNull(message = "Duration in months is required")
     @Min(value = 1, message = "Duration must be at least 1 month")
     @Max(value = 60, message = "Duration cannot exceed 60 months")
     private Integer duration;
+
+    private LocalDate startDate;
 } 

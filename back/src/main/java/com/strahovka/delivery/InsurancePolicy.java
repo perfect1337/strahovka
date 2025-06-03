@@ -1,7 +1,7 @@
 package com.strahovka.delivery;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.strahovka.entity.PolicyStatus;
+import com.strahovka.enums.PolicyStatus;
 import com.strahovka.delivery.Claims.InsuranceClaim;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;

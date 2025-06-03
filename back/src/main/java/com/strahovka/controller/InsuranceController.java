@@ -4,10 +4,9 @@ import com.strahovka.delivery.Claims;
 import com.strahovka.delivery.Insurance.*;
 import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.Claims.InsuranceClaim;
-import com.strahovka.entity.ClaimStatus;
 import com.strahovka.delivery.Claims.ClaimAttachment;
 import com.strahovka.delivery.User;
-import com.strahovka.entity.Role;
+import com.strahovka.enums.Role;
 import com.strahovka.service.InsuranceService;
 import com.strahovka.repository.UserRepository;
 import com.strahovka.service.JwtService;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.time.LocalDate;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -138,7 +138,11 @@ public class InsuranceController {
     }
 
     @GetMapping("/packages/admin")
-    public ResponseEntity<List<InsurancePackage>> getAdminPackages() {
+    public ResponseEntity<List<InsurancePackage>> getAdminPackages(Authentication authentication) {
+        if (authentication == null || !authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(insuranceService.getAllPackages());
     }
 
@@ -151,20 +155,52 @@ public class InsuranceController {
     public ResponseEntity<InsurancePackage> createPackage(
             @RequestBody InsurancePackage insurancePackage,
             @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(insuranceService.createPackage(insurancePackage, userDetails.getUsername()));
+        List<Long> categoryIds = insurancePackage.getCategories() != null ?
+                insurancePackage.getCategories().stream().map(InsuranceCategory::getId).collect(Collectors.toList()) :
+                List.of();
+        return ResponseEntity.ok(insuranceService.createPackage(insurancePackage, userDetails.getUsername(), categoryIds));
     }
 
     @PutMapping("/packages/{id}")
     public ResponseEntity<InsurancePackage> updatePackage(
             @PathVariable Long id,
             @RequestBody InsurancePackage insurancePackage) {
-        return ResponseEntity.ok(insuranceService.updatePackage(id, insurancePackage));
+        List<Long> categoryIds = insurancePackage.getCategories() != null ?
+                insurancePackage.getCategories().stream().map(InsuranceCategory::getId).collect(Collectors.toList()) :
+                List.of();
+        return ResponseEntity.ok(insuranceService.updatePackage(id, insurancePackage, categoryIds));
+    }
+
+    @GetMapping("/packages/{id}")
+    public ResponseEntity<InsurancePackage> getPackageById(@PathVariable Long id) {
+        return ResponseEntity.ok(insuranceService.getPackageById(id));
     }
 
     @DeleteMapping("/packages/{id}")
     public ResponseEntity<Void> deletePackage(@PathVariable Long id) {
         insuranceService.deletePackage(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/packages/{packageId}/apply")
+    public ResponseEntity<?> applyForPackage(
+            @PathVariable Long packageId,
+            @RequestBody com.strahovka.dto.PackageApplyRequest packageApplyRequest,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String authenticatedUserEmail = (userDetails != null) ? userDetails.getUsername() : null;
+        try {
+            InsurancePackage processedPackage = insuranceService.processPackageApplication(packageId, packageApplyRequest.getApplications(), authenticatedUserEmail);
+            return ResponseEntity.ok(processedPackage); // Можно вернуть более специфичный DTO ответа
+        } catch (EntityNotFoundException e) {
+            log.warn("Not found during package application for packageId {}: {}", packageId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            log.warn("Bad request during package application for packageId {}: {}", packageId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error processing package application for packageId {}: {}", packageId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Внутренняя ошибка сервера при обработке пакета."));
+        }
     }
 
     // Application endpoints

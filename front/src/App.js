@@ -34,6 +34,7 @@ import ClaimsManagement from './components/admin/ClaimsManagement';
 import UnauthorizedPolicyForm from './pages/UnauthorizedPolicyForm';
 import ApplicationSuccess from './pages/ApplicationSuccess';
 import InsurancePackageForm from './pages/InsurancePackageForm';
+import PackageApplicationStepper from './pages/PackageApplicationStepper';
 
 const theme = createTheme({
   palette: {
@@ -163,6 +164,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <CreatePolicy />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/apply-package/:id"
+                  element={
+                    <ProtectedRoute>
+                      <PackageApplicationStepper />
                     </ProtectedRoute>
                   }
                 />

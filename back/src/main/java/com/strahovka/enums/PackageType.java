@@ -1,4 +1,4 @@
-package com.strahovka.entity;
+package com.strahovka.enums;
 
 public enum PackageType {
     KASKO_OSAGO,

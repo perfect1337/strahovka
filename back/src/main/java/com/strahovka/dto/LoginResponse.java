@@ -1,7 +1,7 @@
 package com.strahovka.dto;
 
-import com.strahovka.entity.Role;
-import com.strahovka.entity.UserLevel;
+import com.strahovka.enums.Role;
+import com.strahovka.enums.UserLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -19,17 +19,4 @@ public class SecurityBeans {
         return new BCryptPasswordEncoder();
     }
 
-    // Удаляем defaultSecurityFilterChain, так как его логика перенесена в SecurityConfig.java
-    // @Bean
-    // @Order(2)
-    // public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
-    //     http
-    //         .csrf(AbstractHttpConfigurer::disable)
-    //         .authorizeHttpRequests(auth -> auth
-    //             .requestMatchers("/error").permitAll()
-    //             .anyRequest().authenticated()
-    //         )
-    //         .httpBasic(AbstractHttpConfigurer::disable);
-    //     return http.build();
-    // }
 } 

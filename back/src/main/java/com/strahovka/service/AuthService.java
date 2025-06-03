@@ -1,7 +1,7 @@
 package com.strahovka.service;
 
 import com.strahovka.delivery.User;
-import com.strahovka.entity.Role;
+import com.strahovka.enums.Role;
 import com.strahovka.dto.LoginRequest;
 import com.strahovka.dto.LoginResponse;
 import com.strahovka.dto.RegisterRequest;

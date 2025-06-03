@@ -1,7 +1,7 @@
 package com.strahovka.service;
 
 import com.strahovka.delivery.User;
-import com.strahovka.entity.Role;
+import com.strahovka.enums.Role;
 import com.strahovka.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,10 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Optional;
 import java.util.Date;
-import java.util.UUID;
-import java.security.Key;
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor

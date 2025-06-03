@@ -6,7 +6,7 @@ import api from '../../utils/api';
 
 const { Option } = Select;
 
-const KaskoFormContent = ({ isAuthenticated, onSubmit }) => {
+const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -33,7 +33,6 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit }) => {
             };
 
             // 2. Если пользователь не аутентифицирован, добавляем "owner" поля как есть
-            // InsuranceFormWrapper позаботится об их преобразовании в firstName, lastName, middleName
             if (!isAuthenticated) {
                 kaskoData.ownerFirstName = valuesFromForm.ownerFirstName;
                 kaskoData.ownerLastName = valuesFromForm.ownerLastName;
@@ -45,16 +44,17 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit }) => {
             // Вызываем onSubmit из InsuranceFormWrapper с собранными данными
             const response = await onSubmit(kaskoData);
             
-            if (response?.data) {
-            navigate('/applications/success', { 
-                state: { 
-                    applicationId: response.data.id,
+            // Перенаправляем на страницу успеха только если это не часть пакета
+            if (response?.data && !isPartOfPackage) {
+                navigate('/applications/success', { 
+                    state: { 
+                        applicationId: response.data.id,
                         calculatedAmount: response.data.calculatedAmount,
-                        isNewUser: !isAuthenticated, // Это все еще актуально
-                        email: response.data.email, // email из ответа сервера
-                        password: response.data.password // password из ответа сервера
-                } 
-            });
+                        isNewUser: !isAuthenticated,
+                        email: response.data.email,
+                        password: response.data.password
+                    } 
+                });
             }
             
         } catch (error) {
@@ -296,7 +296,7 @@ const KaskoForm = ({ isPartOfPackage, packageId, onSubmit: parentOnSubmit }) => 
 
     return (
         <InsuranceFormWrapper onSubmit={handleSubmit}>
-            <KaskoFormContent />
+            <KaskoFormContent isPartOfPackage={isPartOfPackage} />
         </InsuranceFormWrapper>
     );
 };

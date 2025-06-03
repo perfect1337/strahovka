@@ -29,20 +29,20 @@ const initialFormState = {
   firstName: '',
   lastName: '',
   middleName: '',
-  passportNumber: '',
-  passportExpiry: null,
-  destinationCountry: '',
-  travelStartDate: null,
-  travelEndDate: null,
-  purposeOfTrip: 'TOURISM',
-  coverMedicalExpenses: true,
-  coverAccidents: true,
-  coverLuggage: false,
-  coverTripCancellation: false,
-  coverSportsActivities: false,
-  hasChronicDiseases: false,
-  plannedSportsActivities: '',
-  notes: ''
+    passportNumber: '',
+    passportExpiry: null,
+    destinationCountry: '',
+    travelStartDate: null,
+    travelEndDate: null,
+    purposeOfTrip: 'TOURISM',
+    coverMedicalExpenses: true,
+    coverAccidents: true,
+    coverLuggage: false,
+    coverTripCancellation: false,
+    coverSportsActivities: false,
+    hasChronicDiseases: false,
+    plannedSportsActivities: '',
+    notes: ''
 };
 
 const formatDateForApi = (date) => {
@@ -110,7 +110,7 @@ const TravelFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
       if (!form[field]) {
         setFormError(`Поле "${field}" обязательно для заполнения.`);
         return false;
-      }
+    }
     }
     setFormError(null);
     return true;
@@ -187,12 +187,12 @@ const TravelFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
         <Typography variant="h5" gutterBottom component="div" sx={{ mb: 3 }}>
           Страхование для путешествий
         </Typography>
-        
+
         {apiError && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{apiError}</Alert>}
         {formError && <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>{formError}</Alert>}
         {successInfo && <Alert severity="success" sx={{ mt: 2, mb: 2 }}>{successInfo}</Alert>}
         
-        <Grid container spacing={3}>
+          <Grid container spacing={3}>
           {!isAuthenticated && (
             <>
               <Grid item xs={12} md={4}>
@@ -214,59 +214,59 @@ const TravelFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =
              </Grid>
           )}
 
-          <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={6}>
             <TextField required fullWidth label="Номер загранпаспорта" name="passportNumber" value={form.passportNumber} onChange={handleChange}/>
-          </Grid>
-          <Grid item xs={12} sm={6}>
+            </Grid>
+            <Grid item xs={12} sm={6}>
             <DatePicker label="Срок действия загранпаспорта *" value={form.passportExpiry} onChange={(newValue) => handleDateChange('passportExpiry', newValue)} renderInput={(params) => <TextField {...params} required fullWidth />} />
-          </Grid>
+            </Grid>
 
-          <Grid item xs={12}>
+            <Grid item xs={12}>
             <TextField required fullWidth label="Страна назначения" name="destinationCountry" value={form.destinationCountry} onChange={handleChange} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
+            </Grid>
+            <Grid item xs={12} sm={6}>
             <DatePicker label="Дата начала поездки *" value={form.travelStartDate} onChange={(newValue) => handleDateChange('travelStartDate', newValue)} renderInput={(params) => <TextField {...params} required fullWidth />} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
+            </Grid>
+            <Grid item xs={12} sm={6}>
             <DatePicker label="Дата окончания поездки *" value={form.travelEndDate} onChange={(newValue) => handleDateChange('travelEndDate', newValue)} renderInput={(params) => <TextField {...params} required fullWidth />} />
-          </Grid>
-          <Grid item xs={12}>
-            <FormControl fullWidth required>
-              <InputLabel>Цель поездки</InputLabel>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Цель поездки</InputLabel>
               <Select name="purposeOfTrip" value={form.purposeOfTrip} onChange={handleChange} label="Цель поездки">
-                <MenuItem value="TOURISM">Туризм</MenuItem>
-                <MenuItem value="BUSINESS">Бизнес</MenuItem>
-                <MenuItem value="EDUCATION">Образование</MenuItem>
-                <MenuItem value="SPORTS">Спорт</MenuItem>
-                <MenuItem value="OTHER">Другое</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+                  <MenuItem value="TOURISM">Туризм</MenuItem>
+                  <MenuItem value="BUSINESS">Бизнес</MenuItem>
+                  <MenuItem value="EDUCATION">Образование</MenuItem>
+                  <MenuItem value="SPORTS">Спорт</MenuItem>
+                  <MenuItem value="OTHER">Другое</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
-          <Grid item xs={12}>
+            <Grid item xs={12}>
             <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Страховое покрытие</Typography>
-            <FormGroup>
+              <FormGroup>
               <FormControlLabel control={<Checkbox checked={form.coverMedicalExpenses} onChange={handleChange} name="coverMedicalExpenses" />} label="Медицинские расходы" />
               <FormControlLabel control={<Checkbox checked={form.coverAccidents} onChange={handleChange} name="coverAccidents" />} label="Несчастные случаи" />
               <FormControlLabel control={<Checkbox checked={form.coverLuggage} onChange={handleChange} name="coverLuggage" />} label="Багаж" />
               <FormControlLabel control={<Checkbox checked={form.coverTripCancellation} onChange={handleChange} name="coverTripCancellation" />} label="Отмена поездки" />
               <FormControlLabel control={<Checkbox checked={form.coverSportsActivities} onChange={handleChange} name="coverSportsActivities" />} label="Занятия спортом (включая активный отдых)" />
-            </FormGroup>
-          </Grid>
+              </FormGroup>
+            </Grid>
 
           {form.coverSportsActivities && (
             <Grid item xs={12}>
               <TextField fullWidth label="Укажите планируемые виды спорта" name="plannedSportsActivities" value={form.plannedSportsActivities} onChange={handleChange} multiline rows={2} />
-            </Grid>
-          )}
-          
-          <Grid item xs={12}>
+              </Grid>
+            )}
+
+              <Grid item xs={12}>
             <FormGroup>
                 <FormControlLabel control={<Checkbox checked={form.hasChronicDiseases} onChange={handleChange} name="hasChronicDiseases" />} label="Наличие хронических заболеваний (важно для оценки риска)" />
             </FormGroup>
-          </Grid>
+              </Grid>
 
-          <Grid item xs={12}>
+            <Grid item xs={12}>
             <TextField fullWidth label="Дополнительные примечания" name="notes" value={form.notes} onChange={handleChange} multiline rows={3} sx={{mt:1}} />
           </Grid>
         </Grid>

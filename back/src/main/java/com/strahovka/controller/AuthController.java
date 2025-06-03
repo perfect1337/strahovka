@@ -1,7 +1,5 @@
 package com.strahovka.controller;
 
-import com.strahovka.delivery.User;
-import com.strahovka.entity.Role;
 import com.strahovka.dto.LoginRequest;
 import com.strahovka.dto.LoginResponse;
 import com.strahovka.dto.RegisterRequest;

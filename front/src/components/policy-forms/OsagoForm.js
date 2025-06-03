@@ -12,14 +12,19 @@ import {
   Paper,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
+import { useNavigate } from 'react-router-dom';
 
-const OsagoForm = ({ onSubmit }) => {
+const OsagoForm = ({ onSubmit, isPartOfPackage }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
+    carMake: '',
     carModel: '',
     carYear: '',
     licensePlate: '',
-    vin: '',
+    vinNumber: '',
     enginePower: '',
+    registrationCertificate: '',
+    regionRegistration: '',
     ownerFullName: '',
     ownerPassport: '',
     registrationAddress: '',
@@ -56,7 +61,6 @@ const OsagoForm = ({ onSubmit }) => {
     const count = parseInt(e.target.value);
     const drivers = [...formData.drivers];
     
-    // Add or remove drivers based on the new count
     if (count > drivers.length) {
       while (drivers.length < count) {
         drivers.push({ fullName: '', driverLicense: '', experience: '' });
@@ -72,9 +76,23 @@ const OsagoForm = ({ onSubmit }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    try {
+      const response = await onSubmit(formData);
+      
+      if (!isPartOfPackage && response?.data) {
+        navigate('/applications/success', {
+          state: {
+            applicationId: response.data.id,
+            calculatedAmount: response.data.calculatedAmount,
+            isNewUser: false
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting OSAGO form:', error);
+    }
   };
 
   return (
@@ -93,7 +111,17 @@ const OsagoForm = ({ onSubmit }) => {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="Марка и модель автомобиля"
+              label="Марка автомобиля"
+              name="carMake"
+              value={formData.carMake}
+              onChange={handleChange}
+              required
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Модель автомобиля"
               name="carModel"
               value={formData.carModel}
               onChange={handleChange}
@@ -125,8 +153,8 @@ const OsagoForm = ({ onSubmit }) => {
             <TextField
               fullWidth
               label="VIN номер"
-              name="vin"
-              value={formData.vin}
+              name="vinNumber"
+              value={formData.vinNumber}
               onChange={handleChange}
               required
             />
@@ -138,6 +166,26 @@ const OsagoForm = ({ onSubmit }) => {
               name="enginePower"
               type="number"
               value={formData.enginePower}
+              onChange={handleChange}
+              required
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="СТС (серия и номер)"
+              name="registrationCertificate"
+              value={formData.registrationCertificate}
+              onChange={handleChange}
+              required
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Регион регистрации ТС"
+              name="regionRegistration"
+              value={formData.regionRegistration}
               onChange={handleChange}
               required
             />

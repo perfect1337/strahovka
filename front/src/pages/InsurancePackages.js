@@ -44,7 +44,6 @@ const InsurancePackages = ({ adminView = false }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    basePrice: '',
     discount: 0,
     categories: [],
     active: true
@@ -61,18 +60,30 @@ const InsurancePackages = ({ adminView = false }) => {
     try {
       const endpoint = adminView ? '/api/insurance/packages/admin' : '/api/insurance/packages/public';
       const packagesResponse = await api.get(endpoint);
-      setPackages(packagesResponse.data);
+      if (Array.isArray(packagesResponse.data)) {
+        setPackages(packagesResponse.data);
+      } else {
+        console.error('Error fetching packages: data is not an array', packagesResponse.data);
+        setPackages([]);
+      }
     } catch (error) {
       console.error('Error fetching packages:', error);
+      setPackages([]);
     }
   };
 
   const fetchCategories = async () => {
     try {
       const categoriesResponse = await api.get('/api/insurance/categories');
-      setCategories(categoriesResponse.data);
+      if (Array.isArray(categoriesResponse.data)) {
+        setCategories(categoriesResponse.data);
+      } else {
+        console.error('Error fetching categories: data is not an array', categoriesResponse.data);
+        setCategories([]);
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
@@ -85,7 +96,6 @@ const InsurancePackages = ({ adminView = false }) => {
       setFormData({
         name: pkg.name,
         description: pkg.description,
-        basePrice: pkg.basePrice.toString(),
         discount: pkg.discount,
         categories: pkg.categories.map(c => c.id),
         active: pkg.active
@@ -95,7 +105,6 @@ const InsurancePackages = ({ adminView = false }) => {
       setFormData({
         name: '',
         description: '',
-        basePrice: '',
         discount: 0,
         categories: [],
         active: true
@@ -118,7 +127,6 @@ const InsurancePackages = ({ adminView = false }) => {
 
       const data = {
         ...formData,
-        basePrice: parseFloat(formData.basePrice),
         categories: selectedCategories
       };
 
@@ -160,7 +168,7 @@ const InsurancePackages = ({ adminView = false }) => {
 
   const handleCreatePolicy = (item, type) => {
     if (type === 'package') {
-      navigate(`/create-policy?type=package&id=${item.id}`);
+      navigate(`/apply-package/${item.id}`);
     } else {
       const categoryToPath = {
         'OSAGO': '/insurance/osago',
@@ -485,18 +493,6 @@ const InsurancePackages = ({ adminView = false }) => {
             />
             <TextField
               fullWidth
-              label="Базовая цена"
-              value={formData.basePrice}
-              onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-              margin="normal"
-              type="number"
-              required
-              InputProps={{
-                inputProps: { min: 0 }
-              }}
-            />
-            <TextField
-              fullWidth
               label="Скидка (%)"
               value={formData.discount}
               onChange={(e) => setFormData({ ...formData, discount: parseInt(e.target.value) || 0 })}
@@ -537,7 +533,7 @@ const InsurancePackages = ({ adminView = false }) => {
             onClick={handleSubmit} 
             variant="contained" 
             color="primary"
-            disabled={!formData.name || !formData.description || !formData.basePrice || formData.categories.length === 0}
+            disabled={!formData.name || !formData.description || formData.categories.length === 0}
           >
             {selectedPackage ? 'Сохранить' : 'Создать'}
           </Button>

@@ -245,7 +245,7 @@ const OsagoFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =>
       setLoading(false);
     }
   };
-  
+
   const renderOwnerForm = () => (
     <Grid container spacing={3}>
       <Grid item xs={12} sm={4}>
@@ -308,7 +308,7 @@ const OsagoFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =>
     </Grid>
   );
 
- const renderDriversForm = () => (
+  const renderDriversForm = () => (
     <>
       <FormControlLabel
         control={<Checkbox checked={Boolean(formData.isUnlimitedDrivers)} onChange={handleChange('isUnlimitedDrivers')} name="isUnlimitedDrivers" />}
@@ -325,10 +325,10 @@ const OsagoFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) =>
             <Grid item xs={12} sm={6}><TextField fullWidth label="Стаж (лет)" name={`drivers[${index}].drivingExperience`} type="number" value={driver.drivingExperience} onChange={handleDriverChange(index, 'drivingExperience')} required /></Grid>
             <Grid item xs={12} sm={6}><TextField fullWidth label="ВУ номер" name={`drivers[${index}].licenseNumber`} value={driver.licenseNumber} onChange={handleDriverChange(index, 'licenseNumber')} required /></Grid>
             <Grid item xs={12} sm={6}><DatePicker label="Дата выдачи ВУ" value={driver.licenseDate} onChange={handleDriverChange(index, 'licenseDate')} slotProps={{ textField: { fullWidth: true, required: true } }} /></Grid>
-          </Grid>
+                </Grid>
           {formData.drivers.length > 1 && <Button onClick={() => removeDriver(index)} sx={{ mt: 1 }}>Удалить водителя</Button>}
-        </Paper>
-      ))}
+            </Paper>
+          ))}
       {!Boolean(formData.isUnlimitedDrivers) && <Button onClick={addDriver} sx={{ mt: 1 }}>Добавить водителя</Button>}
     </>
   );

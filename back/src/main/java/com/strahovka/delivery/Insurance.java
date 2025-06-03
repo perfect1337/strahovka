@@ -1,34 +1,31 @@
 package com.strahovka.delivery;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.strahovka.entity.ApplicationStatus;
-import com.strahovka.entity.PolicyStatus;
-import com.strahovka.entity.PackageType;
-import com.strahovka.entity.PackageStatus;
-import com.strahovka.config.ApplicationStatusType;
-import com.strahovka.delivery.Claims.InsuranceClaim;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.strahovka.enums.PackageType;
+import com.strahovka.enums.PackageStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
 import org.hibernate.annotations.Where;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Objects;
+import java.util.ArrayList;
 
 public class Insurance {
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Entity
+    @Entity(name = "InsurancePackageEntity")
     @Table(name = "insurance_packages")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @EqualsAndHashCode(exclude = {"categories", "applicationLinks"})
     public static class InsurancePackage {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,8 +39,7 @@ public class Insurance {
         @Column(nullable = false, length = 1000)
         private String description;
 
-        @NotNull(message = "Базовая цена обязательна")
-        @Column(name = "baseprice", nullable = false, precision = 10, scale = 2)
+        @Column(name = "baseprice", nullable = true, precision = 10, scale = 2)
         private BigDecimal basePrice;
 
         @Min(value = 0, message = "Скидка не может быть меньше 0%")
@@ -68,70 +64,19 @@ public class Insurance {
 
         @ManyToOne
         @JoinColumn(name = "user_id", nullable = true)
+        @JsonIgnoreProperties(value = {"insurancePackages", "policies", "claims", "applications", "handler", "hibernateLazyInitializer"}, allowSetters = true)
         private User user;
 
-        @OneToMany
-        @JoinTable(
-            name = "package_applications",
-            joinColumns = @JoinColumn(name = "package_id"),
-            inverseJoinColumns = @JoinColumn(name = "application_id"),
-            foreignKey = @ForeignKey(name = "fk_package_kasko_application")
-        )
-        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'KASKO')")
+        @OneToMany(mappedBy = "insurancePackage", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
         @Builder.Default
-        private List<KaskoApplication> kaskoApplications = List.of();
+        @ToString.Exclude
+        @JsonManagedReference
+        private List<PackageApplicationLink> applicationLinks = new ArrayList<>();
 
-        @OneToMany
-        @JoinTable(
-            name = "package_applications",
-            joinColumns = @JoinColumn(name = "package_id"),
-            inverseJoinColumns = @JoinColumn(name = "application_id"),
-            foreignKey = @ForeignKey(name = "fk_package_osago_application")
-        )
-        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'OSAGO')")
-        @Builder.Default
-        private List<OsagoApplication> osagoApplications = List.of();
-
-        @OneToMany
-        @JoinTable(
-            name = "package_applications",
-            joinColumns = @JoinColumn(name = "package_id"),
-            inverseJoinColumns = @JoinColumn(name = "application_id"),
-            foreignKey = @ForeignKey(name = "fk_package_property_application")
-        )
-        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'PROPERTY')")
-        @Builder.Default
-        private List<PropertyApplication> propertyApplications = List.of();
-
-        @OneToMany
-        @JoinTable(
-            name = "package_applications",
-            joinColumns = @JoinColumn(name = "package_id"),
-            inverseJoinColumns = @JoinColumn(name = "application_id"),
-            foreignKey = @ForeignKey(name = "fk_package_health_application")
-        )
-        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'HEALTH')")
-        @Builder.Default
-        private List<HealthApplication> healthApplications = List.of();
-
-        @OneToMany
-        @JoinTable(
-            name = "package_applications",
-            joinColumns = @JoinColumn(name = "package_id"),
-            inverseJoinColumns = @JoinColumn(name = "application_id"),
-            foreignKey = @ForeignKey(name = "fk_package_travel_application")
-        )
-        @Where(clause = "EXISTS (SELECT 1 FROM package_applications pa WHERE pa.application_id = id AND pa.application_type = 'TRAVEL')")
-        @Builder.Default
-        private List<TravelApplication> travelApplications = List.of();
-
-        @Column(name = "original_total_amount")
+        @Column(name = "original_total_amount", nullable = true)
         private BigDecimal originalTotalAmount;
 
-        @Column(name = "discount_percentage")
-        private Integer discountPercentage;
-
-        @Column(name = "final_amount")
+        @Column(name = "final_amount", nullable = true)
         private BigDecimal finalAmount;
 
         @Column(name = "created_at")
@@ -155,6 +100,7 @@ public class Insurance {
     @Entity
     @Table(name = "insurance_categories")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @EqualsAndHashCode(exclude = {"packages"})
     public static class InsuranceCategory {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)

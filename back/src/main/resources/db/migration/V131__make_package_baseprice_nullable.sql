@@ -1,0 +1,1 @@
+ALTER TABLE insurance_packages ALTER COLUMN baseprice DROP NOT NULL; 
