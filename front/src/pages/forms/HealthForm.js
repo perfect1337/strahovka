@@ -20,8 +20,25 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 
+const formatDateForApi = (date) => {
+  if (!date) return null;
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) { // Проверка на валидность даты
+      return null; 
+    }
+    const year = d.getFullYear();
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (error) {
+    console.error("Error formatting date:", date, error);
+    return null; // или можно вернуть исходное значение или выбросить ошибку дальше
+  }
+};
+
 const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => {
-  const { user } = useAuth();
+  const { user, handleAuthenticationResponse } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: initialData.firstName || (user ? user.firstName : ''),
@@ -68,106 +85,134 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
     e.preventDefault();
     setError('');
     setSuccessMessage('');
-    console.log('[HealthForm] Form submission triggered');
-    console.log('[HealthForm] Initial Form data for submission:', JSON.parse(JSON.stringify(formData)));
+    console.log('[HealthForm] Form submission triggered. User authenticated:', !!user);
 
     const passportValue = formData.passport.trim().replace(/\s/g, '');
     const snilsValue = formData.snils.trim().replace(/[^\d]/g, '');
     
-    // Валидация
     if (!formData.firstName || !formData.lastName || !formData.birthDate || 
-        !formData.gender || !passportValue || !snilsValue ||
+        !formData.gender || !passportValue || !snilsValue || 
         !formData.address || !formData.phone || !formData.email || 
         !formData.startDate || !formData.endDate) {
-      setError('Пожалуйста, заполните все обязательные поля, включая СНИЛС.');
+      setError('Пожалуйста, заполните все обязательные поля (ФИО, дата рождения, пол, паспорт, СНИЛС, адрес, телефон, email, даты страховки).');
       return;
     }
     if (formData.hasChronic && !formData.chronicDetails) {
       setError('Пожалуйста, укажите детали хронических заболеваний');
       return;
     }
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+    
+    const formattedStartDate = formatDateForApi(formData.startDate);
+    const formattedEndDate = formatDateForApi(formData.endDate);
+    const formattedBirthDate = formatDateForApi(formData.birthDate);
+
+    if (!formattedStartDate || !formattedEndDate || !formattedBirthDate) {
+        setError('Пожалуйста, укажите корректные даты (дата рождения, начало и окончание страховки).');
+        return;
+    }
+
+    if (new Date(formattedStartDate) >= new Date(formattedEndDate)) {
       setError('Дата начала должна быть раньше даты окончания');
       return;
     }
-    if (!/^\d{10}$/.test(passportValue)) {
-      setError('Неверный формат паспортных данных. Ожидается 10 цифр (серия и номер).');
+    
+    if (!/^\d+$/.test(passportValue)) {
+      setError('Неверный формат паспортных данных РФ. Ожидаются только цифры.');
       return;
     }
-    if (!/^\d{11}$/.test(snilsValue)) {
-      setError('Неверный формат СНИЛС. Ожидается 11 цифр (например, XXX-XXX-XXX XX).');
+    if (!/^\d+$/.test(snilsValue)) {
+      setError('Неверный формат СНИЛС. Ожидаются только цифры.');
       return;
     }
 
-    console.log('[HealthForm] Form data AFTER validation:', JSON.parse(JSON.stringify(formData)));
-    console.log('[HealthForm] Cleaned SNILS for submission:', snilsValue);
-
-    if (!onSubmit) {
-      if (isPartOfPackage) {
-        const errMessage = '[HealthForm] Ошибка: onSubmit не определена, но форма часть пакета.';
-        console.error(errMessage, { isPartOfPackage, onSubmit });
-        setError(errMessage);
+    if (onSubmit) {
+      if (typeof onSubmit !== 'function') {
+        setError('[HealthForm] Ошибка: onSubmit не является функцией для режима пакета.');
         return;
       }
-
-      console.log('[HealthForm] Автономный режим: попытка отправки.');
-      setIsSubmitting(true);
       try {
-        const payload = {
-          birthDate: formData.birthDate,
-          gender: formData.gender,
-          passportNumber: passportValue,
+        setIsSubmitting(true);
+        await onSubmit({
+          ...formData,
+          passport: passportValue,
           snils: snilsValue,
-          address: formData.address,
-          hasChronicDiseases: formData.hasChronic,
-          chronicDiseasesDetails: formData.hasChronic ? formData.chronicDetails : null,
-          coverageAmount: formData.coverageAmount,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-        };
-
-        Object.keys(payload).forEach(key => (payload[key] == null) && delete payload[key]);
-        console.log('[HealthForm] Autonomous submission payload:', payload);
-
-        const apiResponse = await api.post('/api/insurance/applications/health', payload);
-        console.log('[HealthForm] Autonomous submission successful:', apiResponse.data);
-        setSuccessMessage('Ваша заявка на страхование здоровья успешно отправлена!');
-        
-        navigate('/applications/success', { 
-          state: { 
-            applicationId: apiResponse.data.id, 
-            calculatedAmount: apiResponse.data.calculatedAmount, 
-            message: 'Заявка на страхование здоровья успешно создана.',
-            type: 'HEALTH'
-          } 
+          birthDate: formattedBirthDate,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
         });
-      } catch (err) {
-        console.error('[HealthForm] Autonomous submission error:', err);
-        setError('Ошибка при отправке заявки: ' + (err.response?.data?.message || err.message || 'Неизвестная ошибка сервера'));
+      } catch (error) {
+        setError('Ошибка при обработке формы в составе пакета: ' + (error.message || 'Неизвестная ошибка'));
       } finally {
         setIsSubmitting(false);
       }
       return;
     }
 
-    if (typeof onSubmit !== 'function') {
-      const errMessage = '[HealthForm] Ошибка: onSubmit не является функцией.';
-      console.error(errMessage, { typeofOnSubmit: typeof onSubmit });
-      setError(errMessage);
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
-      console.log('[HealthForm] Calling provided onSubmit with data...');
-      setIsSubmitting(true);
-      await onSubmit({
-        ...formData,
-        passport: passportValue,
-        snils: snilsValue
-      });
-    } catch (error) {
-      console.error('[HealthForm] Error calling provided onSubmit:', error);
-      setError('Произошла ошибка при обработке формы: ' + (error.message || 'Неизвестная ошибка'));
+      let apiResponse;
+      const commonPayloadFields = {
+        birthDate: formattedBirthDate,
+        gender: formData.gender,
+        passportNumber: passportValue,
+        snils: snilsValue,
+        address: formData.address,
+        hasChronicDiseases: formData.hasChronic,
+        chronicDiseasesDetails: formData.hasChronic ? formData.chronicDetails : null,
+        coverageAmount: formData.coverageAmount,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+      };
+      Object.keys(commonPayloadFields).forEach(key => (commonPayloadFields[key] == null || commonPayloadFields[key] === '') && delete commonPayloadFields[key]);
+
+      if (!user) {
+        console.log('[HealthForm] Unauthenticated user. Preparing payload for /unauthorized/health');
+        const unauthorizedPayload = {
+          ...commonPayloadFields,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          middleName: formData.middleName || null,
+          phone: formData.phone,
+        };
+        Object.keys(unauthorizedPayload).forEach(key => (unauthorizedPayload[key] == null || unauthorizedPayload[key] === '') && delete unauthorizedPayload[key]);
+        console.log('[HealthForm] Submitting to /unauthorized/health. Payload:', unauthorizedPayload);
+        apiResponse = await api.post('/api/insurance/unauthorized/health', unauthorizedPayload);
+
+        if (apiResponse.data && apiResponse.data.accessToken && apiResponse.data.user) {
+          await handleAuthenticationResponse(apiResponse.data);
+          setSuccessMessage('Заявка успешно создана! Вы были автоматически зарегистрированы.');
+          navigate('/applications/success', {
+            state: {
+              applicationId: apiResponse.data.id,
+              calculatedAmount: apiResponse.data.calculatedAmount,
+              message: 'Заявка успешно создана! Вы зарегистрированы и вошли в систему. Ваш пароль совпадает с email.',
+              type: 'HEALTH',
+              isNewUser: true,
+              email: apiResponse.data.email,
+              password: apiResponse.data.email
+            }
+          });
+        } else {
+          throw new Error("Ответ от сервера не содержит всех необходимых данных для авторизации (токен или пользователь).");
+        }
+      } else {
+        console.log('[HealthForm] Authenticated user. Submitting to /applications/health. Payload:', commonPayloadFields);
+        apiResponse = await api.post('/api/insurance/applications/health', commonPayloadFields);
+        setSuccessMessage('Ваша заявка на страхование здоровья успешно отправлена!');
+        navigate('/applications/success', {
+          state: {
+            applicationId: apiResponse.data.id,
+            calculatedAmount: apiResponse.data.calculatedAmount,
+            message: 'Заявка на страхование здоровья успешно создана.',
+            type: 'HEALTH'
+          }
+        });
+      }
+      console.log('[HealthForm] Submission successful:', apiResponse.data);
+    } catch (err) {
+      console.error('[HealthForm] Autonomous submission error:', err.response?.data || err.message || err);
+      setError('Ошибка при отправке заявки: ' + (err.response?.data?.message || err.response?.data?.error || err.message || 'Неизвестная ошибка сервера'));
     } finally {
       setIsSubmitting(false);
     }
@@ -177,7 +222,7 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
     <Paper elevation={isPartOfPackage ? 0 : 3} sx={{ p: 3 }}>
       {!isPartOfPackage && (
         <Typography variant="h5" gutterBottom>
-          Страхование здоровья
+          Страхование здоровья {!user && "(Требуется указать Email для регистрации)"}
         </Typography>
       )}
 
@@ -193,7 +238,7 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.lastName}
               onChange={handleChange('lastName')}
               required
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!!user && !!user.lastName && !initialData.lastName)}
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -203,7 +248,7 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.firstName}
               onChange={handleChange('firstName')}
               required
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!!user && !!user.firstName && !initialData.firstName)}
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -212,7 +257,7 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               label="Отчество"
               value={formData.middleName}
               onChange={handleChange('middleName')}
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!!user && !!user.middleName && !initialData.middleName)}
             />
           </Grid>
 
@@ -242,11 +287,11 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Серия и номер паспорта"
+              label="Серия и номер паспорта РФ"
               value={formData.passport}
               onChange={handleChange('passport')}
               required
-              helperText="Введите 10 цифр: серия и номер"
+              helperText="Введите 10 цифр (серия и номер)"
               disabled={isSubmitting}
             />
           </Grid>
@@ -258,19 +303,20 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.snils}
               onChange={handleChange('snils')}
               required
-              helperText="Введите 11 цифр (например, XXX-XXX-XXX YY)"
+              helperText="Введите 11 цифр (например, XXX-XXX-XXX XX)"
               disabled={isSubmitting}
             />
           </Grid>
-
-          <Grid item xs={12}>
+          
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Адрес регистрации"
-              value={formData.address}
-              onChange={handleChange('address')}
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange('email')}
               required
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!!user && !!user.email && !initialData.email)}
             />
           </Grid>
 
@@ -281,17 +327,16 @@ const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.phone}
               onChange={handleChange('phone')}
               required
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!!user && !!user.phone && !initialData.phone)}
             />
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange('email')}
+              label="Адрес регистрации"
+              value={formData.address}
+              onChange={handleChange('address')}
               required
               disabled={isSubmitting}
             />

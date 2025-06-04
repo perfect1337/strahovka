@@ -37,22 +37,19 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Configure request with token
-      const response = await api.get('/api/auth/validate', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const response = await api.get('/api/auth/validate');
+      
       const userData = response.data;
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
       return true;
     } catch (error) {
-      console.error('Token validation failed:', error);
-      // If validation fails, clear everything
+      console.warn('Token validation failed or no token:', error.message);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      delete api.defaults.headers.common['Authorization'];
       setUser(null);
       return false;
     }
@@ -61,19 +58,24 @@ export const AuthProvider = ({ children }) => {
   // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
+      setLoading(true);
       try {
         const storedUser = localStorage.getItem('user');
         const token = localStorage.getItem('token');
         
-        if (storedUser && token) {
-          // First set the stored user to prevent flicker
-          setUser(JSON.parse(storedUser));
-          
-          // Then validate the token and update user info
+        if (token) {
           await validateAndGetUser();
+        } else if (storedUser) {
+          console.warn("User in localStorage without token, clearing.");
+          localStorage.removeItem('user');
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        delete api.defaults.headers.common['Authorization'];
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -81,6 +83,24 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
   }, []);
+
+  const handleAuthenticationResponse = async (authData) => {
+    if (!authData || !authData.accessToken || !authData.user) {
+      console.error('handleAuthenticationResponse: Invalid authData received', authData);
+      throw new Error('Invalid authentication data received from server.');
+    }
+    const { user: userData, accessToken, refreshToken } = authData;
+
+    localStorage.setItem('token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
+    localStorage.setItem('user', JSON.stringify(userData));
+    
+    api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    setUser(userData);
+    console.log("Authentication state updated with new tokens/user data.");
+  };
 
   const login = async (email, password) => {
     try {
@@ -95,6 +115,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(userData));
       
+      api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setUser(userData);
       
       return response.data;
@@ -106,26 +127,22 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Clear user from context and local storage
+      const token = localStorage.getItem('token');
       setUser(null);
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       
-      // Remove Authorization header from api defaults
       delete api.defaults.headers.common['Authorization'];
       
-      // Make a call to the backend to invalidate the session/token if necessary
-      // Assuming the backend endpoint for logout is /api/auth/signout
-      // Please verify your actual backend endpoint
-      await api.post('/api/auth/signout'); 
-      
-      console.log("User logged out successfully");
-      // Navigate to login or home page after logout
-      // navigate('/login'); // Example navigation
+      if (token) {
+        await api.post('/api/auth/signout'); 
+        console.log("User logged out successfully (backend notified).");
+      } else {
+        console.log("User logged out (no active session to notify backend).");
+      }
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if backend logout fails, frontend state is cleared.
-      // Handle specific errors if needed
     }
   };
 
@@ -150,6 +167,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(userData));
       
+      api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setUser(userData);
       
       return true;
@@ -167,7 +185,8 @@ export const AuthProvider = ({ children }) => {
       loading, 
       updateUserInfo, 
       register,
-      validateAndGetUser 
+      validateAndGetUser,
+      handleAuthenticationResponse
     }}>
       {children}
     </AuthContext.Provider>
