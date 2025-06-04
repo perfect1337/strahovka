@@ -22,7 +22,7 @@ import PrivateRoute from './components/PrivateRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreatePolicy from './pages/CreatePolicy';
 import OsagoForm from './pages/forms/OsagoForm';
-import KaskoForm from './components/forms/KaskoForm';
+import KaskoForm from './pages/forms/KaskoForm';
 import TravelForm from './pages/forms/TravelForm';
 import HealthForm from './pages/forms/HealthForm';
 import RealEstateForm from './pages/forms/RealEstateForm';

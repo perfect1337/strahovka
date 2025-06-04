@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Steps, Button, message, Card, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import KaskoForm from './forms/KaskoForm';
+import KaskoForm from '../pages/forms/KaskoForm';
 import OsagoForm from '../pages/forms/OsagoForm';
 import TravelForm from '../pages/forms/TravelForm';
 import HealthForm from '../pages/forms/HealthForm';
@@ -13,27 +13,20 @@ const { Title } = Typography;
 
 // Маппинг типов страховок на компоненты форм
 const INSURANCE_FORMS = {
-    'AUTO': {
-        'KASKO': KaskoForm,
-        'OSAGO': OsagoForm
-    },
     'KASKO': KaskoForm,
     'OSAGO': OsagoForm,
     'TRAVEL': TravelForm,
     'HEALTH': HealthForm,
-    'REALESTATE': RealEstateForm,
     'PROPERTY': RealEstateForm
 };
 
 // Маппинг типов страховок на их названия
 const INSURANCE_NAMES = {
-    'AUTO': 'Автострахование',
     'KASKO': 'КАСКО',
     'OSAGO': 'ОСАГО',
     'TRAVEL': 'Страхование путешествий',
     'HEALTH': 'Страхование здоровья',
-    'REALESTATE': 'Страхование недвижимости',
-    'PROPERTY': 'Страхование имущества'
+    'PROPERTY': 'Страхование недвижимости'
 };
 
 const InsurancePackageManager = ({ packageId, initialCategories = [] }) => {
@@ -45,20 +38,83 @@ const InsurancePackageManager = ({ packageId, initialCategories = [] }) => {
     const [packageData, setPackageData] = useState(null);
     const [error, setError] = useState(null);
 
-    // Преобразуем категории AUTO в соответствующие подкатегории
-    const expandAutoCategories = (cats) => {
-        const expanded = cats.reduce((acc, cat) => {
-            if (cat === 'AUTO') {
-                // Для категории AUTO добавляем KASKO и OSAGO
-                acc.push('KASKO', 'OSAGO');
-            } else {
-                acc.push(cat);
-            }
-            return acc;
-        }, []);
+    // Преобразуем категории в правильные типы страхования
+    const normalizeCategories = (cats) => {
+        // Функция для определения типа по метке
+        const getLabelType = (label) => {
+            if (!label) return null;
+            const upperLabel = label.toUpperCase();
+            if (upperLabel === 'KASKO' || upperLabel === 'КАСКО') return 'KASKO';
+            if (upperLabel === 'OSAGO' || upperLabel === 'ОСАГО') return 'OSAGO';
+            if (upperLabel === 'НЕДВИЖИМОСТЬ' || upperLabel === 'PROPERTY' || upperLabel === 'REALESTATE') return 'PROPERTY';
+            return null;
+        };
 
-        // Удаляем дубликаты
-        return [...new Set(expanded)];
+        // Используем Set для уникальности с самого начала
+        let normalizedTypes = new Set();
+        let hasAuto = false;
+
+        console.log('Normalizing categories:', cats);
+
+        // Проверяем наличие явных типов и меток
+        cats.forEach(cat => {
+            const type = cat.type?.toUpperCase() || cat.toUpperCase();
+            const labelType = getLabelType(cat.label);
+
+            console.log('Processing category:', { type, labelType, originalCategory: cat });
+
+            // Если это AUTO тип, отмечаем для последующей обработки
+            if (type === 'AUTO') {
+                hasAuto = true;
+                return; // Пропускаем дальнейшую обработку для AUTO
+            }
+
+            // Добавляем тип из метки или явного типа
+            if (labelType) {
+                normalizedTypes.add(labelType);
+                console.log('Added from label:', labelType);
+            } else {
+                // Добавляем другие типы страхования
+                switch (type) {
+                    case 'KASKO':
+                        normalizedTypes.add('KASKO');
+                        break;
+                    case 'OSAGO':
+                        normalizedTypes.add('OSAGO');
+                        break;
+                    case 'REALESTATE':
+                    case 'PROPERTY':
+                        normalizedTypes.add('PROPERTY');
+                        break;
+                    case 'TRAVEL':
+                        normalizedTypes.add('TRAVEL');
+                        break;
+                    case 'HEALTH':
+                        normalizedTypes.add('HEALTH');
+                        break;
+                }
+                console.log('Added from type:', type);
+            }
+        });
+
+        console.log('Before AUTO processing:', Array.from(normalizedTypes));
+
+        // Обработка AUTO типа только если нет явных KASKO/OSAGO
+        if (hasAuto && !normalizedTypes.has('KASKO') && !normalizedTypes.has('OSAGO')) {
+            normalizedTypes.add('KASKO');
+            normalizedTypes.add('OSAGO');
+            console.log('Added KASKO and OSAGO from AUTO type');
+        }
+
+        // Преобразуем Set в массив и сортируем
+        const result = Array.from(normalizedTypes).sort((a, b) => {
+            if (a === 'KASKO' && b === 'OSAGO') return -1;
+            if (a === 'OSAGO' && b === 'KASKO') return 1;
+            return 0;
+        });
+
+        console.log('Final normalized categories:', result);
+        return result;
     };
 
     useEffect(() => {
@@ -73,19 +129,22 @@ const InsurancePackageManager = ({ packageId, initialCategories = [] }) => {
                 const response = await api.get(`/api/insurance/packages/${packageId}`);
                 setPackageData(response.data);
                 
-                // Устанавливаем категории из полученных данных
                 if (response.data.categories && Array.isArray(response.data.categories)) {
-                    // Преобразуем типы страхования в верхний регистр для единообразия
-                    const categoryTypes = response.data.categories.map(cat => 
-                        (cat.type || cat).toUpperCase()
-                    );
-                    console.log('Полученные типы страхования:', categoryTypes);
+                    console.log('Категории с бэкенда:', JSON.parse(JSON.stringify(response.data.categories)));
+                    const normalized = normalizeCategories(response.data.categories);
+                    console.log('Нормализованные до Set:', normalized);
+                    const uniqueNormalizedCategories = [...new Set(normalized)];
+                    console.log('Нормализованные и уникальные категории:', uniqueNormalizedCategories);
                     
-                    // Разворачиваем категории AUTO в KASKO и OSAGO и удаляем дубликаты
-                    const expandedCategories = expandAutoCategories(categoryTypes);
-                    console.log('Развернутые категории (без дубликатов):', expandedCategories);
+                    const sortedCategories = uniqueNormalizedCategories.sort((a, b) => {
+                        if (a === 'KASKO' && b === 'OSAGO') return -1;
+                        if (a === 'OSAGO' && b === 'KASKO') return 1;
+                        // Для других типов можно добавить логику сортировки или оставить как есть
+                        return 0;
+                    });
                     
-                    setCategories(expandedCategories);
+                    console.log('Отсортированные категории для установки:', sortedCategories);
+                    setCategories(sortedCategories);
                 }
             } catch (err) {
                 console.error('Error fetching package data:', err);
@@ -101,59 +160,47 @@ const InsurancePackageManager = ({ packageId, initialCategories = [] }) => {
     const handleFormSubmit = async (type, formData) => {
         try {
             setLoading(true);
+            console.log('Отправка формы для типа:', type, 'с данными:', formData);
             
-            // Подготавливаем данные в зависимости от типа страхования
-            let processedData = formData;
-            
-            if (type === 'OSAGO') {
-                // Для ОСАГО добавляем данные водителя
-                if (formData.isUnlimitedDrivers) {
-                    // Если выбрано неограниченное количество водителей,
-                    // используем данные владельца как основного водителя
-                    processedData = {
-                        ...formData,
-                        driver_license_number: formData.ownerPassportNumber,
-                        driver_license_date: formData.ownerBirthDate,
-                        driver_experience_years: 0
-                    };
-                } else if (formData.drivers && formData.drivers.length > 0) {
-                    // Если есть список водителей, используем данные первого водителя
-                    const mainDriver = formData.drivers[0];
-                    processedData = {
-                        ...formData,
-                        driver_license_number: mainDriver.licenseNumber,
-                        driver_license_date: mainDriver.licenseDate,
-                        driver_experience_years: mainDriver.drivingExperience
-                    };
-                }
+            // Ensure yearBuilt is properly set for property applications
+            if (type === 'PROPERTY') {
+                formData = {
+                    ...formData,
+                    yearBuilt: parseInt(formData.constructionYear)
+                };
             }
             
-            // Отправляем данные формы на сервер
+            const applicationData = {
+                type: type, 
+                data: formData
+            };
+
+            console.log('Подготовленные данные для отправки:', applicationData);
+            
             const response = await api.post(`/api/insurance/packages/${packageId}/apply`, {
-                applications: [{
-                    type: type,
-                    label: INSURANCE_NAMES[type] || type,
-                    data: processedData,
-                    category: type // Добавляем поле category для совместимости с бэкендом
-                }]
+                applications: [applicationData]
             });
 
-            // Обновляем состояние завершенных форм
             setCompletedForms(prev => ({
                 ...prev,
                 [type]: true
             }));
 
             message.success('Форма успешно отправлена');
-
-            // Если это последняя форма в пакете, финализируем пакет
             const isLastForm = currentStep === categories.length - 1;
             if (isLastForm) {
-                await api.post(`/api/insurance/packages/${packageId}/finalize`);
-                message.success('Пакет страхования успешно оформлен!');
-                setTimeout(() => navigate('/profile'), 2000);
+                // ПОКА КОММЕНТИРУЕМ АВТОМАТИЧЕСКУЮ ФИНАЛИЗАЦИЮ И ПЕРЕХОД
+                // TODO: Реализовать логику оплаты и вызывать finalize после успешной оплаты
+                message.info('Все формы пакета заполнены. Переход к оплате...'); // Сообщение пользователю
+                // await api.post(`/api/insurance/packages/${packageId}/finalize`);
+                // message.success('Пакет страхования успешно оформлен!');
+                // setTimeout(() => navigate('/profile'), 2000);
+                
+                // Пример: Устанавливаем флаг, что можно переходить к оплате
+                // setReadyForPayment(true); 
+                // Или перенаправляем на страницу оплаты, если она есть:
+                // navigate(`/payment/${packageId}`);
             } else {
-                // Переходим к следующей форме
                 setCurrentStep(prev => prev + 1);
             }
 
@@ -185,7 +232,7 @@ const InsurancePackageManager = ({ packageId, initialCategories = [] }) => {
             return <Typography.Text type="danger">
                 Неподдерживаемый тип страхования: {currentCategory}
                 <br />
-                Доступные типы: {Object.keys(INSURANCE_FORMS).filter(key => key !== 'AUTO').join(', ')}
+                Доступные типы: {Object.keys(INSURANCE_FORMS).join(', ')}
             </Typography.Text>;
         }
 

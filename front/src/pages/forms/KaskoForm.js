@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, InputNumber, Checkbox, message, Modal, Select } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import InsuranceFormWrapper from '../InsuranceFormWrapper';
+import InsuranceFormWrapper from '../../components/InsuranceFormWrapper';
 import api from '../../utils/api';
 
 const { Option } = Select;

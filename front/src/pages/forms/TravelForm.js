@@ -39,18 +39,18 @@ const formatDateForApi = (date) => {
 };
 
 const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => {
-  const { user, handleAuthenticationResponse } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: initialData.firstName || (user ? user.firstName : ''),
     lastName: initialData.lastName || (user ? user.lastName : ''),
     middleName: initialData.middleName || (user ? user.middleName : ''),
     birthDate: initialData.birthDate || null,
-    email: initialData.email || (user ? user.email : ''),
-    phone: initialData.phone || (user ? user.phone : ''),
     passport: initialData.passport || '',
     internationalPassport: initialData.internationalPassport || '',
     passportExpiry: initialData.passportExpiry || null,
+    phone: initialData.phone || (user ? user.phone : ''),
+    email: initialData.email || (user ? user.email : ''),
     countries: initialData.countries || [],
     startDate: initialData.startDate || null,
     endDate: initialData.endDate || null,
@@ -91,13 +91,14 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
     setSuccessMessage('');
     console.log('[TravelForm] Form submission triggered. User authenticated:', !!user);
     
+    // Проверяем обязательные поля
     if (!formData.firstName || !formData.lastName || !formData.birthDate ||
         !formData.internationalPassport || !formData.passportExpiry ||
         !formData.phone || !formData.email ||
         !formData.startDate || !formData.endDate || !formData.countries.length ||
         !formData.coverageAmount || !formData.purpose) {
-      setError('Пожалуйста, заполните все обязательные поля.');
-      return;
+        setError('Пожалуйста, заполните все обязательные поля.');
+        return;
     }
 
     const formattedStartDate = formatDateForApi(formData.startDate);
@@ -111,53 +112,24 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
     }
 
     if (new Date(formattedStartDate) >= new Date(formattedEndDate)) {
-      setError('Дата начала должна быть раньше даты окончания');
-      return;
-    }
-    if (formData.hasChronic && !formData.chronicDetails) {
-      setError('Пожалуйста, укажите детали хронических заболеваний');
-      return;
-    }
-    if (formData.needsSports && !formData.sportsType) {
-      setError('Пожалуйста, укажите вид спорта');
-      return;
-    }
-
-    console.log('[TravelForm] Form data AFTER basic validation and date formatting.');
-
-    if (onSubmit) {
-      if (typeof onSubmit !== 'function') {
-        const errMessage = 'Ошибка: onSubmit не является функцией.';
-        console.error('[TravelForm]', errMessage, { typeofOnSubmit: typeof onSubmit });
-        setError(errMessage);
+        setError('Дата начала должна быть раньше даты окончания');
         return;
-      }
-      try {
-        console.log('[TravelForm] Calling provided onSubmit (package mode) with data...');
-        setIsSubmitting(true);
-        await onSubmit({
-          ...formData,
-          birthDate: formattedBirthDate,
-          passportExpiry: formattedPassportExpiry,
-          startDate: formattedStartDate,
-          endDate: formattedEndDate,
-        });
-      } catch (error) {
-        console.error('[TravelForm] Error calling provided onSubmit (package mode):', error);
-        setError('Произошла ошибка при обработке формы в составе пакета: ' + (error.message || 'Неизвестная ошибка'));
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
     }
 
-    setIsSubmitting(true);
-    try {
-      let apiResponse;
-      const basePayload = {
+    if (formData.hasChronic && !formData.chronicDetails) {
+        setError('Пожалуйста, укажите детали хронических заболеваний');
+        return;
+    }
+
+    if (formData.needsSports && !formData.sportsType) {
+        setError('Пожалуйста, укажите вид спорта');
+        return;
+    }
+
+    const preparedData = {
         passportNumber: formData.internationalPassport,
         passportExpiry: formattedPassportExpiry,
-        destinationCountry: formData.countries.length > 0 ? formData.countries[0] : null,
+        destinationCountry: formData.countries[0], // Убедимся, что страна назначения всегда передается
         travelStartDate: formattedStartDate,
         travelEndDate: formattedEndDate,
         purposeOfTrip: formData.purpose,
@@ -165,65 +137,84 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
         hasChronicDiseases: formData.hasChronic,
         coverSportsActivities: formData.needsSports,
         plannedSportsActivities: formData.needsSports ? formData.sportsType : null,
-      };
-      
-      Object.keys(basePayload).forEach(key => (basePayload[key] == null || basePayload[key] === '') && delete basePayload[key]);
+        birthDate: formattedBirthDate,
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        middleName: formData.middleName || null,
+        phone: formData.phone
+    };
 
-      if (!user) {
-        console.log('[TravelForm] Unauthenticated user. Preparing payload for /unauthorized/travel');
-        const unauthorizedPayload = {
-          ...basePayload,
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          middleName: formData.middleName || null,
-          phone: formData.phone,
-          birthDate: formattedBirthDate,
-        };
-        Object.keys(unauthorizedPayload).forEach(key => (unauthorizedPayload[key] == null || unauthorizedPayload[key] === '') && delete unauthorizedPayload[key]);
-        console.log('[TravelForm] Submitting to /unauthorized/travel. Payload:', unauthorizedPayload);
-        apiResponse = await api.post('/api/insurance/unauthorized/travel', unauthorizedPayload);
-        
-        if (apiResponse.data && apiResponse.data.accessToken && apiResponse.data.user) {
-          await handleAuthenticationResponse(apiResponse.data);
-          setSuccessMessage('Заявка успешно создана! Вы были автоматически зарегистрированы.');
-          navigate('/applications/success', { 
-            state: { 
-              applicationId: apiResponse.data.id, 
-              calculatedAmount: apiResponse.data.calculatedAmount,
-              message: 'Заявка успешно создана! Вы были автоматически зарегистрированы и вошли в систему. Ваш пароль совпадает с email.',
-              type: 'TRAVEL',
-              isNewUser: true,
-              email: apiResponse.data.email,
-              password: apiResponse.data.email
-            } 
-          });
-        } else {
-           throw new Error("Ответ от сервера не содержит всех необходимых данных для авторизации (токен или пользователь).");
+    console.log('[TravelForm] Prepared data for submission:', preparedData);
+
+    if (onSubmit) {
+        if (typeof onSubmit !== 'function') {
+            const errMessage = 'Ошибка: onSubmit не является функцией.';
+            console.error('[TravelForm]', errMessage, { typeofOnSubmit: typeof onSubmit });
+            setError(errMessage);
+            return;
         }
+        try {
+            console.log('[TravelForm] Calling provided onSubmit (package mode) with data...');
+            setIsSubmitting(true);
+            await onSubmit(preparedData);
+        } catch (error) {
+            console.error('[TravelForm] Error calling provided onSubmit (package mode):', error);
+            setError('Произошла ошибка при обработке формы в составе пакета: ' + (error.message || 'Неизвестная ошибка'));
+        } finally {
+            setIsSubmitting(false);
+        }
+        return;
+    }
 
-      } else {
-        console.log('[TravelForm] Authenticated user. Preparing payload for /applications/travel');
-        const authorizedPayload = { ...basePayload };
-        console.log('[TravelForm] Submitting to /applications/travel. Payload:', authorizedPayload);
-        apiResponse = await api.post('/api/insurance/applications/travel', authorizedPayload);
+    if (isPartOfPackage) {
+        const errMessage = 'Ошибка: функция onSubmit не определена, но форма является частью пакета.';
+        console.error('[TravelForm]', errMessage, { isPartOfPackage, onSubmit });
+        setError(errMessage);
+        return;
+    }
+    
+    console.log('[TravelForm] Автономный режим: попытка отправки данных формы:', formData);
+    setIsSubmitting(true);
+    try {
+        const payload = {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            middleName: formData.middleName,
+            birthDate: formData.birthDate,
+            email: formData.email,
+            phone: formData.phone,
+            passportNumber: formData.internationalPassport,
+            passportExpiry: formData.passportExpiry,
+            destinationCountry: formData.countries.length > 0 ? formData.countries[0] : null,
+            travelStartDate: formData.startDate,
+            travelEndDate: formData.endDate,
+            purposeOfTrip: formData.purpose,
+            coverageAmount: formData.coverageAmount,
+            hasChronicDiseases: formData.hasChronic,
+            plannedSportsActivities: formData.needsSports ? formData.sportsType : null,
+        };
+
+        Object.keys(payload).forEach(key => (payload[key] == null) && delete payload[key]);
+
+        console.log('[TravelForm] Autonomous submission payload:', payload);
+        const apiResponse = await api.post('/api/insurance/applications/travel', payload);
+        console.log('[TravelForm] Autonomous submission successful:', apiResponse.data);
         setSuccessMessage('Ваша заявка на страхование путешествий успешно отправлена!');
+        
         navigate('/applications/success', { 
-          state: { 
-            applicationId: apiResponse.data.id, 
-            calculatedAmount: apiResponse.data.calculatedAmount,
-            message: 'Заявка на страхование путешествий успешно создана.',
-            type: 'TRAVEL'
-          } 
+            state: { 
+                applicationId: apiResponse.data.id, 
+                calculatedAmount: apiResponse.data.calculatedAmount,
+                message: 'Заявка на страхование путешествий успешно создана.',
+                type: 'TRAVEL'
+            } 
         });
-      }
-      console.log('[TravelForm] Submission successful:', apiResponse.data);
-
     } catch (err) {
-      console.error('[TravelForm] Autonomous submission error:', err.response?.data || err.message || err);
-      setError('Ошибка при отправке заявки: ' + (err.response?.data?.message || err.response?.data?.error || err.message || 'Неизвестная ошибка сервера'));
+        console.error('[TravelForm] Autonomous submission error:', err);
+        setError('Ошибка при отправке заявки: ' + (err.response?.data?.message || err.message || 'Неизвестная ошибка сервера'));
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -231,7 +222,7 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
     <Paper elevation={isPartOfPackage ? 0 : 3} sx={{ p: 3 }}>
       {!isPartOfPackage && (
         <Typography variant="h5" gutterBottom>
-          Страхование для путешествий {!user && "(Требуется указать Email для регистрации)"}
+          Страхование для путешествий
         </Typography>
       )}
 
@@ -247,7 +238,7 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.lastName}
               onChange={handleChange('lastName')}
               required
-              disabled={isSubmitting || (!!user && !!user.lastName && !initialData.lastName)}
+              disabled={isSubmitting}
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -257,7 +248,7 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.firstName}
               onChange={handleChange('firstName')}
               required
-              disabled={isSubmitting || (!!user && !!user.firstName && !initialData.firstName)}
+              disabled={isSubmitting}
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -266,7 +257,7 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               label="Отчество"
               value={formData.middleName}
               onChange={handleChange('middleName')}
-              disabled={isSubmitting || (!!user && !!user.middleName && !initialData.middleName)}
+              disabled={isSubmitting}
             />
           </Grid>
 
@@ -278,42 +269,16 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
             />
           </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange('email')}
-              required
-              disabled={isSubmitting || (!!user && !!user.email && !initialData.email)}
-            />
-          </Grid>
 
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Телефон"
-              value={formData.phone}
-              onChange={handleChange('phone')}
+              label="Серия и номер паспорта РФ"
+              value={formData.passport}
+              onChange={handleChange('passport')}
               required
-              disabled={isSubmitting || (!!user && !!user.phone && !initialData.phone)}
+              disabled={isSubmitting}
             />
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-             { (user || initialData.passport) && (
-                <TextField
-                  fullWidth
-                  label="Серия и номер паспорта РФ"
-                  value={formData.passport}
-                  onChange={handleChange('passport')}
-                  required={!!user}
-                  disabled={isSubmitting}
-                  helperText={!user ? "Для неавторизованной подачи не используется" : "Обязательно для оформления"}
-                />
-              )}
           </Grid>
 
           <Grid item xs={12} md={6}>
@@ -333,6 +298,29 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
               value={formData.passportExpiry ? new Date(formData.passportExpiry) : null}
               onChange={handleDateChange('passportExpiry')}
               slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Телефон"
+              value={formData.phone}
+              onChange={handleChange('phone')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange('email')}
+              required
+              disabled={isSubmitting}
             />
           </Grid>
 
@@ -371,7 +359,7 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
             />
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <FormControl fullWidth required disabled={isSubmitting}>
               <InputLabel>Цель поездки</InputLabel>
               <Select
@@ -387,7 +375,7 @@ const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => 
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <TextField
               fullWidth
               label="Сумма покрытия"

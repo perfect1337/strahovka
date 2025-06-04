@@ -27,4 +27,4 @@ ALTER TABLE property_applications DROP COLUMN IF EXISTS status;
 ALTER TABLE health_applications DROP COLUMN IF EXISTS status;
 
 -- Ensure base_applications has the correct default value
-ALTER TABLE base_applications ALTER COLUMN status SET DEFAULT 'PENDING'; 
+ALTER TABLE base_applications ALTER COLUMN status SET DEFAULT 'PENDING';

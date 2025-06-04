@@ -168,11 +168,15 @@ const OsagoFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper, isPa
         }
         break;
       case 3:
-        if (!formData.isUnlimitedDrivers && (!formData.drivers.length || 
-            formData.drivers.some(driver => 
-              !driver.lastName || !driver.firstName || !driver.birthDate ||
-              !driver.drivingExperience || !driver.licenseNumber || !driver.licenseDate
-            ))) {
+        if (!formData.drivers.length || !formData.drivers[0] || !formData.drivers[0].licenseNumber) {
+          setFormError('Необходимо указать хотя бы одного водителя с номером водительского удостоверения');
+          return false;
+        }
+        
+        if (!formData.isUnlimitedDrivers && formData.drivers.some(driver => 
+          !driver.lastName || !driver.firstName || !driver.birthDate ||
+          !driver.drivingExperience || !driver.licenseNumber || !driver.licenseDate
+        )) {
           setFormError('Пожалуйста, заполните данные всех водителей');
           return false;
         }
@@ -206,14 +210,30 @@ const OsagoFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper, isPa
       setLoading(true);
       setApiError(null);
 
+      // Подготовка данных для отправки
+      const submissionData = {
+        ...formData,
+        // Если неограниченное количество водителей, используем данные владельца
+        driverLicenseNumber: formData.isUnlimitedDrivers 
+          ? formData.drivers[0]?.licenseNumber // Если есть водители, берем номер ВУ первого
+          : formData.drivers[0]?.licenseNumber, // Если нет, все равно нужен хотя бы один водитель
+        // Преобразование дат в строки ISO
+        ownerBirthDate: formData.ownerBirthDate?.toISOString(),
+        registrationDate: formData.registrationDate?.toISOString(),
+        startDate: formData.startDate?.toISOString(),
+        endDate: formData.endDate?.toISOString(),
+        // Добавляем опыт вождения из данных первого водителя
+        driverExperienceYears: parseInt(formData.drivers[0]?.drivingExperience) || 0
+      };
+
       // Если форма является частью пакета, используем onSubmit из props
       if (isPartOfPackage) {
-        await onSubmitFromWrapper(formData);
+        await onSubmitFromWrapper(submissionData);
         return;
       }
 
       // Стандартная логика для отдельной формы ОСАГО
-      const response = await api.post('/api/insurance/applications/osago', formData);
+      const response = await api.post('/api/insurance/applications/osago', submissionData);
       
       if (response.data) {
         message.success('Заявка на ОСАГО успешно отправлена');
@@ -222,6 +242,7 @@ const OsagoFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper, isPa
     } catch (error) {
       console.error('Error submitting OSAGO form:', error);
       setApiError(error.response?.data?.message || 'Ошибка при отправке формы');
+      throw error; // Пробрасываем ошибку дальше для обработки в родительском компоненте
     } finally {
       setLoading(false);
     }

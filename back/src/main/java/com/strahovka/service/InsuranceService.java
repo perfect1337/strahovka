@@ -1001,183 +1001,186 @@ public class InsuranceService {
 
         List<BaseApplication> createdApplications = new ArrayList<>(); // To calculate total price
 
+        // Создаем множество выбранных типов страхования из applicationItems
+        Set<String> selectedTypes = applicationItems.stream()
+            .map(item -> {
+                String type = item.getType();
+                if (type == null || type.trim().isEmpty()) {
+                    log.warn("Application item has no type specified: {}", item);
+                    return "";
+                }
+                return type.toUpperCase();
+            })
+            .filter(type -> !type.isEmpty())
+            .collect(Collectors.toSet());
+
+        log.info("Selected insurance types in package: {}", selectedTypes);
+
+        // Проверяем, что нет конфликтующих типов страхования
+        if (selectedTypes.contains("OSAGO") && selectedTypes.contains("KASKO")) {
+            log.info("Package contains both OSAGO and KASKO insurance types");
+        }
+
         for (PackageApplicationItem item : applicationItems) {
-            // Проверяем тип страхования и исключаем дублирование
-            String itemType = item.getType() != null ? item.getType().toUpperCase() : "";
-            String itemLabel = item.getLabel() != null ? item.getLabel().toUpperCase() : "";
+            String itemType = item.getType();
+            if (itemType == null || itemType.trim().isEmpty()) {
+                log.warn("Skipping application item with no type specified");
+                continue;
+            }
+            itemType = itemType.toUpperCase();
+            
+            // Пропускаем обработку, если тип не был выбран в пакете
+            if (!selectedTypes.contains(itemType)) {
+                log.info("Skipping insurance type {} as it was not selected in package", itemType);
+                continue;
+            }
 
-            // Определяем тип страхования на основе типа и метки
-            boolean isKasko = itemType.equals("KASKO") || itemLabel.contains("КАСКО");
-            boolean isOsago = itemType.equals("OSAGO") || itemLabel.contains("ОСАГО");
-            boolean isHealth = itemType.equals("HEALTH") || itemLabel.contains("ЗДОРОВЬЕ");
-            boolean isTravel = itemType.equals("TRAVEL") || itemLabel.contains("ПУТЕШЕСТВИЯ");
-            boolean isProperty = itemType.equals("PROPERTY") || itemLabel.contains("НЕДВИЖИМОСТЬ");
-
-            log.info("Processing package item. Type: '{}', Label: '{}', IsKasko: {}, IsOsago: {}", 
-                    itemType, itemLabel, isKasko, isOsago);
+            log.info("Processing package item. Type: '{}', Data: {}", itemType, item.getData());
 
             BaseApplication newApplication = null;
             String actualApplicationTypeForLink = null;
 
-            if (isKasko) {
-                KaskoApplicationRequest kaskoRequest = objectMapper.convertValue(item.getData(), KaskoApplicationRequest.class);
-                KaskoApplication kaskoApp = new KaskoApplication();
-                // Map fields from kaskoRequest to kaskoApp
-                kaskoApp.setCarMake(kaskoRequest.getCarMake());
-                kaskoApp.setCarModel(kaskoRequest.getCarModel());
-                kaskoApp.setCarYear(kaskoRequest.getCarYear());
-                kaskoApp.setVinNumber(kaskoRequest.getVinNumber());
-                kaskoApp.setLicensePlate(kaskoRequest.getLicensePlate());
-                kaskoApp.setCarValue(kaskoRequest.getCarValue());
-                kaskoApp.setDriverLicenseNumber(kaskoRequest.getDriverLicenseNumber());
-                kaskoApp.setDriverExperienceYears(kaskoRequest.getDriverExperienceYears());
-                kaskoApp.setHasAntiTheftSystem(kaskoRequest.getHasAntiTheftSystem());
-                kaskoApp.setGarageParking(kaskoRequest.getGarageParking());
-                kaskoApp.setPreviousInsuranceNumber(kaskoRequest.getPreviousInsuranceNumber());
-                kaskoApp.setDuration(kaskoRequest.getDuration());
-                kaskoApp.setStartDate(kaskoRequest.getStartDate() != null ? kaskoRequest.getStartDate() : LocalDate.now());
-                
-                kaskoApp.setUser(packageUser);
-                kaskoApp.setApplicationDate(LocalDateTime.now());
-                kaskoApp.setStatus("PENDING_PACKAGE");
-                kaskoApp.setCalculatedAmount(calculateKaskoPrice(kaskoApp));
-                if(kaskoApp.getEndDate() == null && kaskoApp.getDuration() != null) {
-                    kaskoApp.setEndDate(kaskoApp.getStartDate().plusMonths(kaskoApp.getDuration()));
-                }
-                newApplication = applicationRepository.save(kaskoApp);
-                actualApplicationTypeForLink = "KASKO";
-
-            } else if (isOsago) {
-                System.out.println("Raw OSAGO data received: " + item.getData());
-                OsagoApplicationRequest osagoRequest = objectMapper.convertValue(item.getData(), OsagoApplicationRequest.class);
-                System.out.println("Mapped OsagoApplicationRequest: " + osagoRequest);
-                OsagoApplication osagoApp = new OsagoApplication();
-                // Map fields from osagoRequest to osagoApp
-                osagoApp.setCarMake(osagoRequest.getCarMake());
-                osagoApp.setCarModel(osagoRequest.getCarModel());
-                osagoApp.setCarYear(osagoRequest.getCarYear());
-                osagoApp.setVinNumber(osagoRequest.getVinNumber());
-                osagoApp.setLicensePlate(osagoRequest.getLicensePlate());
-                osagoApp.setRegistrationCertificate(osagoRequest.getRegistrationCertificate());
-                osagoApp.setDriverLicenseNumber(osagoRequest.getDriverLicenseNumber());
-                osagoApp.setDriverExperienceYears(osagoRequest.getDriverExperienceYears());
-                osagoApp.setEnginePower(osagoRequest.getEnginePower());
-                osagoApp.setRegionRegistration(osagoRequest.getRegionRegistration());
-                osagoApp.setHasAccidentsLastYear(osagoRequest.getHasAccidentsLastYear());
-                osagoApp.setPreviousPolicyNumber(osagoRequest.getPreviousPolicyNumber());
-                osagoApp.setIsUnlimitedDrivers(osagoRequest.getIsUnlimitedDrivers());
-                osagoApp.setDuration(osagoRequest.getDuration());
-                osagoApp.setStartDate(osagoRequest.getStartDate() != null ? osagoRequest.getStartDate() : LocalDate.now());
-
-                osagoApp.setUser(packageUser);
-                osagoApp.setApplicationDate(LocalDateTime.now());
-                osagoApp.setStatus("PENDING_PACKAGE");
-                osagoApp.setCalculatedAmount(calculateOsagoPrice(osagoApp));
-                 if(osagoApp.getEndDate() == null && osagoApp.getDuration() != null) {
-                    osagoApp.setEndDate(osagoApp.getStartDate().plusMonths(osagoApp.getDuration()));
-                }
-                newApplication = applicationRepository.save(osagoApp);
-                actualApplicationTypeForLink = "OSAGO";
-
-            } else if (isHealth) {
-                log.info("Attempting to process as HealthApplication. Data: {}", item.getData());
-                HealthApplication healthApp = objectMapper.convertValue(item.getData(), HealthApplication.class);
-                healthApp.setUser(packageUser);
-                healthApp.setApplicationDate(LocalDateTime.now());
-                healthApp.setStatus("PENDING_PACKAGE");
-
-                // coverageType and coverageAmount are expected from item.getData().
-                // These are crucial for displayName generation and other logic.
-
-                if (healthApp.getCalculatedAmount() == null) {
-                    // Using default from createHealthApplication as an example
-                    healthApp.setCalculatedAmount(new BigDecimal("5000.00"));
-                }
-                if (healthApp.getStartDate() == null) {
-                    healthApp.setStartDate(LocalDate.now());
-                }
-                if (healthApp.getEndDate() == null && healthApp.getStartDate() != null) {
-                    healthApp.setEndDate(healthApp.getStartDate().plusYears(1));
-                }
-                newApplication = applicationRepository.save(healthApp);
-                actualApplicationTypeForLink = "HEALTH";
-                if (newApplication != null) log.info("HealthApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("HealthApplication not created from data for item label '{}'.", item.getLabel());
-
-            } else if (isTravel) {
-                log.info("Attempting to process as TravelApplication. Data: {}", item.getData());
-                TravelApplication travelApp = objectMapper.convertValue(item.getData(), TravelApplication.class);
-                travelApp.setUser(packageUser);
-                travelApp.setApplicationDate(LocalDateTime.now());
-                travelApp.setStatus("PENDING_PACKAGE");
-
-                // destinationCountry, purposeOfTrip are expected from item.getData().
-
-                if (travelApp.getCalculatedAmount() == null) {
-                    travelApp.setCalculatedAmount(new BigDecimal("2500.00")); // Default
-                }
-                // Dates should be sourced from travelApp's specific fields if they exist from item.getData()
-                if (travelApp.getTravelStartDate() == null) {
-                    travelApp.setTravelStartDate(LocalDate.now().plusDays(7));
-                }
-                if (travelApp.getTravelEndDate() == null && travelApp.getTravelStartDate() != null) {
-                    travelApp.setTravelEndDate(travelApp.getTravelStartDate().plusDays(14));
-                }
-                // Ensure BaseApplication's startDate/endDate are also set from travel dates
-                travelApp.setStartDate(travelApp.getTravelStartDate());
-                travelApp.setEndDate(travelApp.getTravelEndDate());
-
-                newApplication = applicationRepository.save(travelApp);
-                actualApplicationTypeForLink = "TRAVEL";
-                if (newApplication != null) log.info("TravelApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("TravelApplication not created from data for item label '{}'.", item.getLabel());
-
-            } else if (isProperty) {
-                log.info("Attempting to process as PropertyApplication. Data: {}", item.getData());
-                PropertyApplication propertyApp = objectMapper.convertValue(item.getData(), PropertyApplication.class);
-                propertyApp.setUser(packageUser);
-                propertyApp.setApplicationDate(LocalDateTime.now());
-                propertyApp.setStatus("PENDING_PACKAGE");
-
-                // propertyType, propertyValue are expected from item.getData().
-
-                if (propertyApp.getCalculatedAmount() == null) {
-                    if (propertyApp.getPropertyValue() != null && propertyApp.getPropertyValue().compareTo(BigDecimal.ZERO) > 0) {
-                        propertyApp.setCalculatedAmount(propertyApp.getPropertyValue().multiply(new BigDecimal("0.005")).setScale(2, RoundingMode.HALF_UP));
-                    } else {
-                        propertyApp.setCalculatedAmount(new BigDecimal("3000.00")); // Default
+            switch(itemType) {
+                case "KASKO":
+                    KaskoApplicationRequest kaskoRequest = objectMapper.convertValue(item.getData(), KaskoApplicationRequest.class);
+                    KaskoApplication kaskoApp = new KaskoApplication();
+                    // Map fields from kaskoRequest to kaskoApp
+                    kaskoApp.setCarMake(kaskoRequest.getCarMake());
+                    kaskoApp.setCarModel(kaskoRequest.getCarModel());
+                    kaskoApp.setCarYear(kaskoRequest.getCarYear());
+                    kaskoApp.setVinNumber(kaskoRequest.getVinNumber());
+                    kaskoApp.setLicensePlate(kaskoRequest.getLicensePlate());
+                    kaskoApp.setCarValue(kaskoRequest.getCarValue());
+                    kaskoApp.setDriverLicenseNumber(kaskoRequest.getDriverLicenseNumber());
+                    kaskoApp.setDriverExperienceYears(kaskoRequest.getDriverExperienceYears());
+                    kaskoApp.setHasAntiTheftSystem(kaskoRequest.getHasAntiTheftSystem());
+                    kaskoApp.setGarageParking(kaskoRequest.getGarageParking());
+                    kaskoApp.setPreviousInsuranceNumber(kaskoRequest.getPreviousInsuranceNumber());
+                    kaskoApp.setDuration(kaskoRequest.getDuration());
+                    kaskoApp.setStartDate(kaskoRequest.getStartDate() != null ? kaskoRequest.getStartDate() : LocalDate.now());
+                    
+                    kaskoApp.setUser(packageUser);
+                    kaskoApp.setApplicationDate(LocalDateTime.now());
+                    kaskoApp.setStatus("PENDING_PACKAGE");
+                    kaskoApp.setCalculatedAmount(calculateKaskoPrice(kaskoApp));
+                    if(kaskoApp.getEndDate() == null && kaskoApp.getDuration() != null) {
+                        kaskoApp.setEndDate(kaskoApp.getStartDate().plusMonths(kaskoApp.getDuration()));
                     }
-                }
-                if (propertyApp.getStartDate() == null) {
-                    propertyApp.setStartDate(LocalDate.now());
-                }
-                if (propertyApp.getEndDate() == null && propertyApp.getStartDate() != null) {
-                    propertyApp.setEndDate(propertyApp.getStartDate().plusYears(1));
-                }
-                newApplication = applicationRepository.save(propertyApp);
-                actualApplicationTypeForLink = "PROPERTY";
-                if (newApplication != null) log.info("PropertyApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("PropertyApplication not created from data for item label '{}'.", item.getLabel());
+                    newApplication = applicationRepository.save(kaskoApp);
+                    actualApplicationTypeForLink = "KASKO";
+                    break;
+
+                case "OSAGO":
+                    OsagoApplicationRequest osagoRequest = objectMapper.convertValue(item.getData(), OsagoApplicationRequest.class);
+                    OsagoApplication osagoApp = new OsagoApplication();
+                    // Map fields from osagoRequest to osagoApp
+                    osagoApp.setCarMake(osagoRequest.getCarMake());
+                    osagoApp.setCarModel(osagoRequest.getCarModel());
+                    osagoApp.setCarYear(osagoRequest.getCarYear());
+                    osagoApp.setVinNumber(osagoRequest.getVinNumber());
+                    osagoApp.setLicensePlate(osagoRequest.getLicensePlate());
+                    osagoApp.setRegistrationCertificate(osagoRequest.getRegistrationCertificate());
+                    osagoApp.setDriverLicenseNumber(osagoRequest.getDriverLicenseNumber());
+                    osagoApp.setDriverExperienceYears(osagoRequest.getDriverExperienceYears());
+                    osagoApp.setEnginePower(osagoRequest.getEnginePower());
+                    osagoApp.setRegionRegistration(osagoRequest.getRegionRegistration());
+                    osagoApp.setHasAccidentsLastYear(osagoRequest.getHasAccidentsLastYear());
+                    osagoApp.setPreviousPolicyNumber(osagoRequest.getPreviousPolicyNumber());
+                    osagoApp.setIsUnlimitedDrivers(osagoRequest.getIsUnlimitedDrivers());
+                    osagoApp.setDuration(osagoRequest.getDuration());
+                    osagoApp.setStartDate(osagoRequest.getStartDate() != null ? osagoRequest.getStartDate() : LocalDate.now());
+
+                    osagoApp.setUser(packageUser);
+                    osagoApp.setApplicationDate(LocalDateTime.now());
+                    osagoApp.setStatus("PENDING_PACKAGE");
+                    osagoApp.setCalculatedAmount(calculateOsagoPrice(osagoApp));
+                    if(osagoApp.getEndDate() == null && osagoApp.getDuration() != null) {
+                        osagoApp.setEndDate(osagoApp.getStartDate().plusMonths(osagoApp.getDuration()));
+                    }
+                    newApplication = applicationRepository.save(osagoApp);
+                    actualApplicationTypeForLink = "OSAGO";
+                    break;
+
+                case "TRAVEL":
+                    TravelApplication travelApp = objectMapper.convertValue(item.getData(), TravelApplication.class);
+                    travelApp.setUser(packageUser);
+                    travelApp.setApplicationDate(LocalDateTime.now());
+                    travelApp.setStatus("PENDING_PACKAGE");
+
+                    if (travelApp.getCalculatedAmount() == null) {
+                        travelApp.setCalculatedAmount(new BigDecimal("2500.00")); // Default
+                    }
+                    if (travelApp.getTravelStartDate() == null) {
+                        travelApp.setTravelStartDate(LocalDate.now().plusDays(7));
+                    }
+                    if (travelApp.getTravelEndDate() == null && travelApp.getTravelStartDate() != null) {
+                        travelApp.setTravelEndDate(travelApp.getTravelStartDate().plusDays(14));
+                    }
+                    travelApp.setStartDate(travelApp.getTravelStartDate());
+                    travelApp.setEndDate(travelApp.getTravelEndDate());
+
+                    newApplication = applicationRepository.save(travelApp);
+                    actualApplicationTypeForLink = "TRAVEL";
+                    break;
+
+                case "HEALTH":
+                    HealthApplication healthApp = objectMapper.convertValue(item.getData(), HealthApplication.class);
+                    healthApp.setUser(packageUser);
+                    healthApp.setApplicationDate(LocalDateTime.now());
+                    healthApp.setStatus("PENDING_PACKAGE");
+
+                    if (healthApp.getCalculatedAmount() == null) {
+                        healthApp.setCalculatedAmount(new BigDecimal("5000.00"));
+                    }
+                    if (healthApp.getStartDate() == null) {
+                        healthApp.setStartDate(LocalDate.now());
+                    }
+                    if (healthApp.getEndDate() == null && healthApp.getStartDate() != null) {
+                        healthApp.setEndDate(healthApp.getStartDate().plusYears(1));
+                    }
+                    newApplication = applicationRepository.save(healthApp);
+                    actualApplicationTypeForLink = "HEALTH";
+                    break;
+
+                case "PROPERTY":
+                    PropertyApplication propertyApp = objectMapper.convertValue(item.getData(), PropertyApplication.class);
+                    propertyApp.setUser(packageUser);
+                    propertyApp.setApplicationDate(LocalDateTime.now());
+                    propertyApp.setStatus("PENDING_PACKAGE");
+
+                    if (propertyApp.getCalculatedAmount() == null) {
+                        if (propertyApp.getPropertyValue() != null && propertyApp.getPropertyValue().compareTo(BigDecimal.ZERO) > 0) {
+                            propertyApp.setCalculatedAmount(propertyApp.getPropertyValue().multiply(new BigDecimal("0.005")).setScale(2, RoundingMode.HALF_UP));
+                        } else {
+                            propertyApp.setCalculatedAmount(new BigDecimal("3000.00"));
+                        }
+                    }
+                    if (propertyApp.getStartDate() == null) {
+                        propertyApp.setStartDate(LocalDate.now());
+                    }
+                    if (propertyApp.getEndDate() == null && propertyApp.getStartDate() != null) {
+                        propertyApp.setEndDate(propertyApp.getStartDate().plusYears(1));
+                    }
+                    newApplication = applicationRepository.save(propertyApp);
+                    actualApplicationTypeForLink = "PROPERTY";
+                    break;
+
+                default:
+                    log.warn("Unsupported insurance type: {}", itemType);
+                    continue;
             }
-            // Add other application types (HEALTH, TRAVEL, PROPERTY) here if needed
 
             if (newApplication != null && actualApplicationTypeForLink != null) {
                 createdApplications.add(newApplication);
 
-                // Create and add the link entity
                 PackageApplicationLink link = PackageApplicationLink.builder()
-                    .insurancePackage(insurancePackage) // This sets packageId implicitly via @ManyToOne
+                    .insurancePackage(insurancePackage)
                     .applicationId(newApplication.getId())
                     .applicationType(actualApplicationTypeForLink)
-                    //.application(newApplication) // Set the BaseApplication reference
                     .build();
-                // The link also needs the packageId field set directly for the composite key, 
-                // if not using `insurancePackage` field to derive it before persist or if insurancePackage is not yet persisted.
-                // However, setting insurancePackage should be enough if cascades handle it.
-                link.setPackageId(insurancePackage.getId()); // Explicitly set for composite ID before adding to list
+                link.setPackageId(insurancePackage.getId());
 
                 insurancePackage.getApplicationLinks().add(link);
-            } else {
-                // System.err.println("Unrecognized application item type/label or missing application type for link: " + item.getType() + "/" + itemTypeLabel);
-                log.error("Unrecognized application item type/label or newApplication is null. Item Label: '{}', Item Type: '{}', Processed itemTypeLabel: '{}', actualApplicationTypeForLink: '{}'",
-                    item.getLabel(), item.getType(), itemType, actualApplicationTypeForLink);
             }
         }
         
