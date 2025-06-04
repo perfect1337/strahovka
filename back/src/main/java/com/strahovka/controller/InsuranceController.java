@@ -242,6 +242,52 @@ public class InsuranceController {
         }
     }
 
+    @PostMapping("/packages/{packageId}/finalize")
+    @Operation(summary = "Финализация страхового пакета", description = "Завершает оформление пакета и создает все необходимые страховые полисы")
+    public ResponseEntity<?> finalizePackage(
+            @Parameter(description = "ID пакета для финализации") @PathVariable Long packageId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            insuranceService.processPackagePayment(packageId, userDetails.getUsername());
+            return ResponseEntity.ok().body(Map.of("message", "Пакет успешно финализирован. Страховые полисы созданы."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Ошибка при финализации пакета ID: {}", packageId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Произошла непредвиденная ошибка при финализации пакета."));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/cancel")
+    @Operation(summary = "Cancel an insurance package", description = "Cancels an insurance package and all its applications")
+    public ResponseEntity<?> cancelPackage(
+            @Parameter(description = "ID of the package to cancel") @PathVariable Long packageId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            InsurancePackage cancelledPackage = insuranceService.cancelPackage(packageId, userDetails.getUsername());
+            return ResponseEntity.ok().body(Map.of(
+                "message", "Package cancelled successfully",
+                "packageId", cancelledPackage.getId(),
+                "status", cancelledPackage.getStatus()
+            ));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error cancelling package ID: {}", packageId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An unexpected error occurred while cancelling the package."));
+        }
+    }
+
     // Application endpoints
     @PostMapping("/applications/kasko")
     public ResponseEntity<Insurance.KaskoApplication> createKaskoApplication(@RequestBody Insurance.KaskoApplication application, Authentication authentication) {

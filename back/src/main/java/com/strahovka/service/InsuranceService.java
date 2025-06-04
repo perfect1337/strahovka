@@ -1002,13 +1002,24 @@ public class InsuranceService {
         List<BaseApplication> createdApplications = new ArrayList<>(); // To calculate total price
 
         for (PackageApplicationItem item : applicationItems) {
-            String itemTypeLabel = item.getLabel().toUpperCase(); // "КАСКО", "ОСАГО" from category name
+            // Проверяем тип страхования и исключаем дублирование
+            String itemType = item.getType() != null ? item.getType().toUpperCase() : "";
+            String itemLabel = item.getLabel() != null ? item.getLabel().toUpperCase() : "";
+
+            // Определяем тип страхования на основе типа и метки
+            boolean isKasko = itemType.equals("KASKO") || itemLabel.contains("КАСКО");
+            boolean isOsago = itemType.equals("OSAGO") || itemLabel.contains("ОСАГО");
+            boolean isHealth = itemType.equals("HEALTH") || itemLabel.contains("ЗДОРОВЬЕ");
+            boolean isTravel = itemType.equals("TRAVEL") || itemLabel.contains("ПУТЕШЕСТВИЯ");
+            boolean isProperty = itemType.equals("PROPERTY") || itemLabel.contains("НЕДВИЖИМОСТЬ");
+
+            log.info("Processing package item. Type: '{}', Label: '{}', IsKasko: {}, IsOsago: {}", 
+                    itemType, itemLabel, isKasko, isOsago);
+
             BaseApplication newApplication = null;
-            String actualApplicationTypeForLink = null; // To store "KASKO", "OSAGO" for the link table
+            String actualApplicationTypeForLink = null;
 
-            log.info("Processing package item. Label: '{}', Type from item: '{}', Data keys: {}", item.getLabel(), item.getType(), item.getData() != null ? item.getData().keySet() : "null");
-
-            if (itemTypeLabel.contains("КАСКО")) {
+            if (isKasko) {
                 KaskoApplicationRequest kaskoRequest = objectMapper.convertValue(item.getData(), KaskoApplicationRequest.class);
                 KaskoApplication kaskoApp = new KaskoApplication();
                 // Map fields from kaskoRequest to kaskoApp
@@ -1027,7 +1038,6 @@ public class InsuranceService {
                 kaskoApp.setStartDate(kaskoRequest.getStartDate() != null ? kaskoRequest.getStartDate() : LocalDate.now());
                 
                 kaskoApp.setUser(packageUser);
-                // kaskoApp.setInsurancePackage(insurancePackage); // Link via PackageApplicationLink instead
                 kaskoApp.setApplicationDate(LocalDateTime.now());
                 kaskoApp.setStatus("PENDING_PACKAGE");
                 kaskoApp.setCalculatedAmount(calculateKaskoPrice(kaskoApp));
@@ -1035,9 +1045,9 @@ public class InsuranceService {
                     kaskoApp.setEndDate(kaskoApp.getStartDate().plusMonths(kaskoApp.getDuration()));
                 }
                 newApplication = applicationRepository.save(kaskoApp);
-                actualApplicationTypeForLink = "KASKO"; // Matches @DiscriminatorValue
+                actualApplicationTypeForLink = "KASKO";
 
-            } else if (itemTypeLabel.contains("ОСАГО")) {
+            } else if (isOsago) {
                 System.out.println("Raw OSAGO data received: " + item.getData());
                 OsagoApplicationRequest osagoRequest = objectMapper.convertValue(item.getData(), OsagoApplicationRequest.class);
                 System.out.println("Mapped OsagoApplicationRequest: " + osagoRequest);
@@ -1060,7 +1070,6 @@ public class InsuranceService {
                 osagoApp.setStartDate(osagoRequest.getStartDate() != null ? osagoRequest.getStartDate() : LocalDate.now());
 
                 osagoApp.setUser(packageUser);
-                // osagoApp.setInsurancePackage(insurancePackage); // Link via PackageApplicationLink instead
                 osagoApp.setApplicationDate(LocalDateTime.now());
                 osagoApp.setStatus("PENDING_PACKAGE");
                 osagoApp.setCalculatedAmount(calculateOsagoPrice(osagoApp));
@@ -1068,9 +1077,9 @@ public class InsuranceService {
                     osagoApp.setEndDate(osagoApp.getStartDate().plusMonths(osagoApp.getDuration()));
                 }
                 newApplication = applicationRepository.save(osagoApp);
-                actualApplicationTypeForLink = "OSAGO"; // Matches @DiscriminatorValue
+                actualApplicationTypeForLink = "OSAGO";
 
-            } else if (itemTypeLabel.contains("ЗДОРОВЬЕ") || itemTypeLabel.toUpperCase().contains("HEALTH")) {
+            } else if (isHealth) {
                 log.info("Attempting to process as HealthApplication. Data: {}", item.getData());
                 HealthApplication healthApp = objectMapper.convertValue(item.getData(), HealthApplication.class);
                 healthApp.setUser(packageUser);
@@ -1094,7 +1103,7 @@ public class InsuranceService {
                 actualApplicationTypeForLink = "HEALTH";
                 if (newApplication != null) log.info("HealthApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("HealthApplication not created from data for item label '{}'.", item.getLabel());
 
-            } else if (itemTypeLabel.contains("ПУТЕШЕСТВИЯ") || itemTypeLabel.toUpperCase().contains("TRAVEL")) {
+            } else if (isTravel) {
                 log.info("Attempting to process as TravelApplication. Data: {}", item.getData());
                 TravelApplication travelApp = objectMapper.convertValue(item.getData(), TravelApplication.class);
                 travelApp.setUser(packageUser);
@@ -1121,7 +1130,7 @@ public class InsuranceService {
                 actualApplicationTypeForLink = "TRAVEL";
                 if (newApplication != null) log.info("TravelApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("TravelApplication not created from data for item label '{}'.", item.getLabel());
 
-            } else if (itemTypeLabel.contains("НЕДВИЖИМОСТЬ") || itemTypeLabel.toUpperCase().contains("PROPERTY")) {
+            } else if (isProperty) {
                 log.info("Attempting to process as PropertyApplication. Data: {}", item.getData());
                 PropertyApplication propertyApp = objectMapper.convertValue(item.getData(), PropertyApplication.class);
                 propertyApp.setUser(packageUser);
@@ -1168,7 +1177,7 @@ public class InsuranceService {
             } else {
                 // System.err.println("Unrecognized application item type/label or missing application type for link: " + item.getType() + "/" + itemTypeLabel);
                 log.error("Unrecognized application item type/label or newApplication is null. Item Label: '{}', Item Type: '{}', Processed itemTypeLabel: '{}', actualApplicationTypeForLink: '{}'",
-                    item.getLabel(), item.getType(), itemTypeLabel, actualApplicationTypeForLink);
+                    item.getLabel(), item.getType(), itemType, actualApplicationTypeForLink);
             }
         }
         
@@ -1253,10 +1262,8 @@ public class InsuranceService {
                             String amountStr = (coverageAmount != null) ? coverageAmount.toPlainString() : "N/A";
                             if (coverageType != null && !coverageType.isEmpty()) {
                                 displayName = "Здоровье: " + coverageType + " (до " + amountStr + "\u20BD)";
-                            } else if (coverageAmount != null) {
-                                displayName = "Здоровье: (тип не указан, сумма до " + amountStr + "\u20BD)";
                             } else {
-                                displayName = "Здоровье: (детали не указаны)";
+                                displayName = "Здоровье: " + user.getFirstName() + " " + user.getLastName();
                             }
                         } else if (app instanceof TravelApplication) {
                             TravelApplication travelApp = (TravelApplication) app;
@@ -1265,17 +1272,20 @@ public class InsuranceService {
                             if (destination != null && !destination.isEmpty() && purpose != null && !purpose.isEmpty()) {
                                 displayName = "Путешествия: " + destination + " (" + purpose + ")";
                             } else if (destination != null && !destination.isEmpty()) {
-                                displayName = "Путешествия: " + destination + " (цель не указана)";
+                                displayName = "Путешествия: " + destination;
                             } else {
                                 displayName = "Путешествия: (детали не указаны)";
                             }
                         } else if (app instanceof PropertyApplication) {
                             PropertyApplication propertyApp = (PropertyApplication) app;
                             String propertyType = propertyApp.getPropertyType();
-                            if (propertyType != null && !propertyType.isEmpty()) {
-                                displayName = "Имущество: " + propertyType;
+                            String address = propertyApp.getAddress();
+                            if (propertyType != null && !propertyType.isEmpty() && address != null && !address.isEmpty()) {
+                                displayName = "Недвижимость: " + propertyType + " (" + address + ")";
+                            } else if (propertyType != null && !propertyType.isEmpty()) {
+                                displayName = "Недвижимость: " + propertyType;
                             } else {
-                                displayName = "Имущество: (тип не указан)";
+                                displayName = "Недвижимость: (детали не указаны)";
                             }
                         }
                         
@@ -1412,5 +1422,43 @@ public class InsuranceService {
         insurancePackage.setStatus(PackageStatus.COMPLETED); // Corrected: Set status to COMPLETED after payment
         insurancePackageRepository.save(insurancePackage);
         log.info("Package ID {} status updated to PAID (now COMPLETED). Payment processing complete.", packageId);
+    }
+
+    @Transactional
+    public InsurancePackage cancelPackage(Long packageId, String username) {
+        User user = findUser(username);
+        InsurancePackage insurancePackage = insurancePackageRepository.findById(packageId)
+                .orElseThrow(() -> new EntityNotFoundException("Package not found with id: " + packageId));
+
+        // Verify ownership
+        if (!insurancePackage.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("User is not authorized to cancel this package");
+        }
+
+        // Check if package can be cancelled
+        if (insurancePackage.getStatus() == PackageStatus.CANCELLED) {
+            throw new IllegalStateException("Package is already cancelled");
+        }
+        if (insurancePackage.getStatus() == PackageStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot cancel a completed package. Please cancel individual policies instead.");
+        }
+
+        // Cancel all pending applications in the package
+        if (insurancePackage.getApplicationLinks() != null) {
+            for (PackageApplicationLink link : insurancePackage.getApplicationLinks()) {
+                BaseApplication application = applicationRepository.findById(link.getApplicationId())
+                    .orElse(null);
+                if (application != null && 
+                    ("PENDING".equals(application.getStatus()) || 
+                     "PENDING_PAYMENT".equals(application.getStatus()))) {
+                    application.setStatus("CANCELLED");
+                    applicationRepository.save(application);
+                }
+            }
+        }
+
+        // Update package status
+        insurancePackage.setStatus(PackageStatus.CANCELLED);
+        return insurancePackageRepository.save(insurancePackage);
     }
 } 

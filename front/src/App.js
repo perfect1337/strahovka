@@ -192,10 +192,11 @@ function App() {
                 />
                 <Route
                   path="/apply-package/:id"
-                  element={(
-                    console.log('[App.js] Evaluating element for /apply-package/:id. Rendering MyTestStepper DIRECTLY.'),
-                    <MyTestStepper />
-                  )}
+                  element={
+                    <ProtectedRoute>
+                      <InsurancePackageForm />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/insurance/buy/:id"

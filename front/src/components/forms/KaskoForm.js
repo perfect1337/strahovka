@@ -13,10 +13,13 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
 
     const handleFinish = async (valuesFromForm) => {
         try {
+            // Проверяем валидность формы
+            await form.validateFields();
+            
+            console.log('[KaskoFormContent] handleFinish triggered. isPartOfPackage:', isPartOfPackage, 'Values:', valuesFromForm);
             setLoading(true);
-            console.log('[KaskoFormContent] Raw form values:', JSON.stringify(valuesFromForm));
 
-            // 1. Только трансформация и сбор данных, специфичных для КАСКО
+            // Трансформация и сбор данных для КАСКО
             const kaskoData = {
                 carMake: valuesFromForm.carMake?.trim(),
                 carModel: valuesFromForm.carModel?.trim(),
@@ -32,42 +35,22 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
                 duration: valuesFromForm.insuranceDuration
             };
 
-            // 2. Если пользователь не аутентифицирован, добавляем "owner" поля как есть
-            if (!isAuthenticated) {
-                kaskoData.ownerFirstName = valuesFromForm.ownerFirstName;
-                kaskoData.ownerLastName = valuesFromForm.ownerLastName;
-                kaskoData.ownerMiddleName = valuesFromForm.ownerMiddleName;
+            // Если форма является частью пакета, используем onSubmit из props
+            if (isPartOfPackage) {
+                await onSubmit(kaskoData);
+                return;
             }
-            
-            console.log('[KaskoFormContent] Prepared kaskoData (to be sent to wrapper):', JSON.stringify(kaskoData));
 
-            // Вызываем onSubmit из InsuranceFormWrapper с собранными данными
-            const response = await onSubmit(kaskoData);
+            // Стандартная логика для отдельной формы КАСКО
+            const response = await api.post('/api/insurance/applications/kasko', kaskoData);
             
-            // Перенаправляем на страницу успеха только если это не часть пакета
-            if (response?.data && !isPartOfPackage) {
-                navigate('/applications/success', { 
-                    state: { 
-                        applicationId: response.data.id,
-                        calculatedAmount: response.data.calculatedAmount,
-                        isNewUser: !isAuthenticated,
-                        email: response.data.email,
-                        password: response.data.password
-                    } 
-                });
+            if (response.data) {
+                message.success('Заявка на КАСКО успешно отправлена');
+                navigate('/profile');
             }
-            
         } catch (error) {
-            console.error('[KaskoFormContent] KASKO application error:', {
-                sentData: valuesFromForm,
-                transformedDataForWrapper: error.config?.data ? JSON.parse(error.config.data) : undefined,
-                error: error.message,
-                response: error.response?.data
-            });
-            message.error(
-                error.response?.data?.error || 
-                (Array.isArray(error.response?.data) ? error.response.data.join(', ') : 'Ошибка при создании заявки')
-            );
+            console.error('Error in handleFinish:', error);
+            message.error(error.response?.data?.message || 'Ошибка при отправке формы');
         } finally {
             setLoading(false);
         }
@@ -78,174 +61,82 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
             form={form}
             layout="vertical"
             onFinish={handleFinish}
-            className="insurance-form"
-            autoComplete="off"
             initialValues={{
+                insuranceDuration: 12,
                 hasAntiTheftSystem: false,
-                garageParking: false,
-                insuranceDuration: 12
+                garageParking: false
             }}
         >
-            <h2>Страхование КАСКО</h2>
-
-            {!isAuthenticated && (
-                <>
-                    <Form.Item
-                        name="ownerLastName"
-                        label="Фамилия"
-                        rules={[
-                            { required: true, message: 'Пожалуйста, введите фамилию' },
-                            { whitespace: true, message: 'Фамилия не может быть пустой' }
-                        ]}
-                    >
-                        <Input placeholder="Введите фамилию" autoComplete="off" />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="ownerFirstName"
-                        label="Имя"
-                        rules={[
-                            { required: true, message: 'Пожалуйста, введите имя' },
-                            { whitespace: true, message: 'Имя не может быть пустым' }
-                        ]}
-                    >
-                        <Input placeholder="Введите имя" autoComplete="off" />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="ownerMiddleName"
-                        label="Отчество"
-                        rules={[
-                            { whitespace: true, message: 'Отчество не может быть пустым' }
-                        ]}
-                    >
-                        <Input placeholder="Введите отчество" autoComplete="off" />
-                    </Form.Item>
-                </>
-            )}
-
             <Form.Item
-                name="insuranceDuration"
-                label="Срок страхования"
-                rules={[
-                    { required: true, message: 'Пожалуйста, выберите срок страхования' }
-                ]}
-            >
-                <Select placeholder="Выберите срок страхования">
-                    <Option value={3}>3 месяца</Option>
-                    <Option value={6}>6 месяцев</Option>
-                    <Option value={12}>1 год</Option>
-                    <Option value={24}>2 года</Option>
-                    <Option value={36}>3 года</Option>
-                </Select>
-            </Form.Item>
-
-            <Form.Item
-                name="carMake"
                 label="Марка автомобиля"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите марку автомобиля' },
-                    { whitespace: true, message: 'Марка автомобиля не может быть пустой' }
-                ]}
+                name="carMake"
+                rules={[{ required: true, message: 'Введите марку автомобиля' }]}
             >
-                <Input placeholder="например, Toyota, BMW, Mercedes" autoComplete="off" />
+                <Input />
             </Form.Item>
 
             <Form.Item
-                name="carModel"
                 label="Модель автомобиля"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите модель автомобиля' },
-                    { whitespace: true, message: 'Модель автомобиля не может быть пустой' }
-                ]}
+                name="carModel"
+                rules={[{ required: true, message: 'Введите модель автомобиля' }]}
             >
-                <Input placeholder="например, Camry, 3-Series, C-Class" autoComplete="off" />
+                <Input />
             </Form.Item>
 
             <Form.Item
-                name="carYear"
                 label="Год выпуска"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите год выпуска' },
-                    { type: 'number', min: 1900, max: new Date().getFullYear(), message: 'Пожалуйста, введите корректный год' }
-                ]}
+                name="carYear"
+                rules={[{ required: true, message: 'Введите год выпуска' }]}
             >
-                <InputNumber
-                    min={1900}
-                    max={new Date().getFullYear()}
-                    style={{ width: '100%' }}
-                    placeholder="Введите год выпуска"
-                    autoComplete="off"
-                />
+                <InputNumber min={1900} max={new Date().getFullYear()} style={{ width: '100%' }} />
             </Form.Item>
 
             <Form.Item
-                name="vinNumber"
                 label="VIN номер"
+                name="vinNumber"
                 rules={[
-                    { required: true, message: 'Пожалуйста, введите VIN номер' },
-                    { len: 17, message: 'VIN номер должен содержать ровно 17 символов' },
-                    { pattern: /^[A-HJ-NPR-Z0-9]+$/, message: 'Пожалуйста, введите корректный VIN номер' }
+                    { required: true, message: 'Введите VIN номер' },
+                    { pattern: /^[A-HJ-NPR-Z0-9]{17}$/i, message: 'Неверный формат VIN номера' }
                 ]}
             >
-                <Input 
-                    placeholder="Введите 17-значный VIN номер"
-                    maxLength={17}
-                    showCount
-                    autoComplete="off"
-                />
+                <Input />
             </Form.Item>
 
             <Form.Item
+                label="Гос. номер"
                 name="licensePlate"
-                label="Государственный номер"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите государственный номер' },
-                    { whitespace: true, message: 'Государственный номер не может быть пустым' }
-                ]}
+                rules={[{ required: true, message: 'Введите гос. номер' }]}
             >
-                <Input placeholder="Введите государственный номер" autoComplete="off" />
+                <Input />
             </Form.Item>
 
             <Form.Item
-                name="carValue"
                 label="Стоимость автомобиля"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите стоимость автомобиля' },
-                    { type: 'number', min: 0.01, message: 'Стоимость автомобиля должна быть больше 0' }
-                ]}
+                name="carValue"
+                rules={[{ required: true, message: 'Введите стоимость автомобиля' }]}
             >
                 <InputNumber
-                    min={0.01}
-                    step={1000}
+                    min={1}
+                    formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={value => value.replace(/\$\s?|(,*)/g, '')}
                     style={{ width: '100%' }}
-                    formatter={value => `₽ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/₽\s?|(,*)/g, '')}
-                    placeholder="Введите стоимость автомобиля"
-                    autoComplete="off"
                 />
             </Form.Item>
 
             <Form.Item
-                name="driverLicenseNumber"
                 label="Номер водительского удостоверения"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите номер водительского удостоверения' },
-                    { whitespace: true, message: 'Номер водительского удостоверения не может быть пустым' }
-                ]}
+                name="driverLicenseNumber"
+                rules={[{ required: true, message: 'Введите номер водительского удостоверения' }]}
             >
-                <Input placeholder="Введите номер водительского удостоверения" autoComplete="off" />
+                <Input />
             </Form.Item>
 
             <Form.Item
-                name="driverExperienceYears"
                 label="Стаж вождения (лет)"
-                rules={[
-                    { required: true, message: 'Пожалуйста, введите стаж вождения' },
-                    { type: 'number', min: 0, message: 'Стаж вождения не может быть отрицательным' }
-                ]}
+                name="driverExperienceYears"
+                rules={[{ required: true, message: 'Введите стаж вождения' }]}
             >
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="Введите стаж вождения" autoComplete="off" />
+                <InputNumber min={0} max={99} style={{ width: '100%' }} />
             </Form.Item>
 
             <Form.Item
@@ -259,19 +150,36 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
                 name="garageParking"
                 valuePropName="checked"
             >
-                <Checkbox>Автомобиль хранится в гараже</Checkbox>
+                <Checkbox>Гаражное хранение</Checkbox>
             </Form.Item>
 
             <Form.Item
+                label="Номер предыдущего полиса КАСКО (если есть)"
                 name="previousInsuranceNumber"
-                label="Номер предыдущего полиса (если есть)"
             >
-                <Input placeholder="Введите номер предыдущего полиса" autoComplete="off" />
+                <Input />
+            </Form.Item>
+
+            <Form.Item
+                label="Срок страхования (месяцев)"
+                name="insuranceDuration"
+                rules={[{ required: true, message: 'Выберите срок страхования' }]}
+            >
+                <Select>
+                    <Option value={3}>3 месяца</Option>
+                    <Option value={6}>6 месяцев</Option>
+                    <Option value={12}>1 год</Option>
+                </Select>
             </Form.Item>
 
             <Form.Item>
-                <Button type="primary" htmlType="submit" loading={loading} block>
-                    Оформить полис
+                <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={loading}
+                    style={{ width: '100%' }}
+                >
+                    {isPartOfPackage ? 'Далее' : 'Оформить полис'}
                 </Button>
             </Form.Item>
         </Form>
@@ -280,18 +188,19 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
 
 const KaskoForm = ({ isPartOfPackage, packageId, onSubmit: parentOnSubmit }) => {
     const handleSubmit = async (data) => {
-        if (isPartOfPackage && packageId) {
-            // Если форма является частью пакета, используем parentOnSubmit
-            return parentOnSubmit(data);
-        }
+        try {
+            if (isPartOfPackage && packageId) {
+                // Если форма является частью пакета, используем parentOnSubmit
+                return await parentOnSubmit(data);
+            }
 
-        // Стандартная логика для отдельной формы КАСКО
-        const url = data.email 
-            ? '/api/insurance/unauthorized/kasko'
-            : '/api/insurance/applications/kasko';
-            
-        const response = await api.post(url, data);
-        return response;
+            // Стандартная логика для отдельной формы КАСКО
+            const response = await api.post('/api/insurance/applications/kasko', data);
+            return response;
+        } catch (error) {
+            console.error('Error in KaskoForm handleSubmit:', error);
+            throw error;
+        }
     };
 
     return (
