@@ -1,424 +1,385 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Button, 
-  Typography, 
-  Alert, 
-  Snackbar,
-  Grid,
-  Paper,
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import {
+  Box,
+  TextField,
+  Button,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Checkbox,
+  Typography,
+  Grid,
+  Paper,
   FormControlLabel,
-  FormGroup,
-  Container
+  Checkbox,
+  Alert,
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import InsuranceFormWrapper from '../../components/InsuranceFormWrapper';
 
-const initialFormState = {
-  firstName: '',
-  lastName: '',
-  middleName: '',
-    birthDate: null,
-    passportNumber: '',
-    snils: '',
-    hasChronicDiseases: false,
-    chronicDiseasesDetails: '',
-    hasDisabilities: false,
-    disabilitiesDetails: '',
-    smokingStatus: false,
-    coverDental: false,
-    coverVision: false,
-    coverMaternity: false,
-    coverEmergency: true,
-    preferredClinic: '',
-    familyDoctorNeeded: false,
-    notes: ''
-};
-
-const formatDateForApi = (date) => {
-  if (!date) return null;
-  if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) return date;
-  try {
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0];
-  } catch (e) {
-    return null;
-  }
-};
-
-const HealthFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) => {
-  const [form, setForm] = useState(initialFormState);
-  const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState(null);
-  const [formError, setFormError] = useState(null);
-  const [successInfo, setSuccessInfo] = useState(null);
-  
+const HealthForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const auth = useAuth();
+  const [formData, setFormData] = useState({
+    firstName: initialData.firstName || (user ? user.firstName : ''),
+    lastName: initialData.lastName || (user ? user.lastName : ''),
+    middleName: initialData.middleName || (user ? user.middleName : ''),
+    birthDate: initialData.birthDate || null,
+    gender: initialData.gender || '',
+    passport: initialData.passport || '',
+    snils: initialData.snils || '',
+    address: initialData.address || '',
+    phone: initialData.phone || (user ? user.phone : ''),
+    email: initialData.email || (user ? user.email : ''),
+    hasChronic: initialData.hasChronic || false,
+    chronicDetails: initialData.chronicDetails || '',
+    coverageAmount: initialData.coverageAmount || '1000000',
+    startDate: initialData.startDate || null,
+    endDate: initialData.endDate || null,
+  });
 
-  useEffect(() => {
-    if (isAuthenticated && auth.user) {
-      setForm(prev => ({
-        ...prev,
-        firstName: auth.user.firstName || '',
-        lastName: auth.user.lastName || '',
-        middleName: auth.user.middleName || ''
-      }));
-    }
-  }, [isAuthenticated, auth.user]);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm(prev => ({
+  const handleChange = (field) => (event) => {
+    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [field]: value
     }));
+    setError('');
+    setSuccessMessage('');
   };
 
-  const handleDateChange = (name, value) => {
-    setForm(prev => ({
+  const handleDateChange = (field) => (date) => {
+    setFormData(prev => ({
       ...prev,
-      [name]: value
+      [field]: date
     }));
+    setError('');
+    setSuccessMessage('');
   };
 
-  const validateForm = () => {
-    const requiredFields = ['birthDate', 'passportNumber', 'snils'];
-    if (!isAuthenticated) {
-      requiredFields.push('firstName', 'lastName');
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    console.log('[HealthForm] Form submission triggered');
+    console.log('[HealthForm] Initial Form data for submission:', JSON.parse(JSON.stringify(formData)));
 
-    for (const field of requiredFields) {
-      if (!form[field]) {
-        setFormError(`Поле "${field}" обязательно для заполнения.`);
-        return false;
-    }
-    }
-    setFormError(null);
-    return true;
-  };
-
-  const handleSubmitClick = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
-    setApiError(null);
-    setFormError(null);
-    setSuccessInfo(null);
-
-    const applicationDataForWrapper = {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      middleName: form.middleName,
-      birthDate: formatDateForApi(form.birthDate),
-      passportSeries: form.passportNumber.substring(0, 4),
-      passportNumber: form.passportNumber.substring(4),
-      snils: form.snils,
-      hasChronicDiseases: form.hasChronicDiseases,
-      chronicDiseasesDetails: form.chronicDiseasesDetails,
-      hasDisabilities: form.hasDisabilities,
-      disabilitiesDetails: form.disabilitiesDetails,
-      smokingStatus: form.smokingStatus,
-      coverDental: form.coverDental,
-      coverVision: form.coverVision,
-      coverMaternity: form.coverMaternity,
-      coverEmergency: form.coverEmergency,
-      preferredClinic: form.preferredClinic,
-      familyDoctorNeeded: form.familyDoctorNeeded,
-      notes: form.notes
-    };
+    const passportValue = formData.passport.trim().replace(/\s/g, '');
+    const snilsValue = formData.snils.trim().replace(/[^\d]/g, '');
     
-    try {
-      const response = await onSubmitFromWrapper(applicationDataForWrapper);
+    // Валидация
+    if (!formData.firstName || !formData.lastName || !formData.birthDate || 
+        !formData.gender || !passportValue || !snilsValue ||
+        !formData.address || !formData.phone || !formData.email || 
+        !formData.startDate || !formData.endDate) {
+      setError('Пожалуйста, заполните все обязательные поля, включая СНИЛС.');
+      return;
+    }
+    if (formData.hasChronic && !formData.chronicDetails) {
+      setError('Пожалуйста, укажите детали хронических заболеваний');
+      return;
+    }
+    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+      setError('Дата начала должна быть раньше даты окончания');
+      return;
+    }
+    if (!/^\d{10}$/.test(passportValue)) {
+      setError('Неверный формат паспортных данных. Ожидается 10 цифр (серия и номер).');
+      return;
+    }
+    if (!/^\d{11}$/.test(snilsValue)) {
+      setError('Неверный формат СНИЛС. Ожидается 11 цифр (например, XXX-XXX-XXX XX).');
+      return;
+    }
 
-      if (response?.data) {
-        if (!isAuthenticated && response.data.accessToken) {
-          localStorage.setItem('token', response.data.accessToken);
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
-          await auth.validateAndGetUser();
-        }
-        setSuccessInfo(`Заявка на страхование здоровья успешно отправлена! ID: ${response.data.id || 'N/A'}. Вы будете перенаправлены через 3 секунды.`);
+    console.log('[HealthForm] Form data AFTER validation:', JSON.parse(JSON.stringify(formData)));
+    console.log('[HealthForm] Cleaned SNILS for submission:', snilsValue);
+
+    if (!onSubmit) {
+      if (isPartOfPackage) {
+        const errMessage = '[HealthForm] Ошибка: onSubmit не определена, но форма часть пакета.';
+        console.error(errMessage, { isPartOfPackage, onSubmit });
+        setError(errMessage);
+        return;
+      }
+
+      console.log('[HealthForm] Автономный режим: попытка отправки.');
+      setIsSubmitting(true);
+      try {
+        const payload = {
+          birthDate: formData.birthDate,
+          gender: formData.gender,
+          passportNumber: passportValue,
+          snils: snilsValue,
+          address: formData.address,
+          hasChronicDiseases: formData.hasChronic,
+          chronicDiseasesDetails: formData.hasChronic ? formData.chronicDetails : null,
+          coverageAmount: formData.coverageAmount,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+        };
+
+        Object.keys(payload).forEach(key => (payload[key] == null) && delete payload[key]);
+        console.log('[HealthForm] Autonomous submission payload:', payload);
+
+        const apiResponse = await api.post('/api/insurance/applications/health', payload);
+        console.log('[HealthForm] Autonomous submission successful:', apiResponse.data);
+        setSuccessMessage('Ваша заявка на страхование здоровья успешно отправлена!');
         
-        setTimeout(() => {
-          navigate('/profile'); 
-        }, 3000);
-      } else {
-        setApiError("Не удалось получить ожидаемые данные от сервера.");
+        navigate('/applications/success', { 
+          state: { 
+            applicationId: apiResponse.data.id, 
+            calculatedAmount: apiResponse.data.calculatedAmount, 
+            message: 'Заявка на страхование здоровья успешно создана.',
+            type: 'HEALTH'
+          } 
+        });
+      } catch (err) {
+        console.error('[HealthForm] Autonomous submission error:', err);
+        setError('Ошибка при отправке заявки: ' + (err.response?.data?.message || err.message || 'Неизвестная ошибка сервера'));
+      } finally {
+        setIsSubmitting(false);
       }
+      return;
+    }
+
+    if (typeof onSubmit !== 'function') {
+      const errMessage = '[HealthForm] Ошибка: onSubmit не является функцией.';
+      console.error(errMessage, { typeofOnSubmit: typeof onSubmit });
+      setError(errMessage);
+      return;
+    }
+
+    try {
+      console.log('[HealthForm] Calling provided onSubmit with data...');
+      setIsSubmitting(true);
+      await onSubmit({
+        ...formData,
+        passport: passportValue,
+        snils: snilsValue
+      });
     } catch (error) {
-      console.error('Health application error (HealthFormContent):', error);
-      const errorData = error.response?.data;
-      let errorMessage = 'Ошибка при создании заявки на страхование здоровья.';
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData && (errorData.error || errorData.message)) {
-        errorMessage = errorData.error || errorData.message;
-      } else if (Array.isArray(errorData)) {
-        errorMessage = errorData.join(', ');
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      setApiError(errorMessage);
+      console.error('[HealthForm] Error calling provided onSubmit:', error);
+      setError('Произошла ошибка при обработке формы: ' + (error.message || 'Неизвестная ошибка'));
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Paper elevation={0} sx={{ p: isAuthenticated ? 0 : 3, mt: isAuthenticated ? 0 : 3 }}>
-        <Typography variant="h5" gutterBottom component="div" sx={{ mb: 3 }}>
+    <Paper elevation={isPartOfPackage ? 0 : 3} sx={{ p: 3 }}>
+      {!isPartOfPackage && (
+        <Typography variant="h5" gutterBottom>
           Страхование здоровья
         </Typography>
-        
-        {apiError && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{apiError}</Alert>}
-        {formError && <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>{formError}</Alert>}
-        {successInfo && <Alert severity="success" sx={{ mt: 2, mb: 2 }}>{successInfo}</Alert>}
-        
-          <Grid container spacing={3}>
-          {!isAuthenticated && (
-            <>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  required
-                  fullWidth
-                  label="Имя"
-                  name="firstName"
-                  value={form.firstName}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  required
-                  fullWidth
-                  label="Фамилия"
-                  name="lastName"
-                  value={form.lastName}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Отчество (если есть)"
-                  name="middleName"
-                  value={form.middleName}
-                  onChange={handleChange}
-                />
-              </Grid>
-            </>
-          )}
-          {isAuthenticated && auth.user && (
-             <Grid item xs={12}>
-                <Typography variant="subtitle1">
-                  Заявитель: {auth.user.firstName} {auth.user.lastName} {auth.user.middleName || ''}
-                </Typography>
-             </Grid>
-          )}
+      )}
 
-            <Grid item xs={12} md={6}>
-              <DatePicker
-                label="Дата рождения *"
-                value={form.birthDate}
-              onChange={(newValue) => handleDateChange('birthDate', newValue)}
-                renderInput={(params) => <TextField {...params} required fullWidth />}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                required
-                fullWidth
-              label="Номер и серия паспорта"
-                name="passportNumber"
-                value={form.passportNumber}
-                onChange={handleChange}
-              inputProps={{ maxLength: 10 }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                required
-                fullWidth
-                label="СНИЛС"
-                name="snils"
-                value={form.snils}
-                onChange={handleChange}
-              inputProps={{ maxLength: 14 }}
-              />
-            </Grid>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {successMessage && !isPartOfPackage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
 
-            <Grid item xs={12}>
-              <FormGroup>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={form.hasChronicDiseases}
-                    onChange={handleChange}
-                      name="hasChronicDiseases"
-                    />
-                  }
-                  label="Наличие хронических заболеваний"
-                />
-              </FormGroup>
-              {form.hasChronicDiseases && (
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Детали хронических заболеваний"
-                  name="chronicDiseasesDetails"
-                  value={form.chronicDiseasesDetails}
-                  onChange={handleChange}
-                  sx={{ mt: 2 }}
-                />
-              )}
-            </Grid>
+      <form onSubmit={handleSubmit}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Фамилия"
+              value={formData.lastName}
+              onChange={handleChange('lastName')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Имя"
+              value={formData.firstName}
+              onChange={handleChange('firstName')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Отчество"
+              value={formData.middleName}
+              onChange={handleChange('middleName')}
+              disabled={isSubmitting}
+            />
+          </Grid>
 
-            <Grid item xs={12}>
-              <FormGroup>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={form.hasDisabilities}
-                    onChange={handleChange}
-                      name="hasDisabilities"
-                    />
-                  }
-                  label="Наличие инвалидности"
-                />
-              </FormGroup>
-              {form.hasDisabilities && (
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Детали инвалидности"
-                  name="disabilitiesDetails"
-                  value={form.disabilitiesDetails}
-                  onChange={handleChange}
-                  sx={{ mt: 2 }}
-                />
-              )}
-            </Grid>
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Дата рождения"
+              value={formData.birthDate ? new Date(formData.birthDate) : null}
+              onChange={handleDateChange('birthDate')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
 
-            <Grid item xs={12}>
-              <FormGroup>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={form.smokingStatus}
-                    onChange={handleChange}
-                      name="smokingStatus"
-                    />
-                  }
-                  label="Курение"
-                />
-              </FormGroup>
-            </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth required disabled={isSubmitting}>
+              <InputLabel>Пол</InputLabel>
+              <Select
+                value={formData.gender}
+                onChange={handleChange('gender')}
+                label="Пол"
+              >
+                <MenuItem value="MALE">Мужской</MenuItem>
+                <MenuItem value="FEMALE">Женский</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
 
-            <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{mt: 2}}>
-                Дополнительное покрытие
-              </Typography>
-              <FormGroup>
-              <FormControlLabel control={<Checkbox checked={form.coverDental} onChange={handleChange} name="coverDental"/>} label="Стоматология"/>
-              <FormControlLabel control={<Checkbox checked={form.coverVision} onChange={handleChange} name="coverVision"/>} label="Офтальмология"/>
-              <FormControlLabel control={<Checkbox checked={form.coverMaternity} onChange={handleChange} name="coverMaternity"/>} label="Ведение беременности"/>
-              <FormControlLabel control={<Checkbox checked={form.coverEmergency} onChange={handleChange} name="coverEmergency"/>} label="Экстренная помощь (включено по умолчанию)"/>
-              </FormGroup>
-            </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Серия и номер паспорта"
+              value={formData.passport}
+              onChange={handleChange('passport')}
+              required
+              helperText="Введите 10 цифр: серия и номер"
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="СНИЛС"
+              value={formData.snils}
+              onChange={handleChange('snils')}
+              required
+              helperText="Введите 11 цифр (например, XXX-XXX-XXX YY)"
+              disabled={isSubmitting}
+            />
+          </Grid>
 
           <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Предпочитаемая клиника"
-                name="preferredClinic"
-                value={form.preferredClinic}
-                onChange={handleChange}
-              sx={{ mt: 1 }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormGroup>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={form.familyDoctorNeeded}
-                    onChange={handleChange}
-                      name="familyDoctorNeeded"
-                    />
-                  }
-                  label="Нужен семейный врач"
-                />
-              </FormGroup>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-              rows={3}
-              label="Дополнительные примечания"
-                name="notes"
-                value={form.notes}
-                onChange={handleChange}
-              sx={{ mt: 1 }}
-              />
+            <TextField
+              fullWidth
+              label="Адрес регистрации"
+              value={formData.address}
+              onChange={handleChange('address')}
+              required
+              disabled={isSubmitting}
+            />
           </Grid>
-            </Grid>
 
-              <Button
-                variant="contained"
-          size="large"
-          fullWidth
-          sx={{ mt: 3 }} 
-                disabled={loading}
-          onClick={handleSubmitClick}
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Телефон"
+              value={formData.phone}
+              onChange={handleChange('phone')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange('email')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formData.hasChronic}
+                  onChange={handleChange('hasChronic')}
+                  disabled={isSubmitting}
+                />
+              }
+              label="Есть хронические заболевания"
+            />
+          </Grid>
+
+          {formData.hasChronic && (
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Опишите хронические заболевания"
+                multiline
+                rows={3}
+                value={formData.chronicDetails}
+                onChange={handleChange('chronicDetails')}
+                required={formData.hasChronic}
+                disabled={isSubmitting}
+              />
+            </Grid>
+          )}
+
+          <Grid item xs={12}>
+            <FormControl fullWidth required disabled={isSubmitting}>
+              <InputLabel>Сумма покрытия</InputLabel>
+              <Select
+                value={formData.coverageAmount}
+                onChange={handleChange('coverageAmount')}
+                label="Сумма покрытия"
               >
-                {loading ? 'Отправка...' : 'Отправить заявку'}
-              </Button>
-      </Paper>
-    </LocalizationProvider>
+                <MenuItem value="500000">500 000 ₽</MenuItem>
+                <MenuItem value="1000000">1 000 000 ₽</MenuItem>
+                <MenuItem value="2000000">2 000 000 ₽</MenuItem>
+                <MenuItem value="3000000">3 000 000 ₽</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Дата начала"
+              value={formData.startDate ? new Date(formData.startDate) : null}
+              onChange={handleDateChange('startDate')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Дата окончания"
+              value={formData.endDate ? new Date(formData.endDate) : null}
+              onChange={handleDateChange('endDate')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+        </Grid>
+
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            size="large"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Отправка...' : (isPartOfPackage ? 'Далее' : 'Оформить полис')}
+          </Button>
+        </Box>
+      </form>
+    </Paper>
   );
 };
 
-const HealthForm = () => {
-  const auth = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmitFromWrapper = async (dataFromWrapper) => {
-    let url;
-    if (!auth.user && dataFromWrapper.email) { 
-      url = '/api/insurance/unauthorized/health';
-    } else { 
-      url = '/api/insurance/applications/health';
-    }
-    console.log(`[HealthForm] Submitting to URL: ${url} with payload:`, JSON.stringify(dataFromWrapper));
-    return api.post(url, dataFromWrapper); 
-  };
-
-  return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <InsuranceFormWrapper onSubmit={handleSubmitFromWrapper}>
-        <HealthFormContent />
-      </InsuranceFormWrapper>
-    </Container>
-  );
+HealthForm.propTypes = {
+  onSubmit: PropTypes.func,
+  initialData: PropTypes.object,
+  isPartOfPackage: PropTypes.bool
 };
 
 export default HealthForm; 

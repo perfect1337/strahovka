@@ -34,7 +34,7 @@ import ClaimsManagement from './components/admin/ClaimsManagement';
 import UnauthorizedPolicyForm from './pages/UnauthorizedPolicyForm';
 import ApplicationSuccess from './pages/ApplicationSuccess';
 import InsurancePackageForm from './pages/InsurancePackageForm';
-import PackageApplicationStepper from './pages/PackageApplicationStepper';
+import MyTestStepper from './pages/MyTestStepper';
 
 const theme = createTheme({
   palette: {
@@ -157,6 +157,7 @@ const theme = createTheme({
 });
 
 function App() {
+  // console.log('[App.js] App component rendering. ProtectedRoute imported as:', typeof ProtectedRoute, ProtectedRoute);
   return (
     <BrowserRouter>
       <ThemeProvider theme={theme}>
@@ -191,11 +192,10 @@ function App() {
                 />
                 <Route
                   path="/apply-package/:id"
-                  element={
-                    <ProtectedRoute>
-                      <PackageApplicationStepper />
-                    </ProtectedRoute>
-                  }
+                  element={(
+                    console.log('[App.js] Evaluating element for /apply-package/:id. Rendering MyTestStepper DIRECTLY.'),
+                    <MyTestStepper />
+                  )}
                 />
                 <Route
                   path="/insurance/buy/:id"

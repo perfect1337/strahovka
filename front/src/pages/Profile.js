@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Grid,
@@ -34,7 +34,7 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { ChevronRight as ChevronRightIcon } from '@mui/icons-material';
@@ -155,6 +155,374 @@ const UserLevelInfo = ({ level, policyCount }) => {
   );
 };
 
+const getPackageStatusDisplay = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'PENDING_PACKAGE': return 'Формируется';
+    case 'PENDING_PAYMENT': return 'Ожидает оплаты';
+    case 'PENDING': return 'В обработке';
+    case 'PAID': return 'Оплачен';
+    case 'ACTIVE': return 'Активен';
+    case 'CANCELLED': return 'Отменён';
+    default: return status || 'Неизвестный статус';
+  }
+};
+
+const getPackageStatusColor = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'PENDING_PACKAGE': return 'info';
+    case 'PENDING_PAYMENT': return 'warning';
+    case 'PENDING': return 'info';
+    case 'PAID': case 'ACTIVE': return 'success';
+    case 'CANCELLED': return 'error';
+    default: return 'default';
+  }
+};
+
+const getInsuranceTypeDisplay = (type) => {
+  switch (type?.toUpperCase()) {
+    case 'KASKO': return 'КАСКО';
+    case 'OSAGO': return 'ОСАГО';
+    case 'TRAVEL': return 'Путешествия';
+    case 'PROPERTY': return 'Имущество';
+    case 'HEALTH': return 'Здоровье';
+    case 'UNKNOWN': return 'Неизвестный тип';
+    default: return type || 'Неизвестный тип';
+  }
+};
+
+const canPayPackage = (pkg) => {
+  const status = pkg?.status?.toUpperCase();
+  return status === 'PENDING_PAYMENT' || status === 'PENDING';
+};
+
+const getStatusText = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'PENDING_PAYMENT': return 'Ожидает оплаты';
+    case 'PENDING_PACKAGE': return 'Формируется';
+    case 'PENDING': return 'В обработке';
+    case 'ACTIVE': case 'APPROVED': case 'PAID': return 'Активен';
+    case 'INACTIVE': return 'Остановлен';
+    case 'COMPLETED': return 'Завершен';
+    case 'CANCELLED': return 'Отменен';
+    case 'REJECTED': return 'Отклонен';
+    case 'IN_REVIEW': return 'На рассмотрении';
+    case 'NEED_INFO': return 'Требуется информация';
+    default: return status || 'Неизвестный';
+  }
+};
+
+const getStatusColor = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'PENDING_PAYMENT': case 'PENDING_PACKAGE': case 'PENDING': case 'NEED_INFO': return 'warning';
+    case 'ACTIVE': case 'APPROVED': case 'PAID': return 'success';
+    case 'INACTIVE': case 'CANCELLED': case 'REJECTED': return 'error';
+    case 'COMPLETED': case 'IN_REVIEW': return 'info';
+    default: return 'default';
+  }
+};
+
+const PackageItem = ({ pkg, onPayment, onCancel, autoExpand, onContinue }) => {
+  const [expanded, setExpandedItem] = useState(autoExpand);
+  const [itemLoading, setItemLoading] = useState(false);
+  const itemRef = useRef(null);
+
+  useEffect(() => {
+    if (autoExpand && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [autoExpand]);
+
+  const handleItemPayment = async () => {
+    setItemLoading(true);
+    try {
+      await onPayment(pkg.id);
+    } finally {
+      setItemLoading(false);
+    }
+  };
+
+  const handleItemCancel = async () => {
+    setItemLoading(true);
+    try {
+      await onCancel(pkg.id);
+    } finally {
+      setItemLoading(false);
+    }
+  };
+
+  const applications = pkg.applications || pkg.applicationsInPackage || [];
+  const validApplications = applications.filter(app => app && (app.id || app.applicationId));
+  const hasApplications = validApplications.length > 0;
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Package ${pkg.id}: ${pkg.name}, status: ${pkg.status}, applications: ${validApplications.length}`);
+  }
+
+  const calculateTotalAmount = () => {
+    if (!hasApplications) return 0;
+    return validApplications.reduce((sum, app) => {
+      const amount = parseFloat(
+        app.calculatedAmount || 
+        app.amount || 
+        app.price || 
+        app.totalAmount || 
+        0
+      );
+      return sum + amount;
+    }, 0);
+  };
+
+  const calculateDiscountedAmount = () => {
+    const total = calculateTotalAmount();
+    const discount = pkg.discount || 0;
+    return total * (1 - discount / 100);
+  };
+
+  const getApplicationType = (app) => {
+    if (app.displayName && typeof app.displayName === 'string') {
+      const colonIndex = app.displayName.indexOf(':');
+      if (colonIndex > 0) {
+        return app.displayName.substring(0, colonIndex).trim();
+      }
+    }
+    
+    const type = app.applicationType || 
+           app.type || 
+           app.insuranceType || 
+           app.category?.name || 
+           app.categoryName;
+           
+    if (type) {
+      return type;
+    }
+    
+    if (app.vehicleInfo || app.carModel) {
+      return app.vehiclePurpose === 'personal' ? 'KASKO' : 'OSAGO';
+    }
+    if (app.destinationCountry || app.travelDates) {
+      return 'TRAVEL';
+    }
+    if (app.propertyType || app.propertyValue) {
+      return 'PROPERTY';
+    }
+    if (app.healthConditions || app.coverageType) {
+      return 'HEALTH';
+    }
+    
+    return 'Неизвестный тип';
+  };
+
+  const getApplicationAmount = (app) => {
+    const amount = parseFloat(
+      app.calculatedAmount || 
+      app.amount || 
+      app.price || 
+      app.totalAmount || 
+      0
+    );
+    return amount.toLocaleString('ru-RU');
+  };
+
+  const getApplicationId = (app) => {
+    return app.id || app.applicationId;
+  };
+
+  return (
+    <Card ref={itemRef} sx={{ mb: 2, position: 'relative' }}>
+      <CardContent>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={8}>
+            <Typography variant="h6" component="div">
+              {pkg.name || 'Без названия'}
+            </Typography>
+            <Typography color="text.secondary" gutterBottom>
+              ID пакета: {pkg.id}
+            </Typography>
+            {pkg.description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {pkg.description}
+              </Typography>
+            )}
+          </Grid>
+          <Grid item xs={12} sm={4} sx={{ textAlign: 'right' }}>
+            <Chip
+              label={getPackageStatusDisplay(pkg.status)}
+              color={getPackageStatusColor(pkg.status)}
+              sx={{ mb: 1 }}
+            />
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Typography variant="body2" gutterBottom>
+              Информация о пакете:
+            </Typography>
+            <Box component="div" sx={{ ml: 2 }}>
+              {hasApplications ? (
+                <>
+                  <Typography variant="body2">
+                    Общая стоимость: {calculateTotalAmount().toLocaleString('ru-RU')} ₽
+                  </Typography>
+                  <Typography variant="body2">
+                    Скидка: {pkg.discount || 0}%
+                  </Typography>
+                  <Typography variant="body2">
+                    Стоимость со скидкой: {calculateDiscountedAmount().toLocaleString('ru-RU')} ₽
+                  </Typography>
+                </>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Скидка на все полисы в пакете: {pkg.discount || 0}%
+                </Typography>
+              )}
+              <Typography variant="body2">
+                Дата создания: {formatDate(pkg.createdAt)}
+              </Typography>
+            </Box>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Typography variant="body2">
+                Полисы в пакете ({validApplications.length}):
+              </Typography>
+              {hasApplications && (
+                <IconButton
+                  size="small"
+                  onClick={() => setExpandedItem(!expanded)}
+                  sx={{ ml: 1 }}
+                >
+                  <ChevronRightIcon sx={{
+                    transform: expanded ? 'rotate(90deg)' : 'none',
+                    transition: 'transform 0.3s'
+                  }} />
+                </IconButton>
+              )}
+            </Box>
+            
+            {hasApplications ? (
+              <Collapse in={expanded}>
+                <List dense>
+                  {validApplications.map((app) => (
+                    <ListItem key={getApplicationId(app)}>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography>{getInsuranceTypeDisplay(getApplicationType(app))}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              (ID: {getApplicationId(app)})
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="body2" component="span">
+                              Стоимость: {getApplicationAmount(app)} ₽
+                            </Typography>
+                            {app.status && (
+                              <Chip
+                                size="small"
+                                label={getStatusText(app.status)}
+                                color={getStatusColor(app.status)}
+                              />
+                            )}
+                          </Stack>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Collapse>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                В пакете пока нет полисов. Добавьте полисы, чтобы получить скидку.
+              </Typography>
+            )}
+          </Grid>
+
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+              {pkg.status === 'PENDING_PACKAGE' && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => onContinue(pkg.id)}
+                >
+                  Продолжить оформление
+                </Button>
+              )}
+              {canPayPackage(pkg) && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleItemPayment}
+                  disabled={itemLoading || !hasApplications}
+                >
+                  {itemLoading ? 'Обработка...' : 'Оплатить'}
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleItemCancel}
+                disabled={itemLoading}
+              >
+                Отменить
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
+      </CardContent>
+      {itemLoading && (
+        <LinearProgress sx={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} />
+      )}
+    </Card>
+  );
+};
+
+const PackagesView = ({ packages, onPayPackage, onCancelPackage, focusedPackageId, onContinuePackage }) => {
+  if (process.env.NODE_ENV === 'development' && packages?.length > 0) {
+    console.log(`Rendering ${packages.length} packages. Focused package: ${focusedPackageId || 'none'}`);
+  }
+  
+  if (!packages || !Array.isArray(packages)) {
+    console.warn('PackagesView: packages is not an array:', packages);
+    return (
+      <Alert severity="warning" sx={{ mt: 2 }}>
+        Ошибка загрузки пакетов. Пожалуйста, обновите страницу.
+      </Alert>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+        У вас пока нет страховых пакетов
+      </Typography>
+    );
+  }
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      {packages.map((pkg) => {
+        if (!pkg || !pkg.id) {
+          console.warn('Invalid package object:', pkg);
+          return null;
+        }
+        return (
+          <PackageItem 
+            key={`package-${pkg.id}`} 
+            pkg={pkg} 
+            onPayment={onPayPackage} 
+            onCancel={onCancelPackage}
+            onContinue={onContinuePackage}
+            autoExpand={pkg.id === focusedPackageId}
+          />
+        );
+      })}
+    </Box>
+  );
+};
+
 const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [policies, setPolicies] = useState([]);
@@ -165,6 +533,7 @@ const Profile = () => {
   const [tabValue, setTabValue] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -173,76 +542,10 @@ const Profile = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [openSnackbar, setOpenSnackbar] = useState(false);
-
-  const getInsuranceTypeDisplay = (type) => {
-    switch (type?.toUpperCase()) {
-      case 'KASKO': return 'КАСКО';
-      case 'OSAGO': return 'ОСАГО';
-      case 'TRAVEL': return 'Путешествия';
-      case 'PROPERTY': return 'Имущество';
-      case 'HEALTH': return 'Здоровье';
-      case 'UNKNOWN': return 'Неизвестный тип';
-      default: return type || 'Неизвестный тип';
-    }
-  };
-
-  const getPackageStatusDisplay = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'PENDING_PACKAGE': return 'Формируется';
-      case 'PENDING_PAYMENT': return 'Ожидает оплаты';
-      case 'PENDING': return 'В обработке';
-      case 'PAID': return 'Оплачен';
-      case 'ACTIVE': return 'Активен';
-      case 'CANCELLED': return 'Отменён';
-      default: return status || 'Неизвестный статус';
-    }
-  };
-
-  const getPackageStatusColor = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'PENDING_PACKAGE': return 'info';
-      case 'PENDING_PAYMENT': return 'warning';
-      case 'PENDING': return 'info';
-      case 'PAID': case 'ACTIVE': return 'success';
-      case 'CANCELLED': return 'error';
-      default: return 'default';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'PENDING_PAYMENT': return 'Ожидает оплаты';
-      case 'PENDING_PACKAGE': return 'Формируется';
-      case 'PENDING': return 'В обработке';
-      case 'ACTIVE': case 'APPROVED': case 'PAID': return 'Активен';
-      case 'INACTIVE': return 'Остановлен';
-      case 'COMPLETED': return 'Завершен';
-      case 'CANCELLED': return 'Отменен';
-      case 'REJECTED': return 'Отклонен';
-      case 'IN_REVIEW': return 'На рассмотрении';
-      case 'NEED_INFO': return 'Требуется информация';
-      default: return status || 'Неизвестный';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'PENDING_PAYMENT': case 'PENDING_PACKAGE': case 'PENDING': case 'NEED_INFO': return 'warning';
-      case 'ACTIVE': case 'APPROVED': case 'PAID': return 'success';
-      case 'INACTIVE': case 'CANCELLED': case 'REJECTED': return 'error';
-      case 'COMPLETED': case 'IN_REVIEW': return 'info';
-      default: return 'default';
-    }
-  };
-
-  const canPayPackage = (pkg) => {
-    const status = pkg?.status?.toUpperCase();
-    return status === 'PENDING_PAYMENT' || status === 'PENDING';
-  };
+  const [focusedPackageId, setFocusedPackageId] = useState(null);
 
   const canPayApplication = (appStatus) => {
     const status = appStatus?.toUpperCase();
-    // Добавьте другие статусы, если необходимо
     return status === 'PENDING' || status === 'PENDING_PAYMENT'; 
   };
 
@@ -259,11 +562,103 @@ const Profile = () => {
 
   const fetchPackages = async () => {
     try {
-      const response = await api.get('/api/insurance/packages/user/details');
-      return Array.isArray(response.data) ? response.data : [];
+      const userPackagesListResponse = await api.get('/api/insurance/packages/user/details');
+      console.log('User packages list response (initial):', JSON.stringify(userPackagesListResponse.data, null, 2));
+
+      if (!Array.isArray(userPackagesListResponse.data)) {
+        console.warn('User packages list response is not an array:', userPackagesListResponse.data);
+        return [];
+      }
+
+      if (userPackagesListResponse.data.length === 0) {
+        console.log('User has no packages.');
+        return [];
+      }
+
+      const processedPackages = await Promise.all(
+        userPackagesListResponse.data.map(async (basicPackageInfo) => {
+          if (!basicPackageInfo || typeof basicPackageInfo.id === 'undefined') {
+            console.warn('Invalid basic package info (missing or undefined ID):', basicPackageInfo);
+            return { id: basicPackageInfo?.id || null, name: 'Invalid Package Data', applications: [], applicationsInPackage: [], status: 'ERROR' };
+          }
+          const packageId = basicPackageInfo.id;
+          let applicationsList = [];
+
+          if (basicPackageInfo.applicationsInPackage && Array.isArray(basicPackageInfo.applicationsInPackage) && basicPackageInfo.applicationsInPackage.length > 0) {
+            applicationsList = basicPackageInfo.applicationsInPackage;
+            console.log(`Package ${packageId} - Using applicationsInPackage from initial list response (${applicationsList.length} items).`);
+          } else {
+            console.log(`Package ${packageId} - No applicationsInPackage in initial list response or it's empty.`);
+          }
+
+          try {
+            const packageDetailsResponse = await api.get(`/api/insurance/packages/${packageId}`);
+            const packageDetails = packageDetailsResponse.data;
+
+            console.log(`--- Package ID: ${packageId} (Details Call) ---`);
+            console.log('Raw packageDetails from API:', JSON.stringify(packageDetails, null, 2));
+            console.log('Keys in packageDetails:', Object.keys(packageDetails));
+
+            if (applicationsList.length === 0) {
+              console.log(`Package ${packageId} - Attempting to find applications in detailed response as initial list was empty/lacked them.`);
+              const potentialAppKeys = ['applications', 'applicationsInPackage', 'applicationList', 'applicationDTOs', 'packageApplications', 'items'];
+              let foundKeyInDetails = null;
+
+              for (const key of potentialAppKeys) {
+                if (packageDetails[key] && Array.isArray(packageDetails[key])) {
+                  applicationsList = packageDetails[key];
+                  foundKeyInDetails = key;
+                  console.log(`Package ${packageId} - Found application array in packageDetails.${key} with ${applicationsList.length} items.`);
+                  break;
+                }
+              }
+              if (applicationsList.length > 0) {
+                console.log(`Package ${packageId} - Extracted applicationsList from detailed response (first item if exists):`, JSON.stringify(applicationsList[0], null, 2));
+              } else if (foundKeyInDetails === null) {
+                console.log(`Package ${packageId} - No direct application array found in detailed response either. Keys checked: ${potentialAppKeys.join(', ')}.`);
+                if (packageDetails.applicationLinks && Array.isArray(packageDetails.applicationLinks) && packageDetails.applicationLinks.length > 0) {
+                  console.log(`Package ${packageId} - Detailed response has applicationLinks:`, packageDetails.applicationLinks);
+                  console.warn(`Package ${packageId} - Processing/fetching by applicationLinks is not implemented. Applications list will remain empty.`);
+                } else if (packageDetails.applicationIds && Array.isArray(packageDetails.applicationIds) && packageDetails.applicationIds.length > 0) {
+                  console.log(`Package ${packageId} - Detailed response has applicationIds:`, packageDetails.applicationIds);
+                  console.warn(`Package ${packageId} - Processing/fetching by applicationIds is not implemented. Applications list will remain empty.`);
+                }
+              }
+            } else {
+               console.log(`Package ${packageId} - Already have applications from initial list, not re-checking detailed response for full application list.`);
+            }
+            
+            const finalPackageData = {
+              ...basicPackageInfo, 
+              ...packageDetails,
+              id: packageId,
+              applications: applicationsList,
+              applicationsInPackage: applicationsList,
+            };
+            console.log(`Package ${packageId} - Final merged data for state:`, JSON.stringify(finalPackageData, null, 2));
+            return finalPackageData;
+
     } catch (error) {
-      console.error('Error fetching packages:', error);
-      setError('Ошибка загрузки пакетов: ' + (error.response?.data?.message || error.message));
+            console.error(`Error fetching or processing details for package ${packageId}:`, error);
+            return {
+              ...basicPackageInfo,
+              id: packageId,
+              applications: (basicPackageInfo.applicationsInPackage && Array.isArray(basicPackageInfo.applicationsInPackage)) ? basicPackageInfo.applicationsInPackage : [],
+              applicationsInPackage: (basicPackageInfo.applicationsInPackage && Array.isArray(basicPackageInfo.applicationsInPackage)) ? basicPackageInfo.applicationsInPackage : [],
+              status: basicPackageInfo.status || 'ERROR_FETCHING_DETAILS',
+              errorFetchingDetails: true
+            };
+          }
+        })
+      );
+
+      const validProcessedPackages = processedPackages.filter(p => p && typeof p.id !== 'undefined' && p.id !== null);
+      console.log('Final list of all processedPackages (to be set in state):', JSON.stringify(validProcessedPackages, null, 2));
+      return validProcessedPackages;
+
+    } catch (error) {
+      console.error('Error in fetchPackages main try block (fetching user package list initial call):', error);
+      setError('Ошибка загрузки списка пакетов: ' + (error.response?.data?.message || error.message));
       return [];
     }
   };
@@ -290,7 +685,9 @@ const Profile = () => {
       setLoading(true);
       setError('');
       setSuccess('');
+      if (process.env.NODE_ENV === 'development') {
       console.log('Initializing Profile component...');
+      }
       try {
         const [userDataRes, policiesRes, packagesRes, applicationsRes] = await Promise.all([
           api.get('/api/users/profile'),
@@ -299,29 +696,37 @@ const Profile = () => {
           fetchAllApplications()
         ]);
 
-        console.log('User data response:', userDataRes.data);
-        setUserData(userDataRes.data);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Profile data loaded successfully');
+          if (packagesRes?.length > 0) {
+            console.log(`Loaded ${packagesRes.length} packages`);
+          }
+        }
 
-        console.log('Fetched Policies:', policiesRes);
+        setUserData(userDataRes.data);
         setPolicies(policiesRes);
 
-        console.log('Fetched Packages:', packagesRes);
         if (Array.isArray(packagesRes)) {
-            packagesRes.forEach(pkg => {
-                console.log(`Package ID: ${pkg.id}, Name: ${pkg.name}, Discount: ${pkg.discount}, Status: ${pkg.status}, applicationsInPackage:`, pkg.applicationsInPackage);
-                if (!Array.isArray(pkg.applicationsInPackage)) {
-                    console.warn(`Package ID: ${pkg.id} has non-array applicationsInPackage. Correcting.`);
-                    pkg.applicationsInPackage = [];
-                }
-            });
-            setPackages(packagesRes);
+          const validPackages = packagesRes.filter(pkg => pkg && typeof pkg === 'object');
+          setPackages(validPackages);
         } else {
-            console.warn('Fetched packages is not an array:', packagesRes);
-            setPackages([]);
+          setPackages([]);
         }
         
-        console.log('Fetched All Applications:', applicationsRes);
         setApplications(applicationsRes);
+
+        if (location.state?.success) {
+          setSuccess(location.state.message || 'Операция выполнена успешно');
+          setSnackbarMessage(location.state.message || 'Операция выполнена успешно');
+          setSnackbarSeverity('success');
+          
+          if (location.state.packageId) {
+            setFocusedPackageId(location.state.packageId);
+            setTabValue(0);
+          }
+          
+          navigate(location.pathname, { replace: true });
+        }
 
       } catch (err) {
         console.error('Error initializing profile:', err);
@@ -330,8 +735,9 @@ const Profile = () => {
         setLoading(false);
       }
     };
+
     initializeData();
-  }, [user]);
+  }, [user, location.state?.shouldRefresh]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -345,7 +751,7 @@ const Profile = () => {
       setOpenSnackbar(true);
       return;
     }
-    setLoading(true);
+      setLoading(true);
     try {
       let response;
       const upperCaseType = type.toUpperCase();
@@ -424,7 +830,7 @@ const Profile = () => {
       const [newPolicies, newApplications] = await Promise.all([fetchPolicies(), fetchAllApplications()]);
       setPolicies(newPolicies);
       setApplications(newApplications);
-    } catch (e) {
+                } catch (e) {
       console.error('Error cancelling policy:', e);
       const apiErrorMessage = e.response?.data?.message || e.response?.data?.error || e.message;
       setError('Ошибка при отмене полиса: ' + apiErrorMessage);
@@ -499,154 +905,6 @@ const Profile = () => {
     setCancelDialogOpen(true);
   };
   
-  const PackageItem = ({ pkg, onPayment, onCancel }) => {
-    const [expanded, setExpandedItem] = useState(false);
-    const [itemLoading, setItemLoading] = useState(false);
-  
-    const handleItemPayment = async () => {
-      setItemLoading(true);
-      try {
-        await onPayment(pkg.id);
-      } finally {
-        setItemLoading(false);
-      }
-    };
-  
-    const handleItemCancel = async () => {
-      setItemLoading(true);
-      try {
-        await onCancel(pkg.id);
-      } finally {
-        setItemLoading(false);
-      }
-    };
-  
-    const calculateTotalAmount = () => {
-      if (!pkg.applicationsInPackage || !Array.isArray(pkg.applicationsInPackage) || pkg.applicationsInPackage.length === 0) {
-        return 0;
-      }
-      return pkg.applicationsInPackage.reduce((sum, app) => {
-        const amount = parseFloat(app.amount || app.calculatedAmount || 0);
-        return sum + amount;
-      }, 0);
-    };
-  
-    const calculateDiscountedAmount = () => {
-      const total = calculateTotalAmount();
-      if (total === 0) return 0;
-      return total * (1 - (parseFloat(pkg.discount || 0)) / 100);
-    };
-  
-    const totalAmount = calculateTotalAmount();
-    const discountedAmount = pkg.finalAmount ? parseFloat(pkg.finalAmount) : calculateDiscountedAmount();
-    const applications = Array.isArray(pkg.applicationsInPackage) ? pkg.applicationsInPackage : [];
-  
-    return (
-      <Box sx={{ mb: 2 }}>
-        <Paper sx={{ p: 2, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
-          <Box onClick={() => setExpandedItem(!expanded)} sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <IconButton size="small" sx={{ mr: 1, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>
-              <ChevronRightIcon />
-            </IconButton>
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="subtitle1">
-                {pkg.name || 'Пакет без имени'} {pkg.discount > 0 && `(скидка ${pkg.discount}%)`}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {applications.map(app => getInsuranceTypeDisplay(app.applicationType)).filter(Boolean).join(', ') || 'Полисы не указаны'}
-              </Typography>
-            </Box>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                label={getPackageStatusDisplay(pkg.status)}
-                color={getPackageStatusColor(pkg.status)}
-                size="small"
-              />
-              <Typography variant="body2" color="text.secondary">
-                {discountedAmount > 0 ? `${discountedAmount.toLocaleString('ru-RU')} ₽` : (totalAmount > 0 ? 'Расчёт скидки...' : 'Расчёт...')}
-              </Typography>
-            </Stack>
-          </Box>
-  
-          <Collapse in={expanded} timeout="auto" unmountOnExit>
-            <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>Информация о пакете:</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">Общая стоимость: {totalAmount > 0 ? `${totalAmount.toLocaleString('ru-RU')} ₽` : 'Расчёт...'}</Typography>
-                  <Typography variant="body2" color="text.secondary">Стоимость со скидкой: {discountedAmount > 0 ? `${discountedAmount.toLocaleString('ru-RU')} ₽` : 'Расчёт...'}</Typography>
-                  <Typography variant="body2" color="text.secondary">Экономия: {(totalAmount > 0 && discountedAmount > 0 && totalAmount > discountedAmount) ? `${(totalAmount - discountedAmount).toLocaleString('ru-RU')} ₽` : '0 ₽'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">Всего полисов: {applications.length}</Typography>
-                  <Typography variant="body2" color="text.secondary">Статус: {getPackageStatusDisplay(pkg.status)}</Typography>
-                  <Typography variant="body2" color="text.secondary">Дата создания: {formatDate(pkg.createdAt)}</Typography>
-                </Grid>
-              </Grid>
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>Полисы в пакете ({applications.length}):</Typography>
-            <Grid container spacing={2}>
-              {applications.map((app, index) => (
-                <Grid item xs={12} key={`pkg-app-${pkg.id}-${app.id || index}`}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Grid container spacing={1}>
-                        <Grid item xs={12} sm={4}>
-                          <Typography variant="body1" component="div" gutterBottom>{getInsuranceTypeDisplay(app.applicationType) || 'Неизвестный тип'}</Typography>
-                          <Typography variant="body2" color="text.secondary">Номер заявки: {app.id || 'N/A'}</Typography>
-                          <Typography variant="body2" color="text.secondary">Статус: {getStatusText(app.status) || 'Неизвестно'}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                           <Typography variant="subtitle2" gutterBottom>Сроки</Typography>
-                           <Typography variant="body2" color="text.secondary">Начало: {formatDate(app.startDate)}</Typography>
-                           <Typography variant="body2" color="text.secondary">Окончание: {formatDate(app.endDate)}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <Typography variant="subtitle2" gutterBottom>Стоимость</Typography>
-                          <Typography variant="body2" color="text.secondary">Базовая: {app.amount ? `${Number(app.amount).toLocaleString('ru-RU')} ₽` : (app.calculatedAmount ? `${Number(app.calculatedAmount).toLocaleString('ru-RU')} ₽` : 'Расчёт...')}</Typography>
-                          <Typography variant="body2" color="text.secondary">Со скидкой: {(app.amount || app.calculatedAmount) ? `${(Number(app.amount || app.calculatedAmount) * (1 - (parseFloat(pkg.discount || 0)) / 100)).toLocaleString('ru-RU')} ₽` : 'Расчёт...'}</Typography>
-                        </Grid>
-                        {app.additionalInfo && <Grid item xs={12}><Typography variant="body2" color="text.secondary">Доп. инфо: {app.additionalInfo}</Typography></Grid>}
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-              {canPayPackage(pkg) && (
-                <Button variant="contained" color="primary" onClick={handleItemPayment} disabled={itemLoading || totalAmount === 0 || loading}>
-                  {itemLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-                  Оплатить пакет
-                </Button>
-              )}
-              {pkg.status?.toUpperCase() === 'ACTIVE' && (
-                <Button variant="outlined" color="error" onClick={handleItemCancel} disabled={itemLoading || loading}>
-                  {itemLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-                  Отменить пакет
-                </Button>
-              )}
-            </Box>
-          </Collapse>
-        </Paper>
-      </Box>
-    );
-  };
-
-  const PackagesView = ({ packages, onPayPackage, onCancelPackage }) => {
-    if (!Array.isArray(packages) || packages.length === 0) {
-      return <Typography variant="body1" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>У вас пока нет страховых пакетов</Typography>;
-    }
-    return (
-      <Box sx={{ mt: 2 }}>
-        {packages.map((pkg) => (
-          <PackageItem key={`package-list-${pkg.id}`} pkg={pkg} onPayment={onPayPackage} onCancel={onCancelPackage} />
-        ))}
-      </Box>
-    );
-  };
-  
   const renderPoliciesTableBody = () => {
     const combinedPolicies = [
       ...(Array.isArray(policies) ? policies.map(p => ({ ...p, source: 'policy', uniqueKey: `policy-tbl-${p.id}` })) : []),
@@ -660,14 +918,13 @@ const Profile = () => {
       )
     ];
     
-    // Filter to show actual policies, or applications that are still payable
     const standalonePolicies = combinedPolicies.filter(p => 
       p.source === 'policy' || 
       (p.source === 'application' && canPayApplication(p.status))
     );
 
     if (standalonePolicies.length === 0) {
-      return (
+            return (
         <TableRow>
           <TableCell colSpan={7} align="center">
             <Typography variant="body1" color="text.secondary">У вас пока нет оформленных полисов</Typography>
@@ -677,7 +934,6 @@ const Profile = () => {
     }
 
     return standalonePolicies.map((policy) => {
-      // console.log('Policy object in renderPoliciesTableBody:', JSON.parse(JSON.stringify(policy))); // Оставляем для отладки, если нужно
       const policyTypeForPayment = policy.applicationType_from_key || policy.applicationType || policy.type || policy.category?.name;
       return (
         <TableRow key={policy.uniqueKey}>
@@ -685,36 +941,40 @@ const Profile = () => {
           <TableCell>{policy.id}</TableCell>
           <TableCell>{formatDate(policy.startDate || policy.applicationDate)}</TableCell>
           <TableCell>{formatDate(policy.endDate)}</TableCell>
-          <TableCell>
+                <TableCell>
             <Chip label={getStatusText(policy.status)} color={getStatusColor(policy.status)} size="small" />
-          </TableCell>
-          <TableCell>
+                </TableCell>
+                <TableCell>
             {policy.amount || policy.price || policy.calculatedAmount ?
               `${Number(policy.amount || policy.price || policy.calculatedAmount).toLocaleString('ru-RU')} ₽`
               : 'Расчёт...'}
-          </TableCell>
-          <TableCell>
+                </TableCell>
+                <TableCell>
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" color="primary" size="small" onClick={() => handleViewPolicy(policy)} disabled={loading}>Подробнее</Button>
               {policy.status?.toUpperCase() === 'ACTIVE' && (
                 <Button variant="outlined" color="error" size="small" onClick={() => handleCancelPolicy(policy)} disabled={loading}>Отменить</Button>
               )}
               {canPayApplication(policy.status) && (
-                <Button 
-                  variant="contained" 
+                      <Button
+                        variant="contained"
                   color="success" 
-                  size="small" 
+                        size="small"
                   onClick={() => handlePayment(policy.id, policyTypeForPayment)} 
                   disabled={loading || !policyTypeForPayment}
-                >
-                  Оплатить
-                </Button>
-              )}
-            </Stack>
-          </TableCell>
-        </TableRow>
-      );
+                      >
+                        Оплатить
+                      </Button>
+                    )}
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            );
     });
+  };
+
+  const handleContinuePackage = (packageId) => {
+    navigate(`/packages/${packageId}/apply`);
   };
 
   if (loading && !userData) {
@@ -726,13 +986,13 @@ const Profile = () => {
   }
 
   if (!userData && !loading) {
-      return (
-          <Container maxWidth="lg" sx={{ mt: 4 }}>
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
               <Alert severity="warning">Не удалось загрузить данные пользователя. Пожалуйста, попробуйте обновить страницу или войдите снова.</Alert>
           </Container>
       );
   }
-  
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, position: 'relative' }}>
       {loading && (
@@ -769,7 +1029,13 @@ const Profile = () => {
             </Box>
 
             {tabValue === 0 && (
-              <PackagesView packages={packages} onPayPackage={handlePayPackage} onCancelPackage={handleCancelPackage} />
+              <PackagesView 
+                packages={packages} 
+                onPayPackage={handlePayPackage} 
+                onCancelPackage={handleCancelPackage}
+                onContinuePackage={handleContinuePackage}
+                focusedPackageId={focusedPackageId}
+              />
             )}
             {tabValue === 1 && (
               <TableContainer component={Paper} sx={{ mt: 2 }}>
@@ -825,8 +1091,8 @@ const Profile = () => {
           <Button onClick={() => setCancelDialogOpen(false)} disabled={loading}>Закрыть</Button>
           {selectedPolicy && selectedPolicy.status?.toUpperCase() === 'ACTIVE' && (
             <Button onClick={confirmCancelPolicy} color="error" variant="contained" disabled={loading} sx={{ '&:hover': { backgroundColor: '#d32f2f' } }}>
-              {loading ? 'Обработка...' : 'Прекратить полис'}
-            </Button>
+            {loading ? 'Обработка...' : 'Прекратить полис'}
+          </Button>
           )}
         </DialogActions>
       </Dialog>

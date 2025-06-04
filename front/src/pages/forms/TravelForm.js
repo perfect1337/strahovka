@@ -1,305 +1,424 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Button, 
-  Typography, 
-  Alert, 
-  Snackbar, 
-  FormControl, 
-  InputLabel, 
-  MenuItem, 
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import {
+  Box,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
   Select,
+  MenuItem,
+  Typography,
   Grid,
   Paper,
-  Checkbox,
   FormControlLabel,
+  Checkbox,
+  Alert,
   FormGroup,
-  Container
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import InsuranceFormWrapper from '../../components/InsuranceFormWrapper';
 
-const initialFormState = {
-  firstName: '',
-  lastName: '',
-  middleName: '',
-    passportNumber: '',
-    passportExpiry: null,
-    destinationCountry: '',
-    travelStartDate: null,
-    travelEndDate: null,
-    purposeOfTrip: 'TOURISM',
-    coverMedicalExpenses: true,
-    coverAccidents: true,
-    coverLuggage: false,
-    coverTripCancellation: false,
-    coverSportsActivities: false,
-    hasChronicDiseases: false,
-    plannedSportsActivities: '',
-    notes: ''
-};
-
-const formatDateForApi = (date) => {
-  if (!date) return null;
-  if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) return date;
-  try {
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0];
-  } catch (e) {
-    return null;
-  }
-};
-
-const TravelFormContent = ({ isAuthenticated, onSubmit: onSubmitFromWrapper }) => {
-  const [form, setForm] = useState(initialFormState);
-  const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState(null);
-  const [formError, setFormError] = useState(null);
-  const [successInfo, setSuccessInfo] = useState(null);
-  
+const TravelForm = ({ onSubmit, initialData = {}, isPartOfPackage = false }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const auth = useAuth();
+  const [formData, setFormData] = useState({
+    firstName: initialData.firstName || (user ? user.firstName : ''),
+    lastName: initialData.lastName || (user ? user.lastName : ''),
+    middleName: initialData.middleName || (user ? user.middleName : ''),
+    birthDate: initialData.birthDate || null,
+    passport: initialData.passport || '',
+    internationalPassport: initialData.internationalPassport || '',
+    passportExpiry: initialData.passportExpiry || null,
+    phone: initialData.phone || (user ? user.phone : ''),
+    email: initialData.email || (user ? user.email : ''),
+    countries: initialData.countries || [],
+    startDate: initialData.startDate || null,
+    endDate: initialData.endDate || null,
+    purpose: initialData.purpose || 'TOURISM',
+    coverageAmount: initialData.coverageAmount || '30000',
+    hasChronic: initialData.hasChronic || false,
+    chronicDetails: initialData.chronicDetails || '',
+    needsSports: initialData.needsSports || false,
+    sportsType: initialData.sportsType || '',
+  });
 
-  useEffect(() => {
-    if (isAuthenticated && auth.user) {
-      setForm(prev => ({
-        ...prev,
-        firstName: auth.user.firstName || '',
-        lastName: auth.user.lastName || '',
-        middleName: auth.user.middleName || ''
-      }));
-    }
-  }, [isAuthenticated, auth.user]);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm(prev => ({
+  const handleChange = (field) => (event) => {
+    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [field]: value
     }));
+    setError('');
+    setSuccessMessage('');
   };
 
-  const handleDateChange = (name, value) => {
-    setForm(prev => ({
+  const handleDateChange = (field) => (date) => {
+    setFormData(prev => ({
       ...prev,
-      [name]: value
+      [field]: date
     }));
+    setError('');
+    setSuccessMessage('');
   };
 
-  const validateForm = () => {
-    const requiredFields = [
-      'passportNumber',
-      'passportExpiry',
-      'destinationCountry',
-      'travelStartDate',
-      'travelEndDate',
-      'purposeOfTrip'
-    ];
-    if (!isAuthenticated) {
-      requiredFields.push('firstName', 'lastName');
-    }
-
-    for (const field of requiredFields) {
-      if (!form[field]) {
-        setFormError(`Поле "${field}" обязательно для заполнения.`);
-        return false;
-    }
-    }
-    setFormError(null);
-    return true;
-  };
-
-  const handleSubmitClick = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
-    setApiError(null);
-    setFormError(null);
-    setSuccessInfo(null);
-
-    const applicationDataForWrapper = {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      middleName: form.middleName,
-      passportNumber: form.passportNumber,
-      passportExpiry: formatDateForApi(form.passportExpiry),
-      destinationCountry: form.destinationCountry,
-      travelStartDate: formatDateForApi(form.travelStartDate),
-      travelEndDate: formatDateForApi(form.travelEndDate),
-      purposeOfTrip: form.purposeOfTrip,
-      coverMedicalExpenses: form.coverMedicalExpenses,
-      coverAccidents: form.coverAccidents,
-      coverLuggage: form.coverLuggage,
-      coverTripCancellation: form.coverTripCancellation,
-      coverSportsActivities: form.coverSportsActivities,
-      hasChronicDiseases: form.hasChronicDiseases,
-      plannedSportsActivities: form.plannedSportsActivities,
-      notes: form.notes
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    console.log('[TravelForm] Form submission triggered');
+    console.log('[TravelForm] onSubmit prop type:', typeof onSubmit);
+    console.log('[TravelForm] Initial Form data for submission:', JSON.parse(JSON.stringify(formData)));
     
-    try {
-      const response = await onSubmitFromWrapper(applicationDataForWrapper);
+    if (!formData.firstName || !formData.lastName || !formData.birthDate || 
+        !formData.passport || !formData.internationalPassport || !formData.passportExpiry ||
+        !formData.phone || !formData.email || !formData.startDate || 
+        !formData.endDate || !formData.countries.length || !formData.coverageAmount ||
+        !formData.purpose) {
+      setError('Пожалуйста, заполните все обязательные поля, включая цель поездки и срок действия загранпаспорта.');
+      return;
+    }
+    if (formData.hasChronic && !formData.chronicDetails) {
+      setError('Пожалуйста, укажите детали хронических заболеваний');
+      return;
+    }
+    if (formData.needsSports && !formData.sportsType) {
+      setError('Пожалуйста, укажите вид спорта');
+      return;
+    }
+    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+      setError('Дата начала должна быть раньше даты окончания');
+      return;
+    }
 
-      if (response?.data) {
-        if (!isAuthenticated && response.data.accessToken) {
-          localStorage.setItem('token', response.data.accessToken);
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
-          await auth.validateAndGetUser();
-        }
-        setSuccessInfo(`Заявка на страхование путешествий успешно отправлена! ID: ${response.data.id || 'N/A'}. Вы будете перенаправлены через 3 секунды.`);
+    console.log('[TravelForm] Form data AFTER validation:', JSON.parse(JSON.stringify(formData)));
+
+    if (!onSubmit) {
+      if (isPartOfPackage) {
+        const errMessage = 'Ошибка: функция onSubmit не определена, но форма является частью пакета.';
+        console.error('[TravelForm]', errMessage, { isPartOfPackage, onSubmit });
+        setError(errMessage);
+        return;
+      }
+      
+      console.log('[TravelForm] Автономный режим: попытка отправки данных формы:', formData);
+      setIsSubmitting(true);
+      try {
+        const payload = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          middleName: formData.middleName,
+          birthDate: formData.birthDate,
+          email: formData.email,
+          phone: formData.phone,
+          passportNumber: formData.internationalPassport,
+          passportExpiry: formData.passportExpiry,
+          destinationCountry: formData.countries.length > 0 ? formData.countries[0] : null,
+          travelStartDate: formData.startDate,
+          travelEndDate: formData.endDate,
+          purposeOfTrip: formData.purpose,
+          coverageAmount: formData.coverageAmount,
+          hasChronicDiseases: formData.hasChronic,
+          plannedSportsActivities: formData.needsSports ? formData.sportsType : null,
+        };
+
+        Object.keys(payload).forEach(key => (payload[key] == null) && delete payload[key]);
+
+        console.log('[TravelForm] Autonomous submission payload:', payload);
+        const apiResponse = await api.post('/api/insurance/applications/travel', payload);
+        console.log('[TravelForm] Autonomous submission successful:', apiResponse.data);
+        setSuccessMessage('Ваша заявка на страхование путешествий успешно отправлена!');
         
-        setTimeout(() => {
-          navigate('/profile'); 
-        }, 3000);
-      } else {
-        setApiError("Не удалось получить ожидаемые данные от сервера.");
+        navigate('/applications/success', { 
+          state: { 
+            applicationId: apiResponse.data.id, 
+            calculatedAmount: apiResponse.data.calculatedAmount,
+            message: 'Заявка на страхование путешествий успешно создана.',
+            type: 'TRAVEL'
+          } 
+        });
+      } catch (err) {
+        console.error('[TravelForm] Autonomous submission error:', err);
+        setError('Ошибка при отправке заявки: ' + (err.response?.data?.message || err.message || 'Неизвестная ошибка сервера'));
+      } finally {
+        setIsSubmitting(false);
       }
+      return; 
+    }
+
+    if (typeof onSubmit !== 'function') {
+      const errMessage = 'Ошибка: onSubmit не является функцией.';
+      console.error('[TravelForm]', errMessage, { typeofOnSubmit: typeof onSubmit });
+      setError(errMessage);
+      return;
+    }
+
+    try {
+      console.log('[TravelForm] Calling provided onSubmit with data:', formData);
+      setIsSubmitting(true);
+      await onSubmit(formData);
     } catch (error) {
-      console.error('Travel application error (TravelFormContent):', error);
-      const errorData = error.response?.data;
-      let errorMessage = 'Ошибка при создании заявки на страхование путешествий.';
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData && (errorData.error || errorData.message)) {
-        errorMessage = errorData.error || errorData.message;
-      } else if (Array.isArray(errorData)) {
-        errorMessage = errorData.join(', ');
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      setApiError(errorMessage);
+      console.error('[TravelForm] Error calling provided onSubmit:', error);
+      setError('Произошла ошибка при обработке формы: ' + (error.message || 'Неизвестная ошибка'));
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Paper elevation={0} sx={{ p: isAuthenticated ? 0 : 3, mt: isAuthenticated ? 0 : 3 }}>
-        <Typography variant="h5" gutterBottom component="div" sx={{ mb: 3 }}>
+    <Paper elevation={isPartOfPackage ? 0 : 3} sx={{ p: 3 }}>
+      {!isPartOfPackage && (
+        <Typography variant="h5" gutterBottom>
           Страхование для путешествий
         </Typography>
+      )}
 
-        {apiError && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{apiError}</Alert>}
-        {formError && <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>{formError}</Alert>}
-        {successInfo && <Alert severity="success" sx={{ mt: 2, mb: 2 }}>{successInfo}</Alert>}
-        
-          <Grid container spacing={3}>
-          {!isAuthenticated && (
-            <>
-              <Grid item xs={12} md={4}>
-                <TextField required fullWidth label="Имя" name="firstName" value={form.firstName} onChange={handleChange} />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField required fullWidth label="Фамилия" name="lastName" value={form.lastName} onChange={handleChange} />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField fullWidth label="Отчество (если есть)" name="middleName" value={form.middleName} onChange={handleChange} />
-              </Grid>
-            </>
-          )}
-          {isAuthenticated && auth.user && (
-             <Grid item xs={12}>
-                <Typography variant="subtitle1">
-                  Заявитель: {auth.user.firstName} {auth.user.lastName} {auth.user.middleName || ''}
-                </Typography>
-             </Grid>
-          )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {successMessage && !isPartOfPackage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
 
-            <Grid item xs={12} sm={6}>
-            <TextField required fullWidth label="Номер загранпаспорта" name="passportNumber" value={form.passportNumber} onChange={handleChange}/>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-            <DatePicker label="Срок действия загранпаспорта *" value={form.passportExpiry} onChange={(newValue) => handleDateChange('passportExpiry', newValue)} renderInput={(params) => <TextField {...params} required fullWidth />} />
-            </Grid>
-
-            <Grid item xs={12}>
-            <TextField required fullWidth label="Страна назначения" name="destinationCountry" value={form.destinationCountry} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-            <DatePicker label="Дата начала поездки *" value={form.travelStartDate} onChange={(newValue) => handleDateChange('travelStartDate', newValue)} renderInput={(params) => <TextField {...params} required fullWidth />} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-            <DatePicker label="Дата окончания поездки *" value={form.travelEndDate} onChange={(newValue) => handleDateChange('travelEndDate', newValue)} renderInput={(params) => <TextField {...params} required fullWidth />} />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Цель поездки</InputLabel>
-              <Select name="purposeOfTrip" value={form.purposeOfTrip} onChange={handleChange} label="Цель поездки">
-                  <MenuItem value="TOURISM">Туризм</MenuItem>
-                  <MenuItem value="BUSINESS">Бизнес</MenuItem>
-                  <MenuItem value="EDUCATION">Образование</MenuItem>
-                  <MenuItem value="SPORTS">Спорт</MenuItem>
-                  <MenuItem value="OTHER">Другое</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Страховое покрытие</Typography>
-              <FormGroup>
-              <FormControlLabel control={<Checkbox checked={form.coverMedicalExpenses} onChange={handleChange} name="coverMedicalExpenses" />} label="Медицинские расходы" />
-              <FormControlLabel control={<Checkbox checked={form.coverAccidents} onChange={handleChange} name="coverAccidents" />} label="Несчастные случаи" />
-              <FormControlLabel control={<Checkbox checked={form.coverLuggage} onChange={handleChange} name="coverLuggage" />} label="Багаж" />
-              <FormControlLabel control={<Checkbox checked={form.coverTripCancellation} onChange={handleChange} name="coverTripCancellation" />} label="Отмена поездки" />
-              <FormControlLabel control={<Checkbox checked={form.coverSportsActivities} onChange={handleChange} name="coverSportsActivities" />} label="Занятия спортом (включая активный отдых)" />
-              </FormGroup>
-            </Grid>
-
-          {form.coverSportsActivities && (
-            <Grid item xs={12}>
-              <TextField fullWidth label="Укажите планируемые виды спорта" name="plannedSportsActivities" value={form.plannedSportsActivities} onChange={handleChange} multiline rows={2} />
-              </Grid>
-            )}
-
-              <Grid item xs={12}>
-            <FormGroup>
-                <FormControlLabel control={<Checkbox checked={form.hasChronicDiseases} onChange={handleChange} name="hasChronicDiseases" />} label="Наличие хронических заболеваний (важно для оценки риска)" />
-            </FormGroup>
-              </Grid>
-
-            <Grid item xs={12}>
-            <TextField fullWidth label="Дополнительные примечания" name="notes" value={form.notes} onChange={handleChange} multiline rows={3} sx={{mt:1}} />
+      <form onSubmit={handleSubmit}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Фамилия"
+              value={formData.lastName}
+              onChange={handleChange('lastName')}
+              required
+              disabled={isSubmitting}
+            />
           </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Имя"
+              value={formData.firstName}
+              onChange={handleChange('firstName')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Отчество"
+              value={formData.middleName}
+              onChange={handleChange('middleName')}
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Дата рождения"
+              value={formData.birthDate ? new Date(formData.birthDate) : null}
+              onChange={handleDateChange('birthDate')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Серия и номер паспорта РФ"
+              value={formData.passport}
+              onChange={handleChange('passport')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Серия и номер загранпаспорта"
+              value={formData.internationalPassport}
+              onChange={handleChange('internationalPassport')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Срок действия загранпаспорта"
+              value={formData.passportExpiry ? new Date(formData.passportExpiry) : null}
+              onChange={handleDateChange('passportExpiry')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Телефон"
+              value={formData.phone}
+              onChange={handleChange('phone')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange('email')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControl fullWidth required disabled={isSubmitting}>
+              <InputLabel>Страны посещения</InputLabel>
+              <Select
+                multiple
+                value={formData.countries}
+                onChange={handleChange('countries')}
+                label="Страны посещения"
+              >
+                <MenuItem value="USA">США</MenuItem>
+                <MenuItem value="SCHENGEN">Шенген</MenuItem>
+                <MenuItem value="ASIA">Азия</MenuItem>
+                <MenuItem value="OTHER">Другие страны</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Дата начала поездки"
+              value={formData.startDate ? new Date(formData.startDate) : null}
+              onChange={handleDateChange('startDate')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <DatePicker
+              label="Дата окончания поездки"
+              value={formData.endDate ? new Date(formData.endDate) : null}
+              onChange={handleDateChange('endDate')}
+              slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControl fullWidth required disabled={isSubmitting}>
+              <InputLabel>Цель поездки</InputLabel>
+              <Select
+                value={formData.purpose}
+                onChange={handleChange('purpose')}
+                label="Цель поездки"
+              >
+                <MenuItem value="TOURISM">Туризм</MenuItem>
+                <MenuItem value="BUSINESS">Бизнес</MenuItem>
+                <MenuItem value="STUDY">Учеба</MenuItem>
+                <MenuItem value="SPORT">Спорт</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Сумма покрытия"
+              type="number"
+              value={formData.coverageAmount}
+              onChange={handleChange('coverageAmount')}
+              required
+              disabled={isSubmitting}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.hasChronic}
+                    onChange={handleChange('hasChronic')}
+                    disabled={isSubmitting}
+                  />
+                }
+                label="Есть хронические заболевания"
+              />
+            </FormGroup>
+          </Grid>
+
+          {formData.hasChronic && (
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Опишите хронические заболевания"
+                multiline
+                rows={3}
+                value={formData.chronicDetails}
+                onChange={handleChange('chronicDetails')}
+                required={formData.hasChronic}
+                disabled={isSubmitting}
+              />
+            </Grid>
+          )}
+
+          <Grid item xs={12}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.needsSports}
+                    onChange={handleChange('needsSports')}
+                    disabled={isSubmitting}
+                  />
+                }
+                label="Планирую заниматься спортом"
+              />
+            </FormGroup>
+          </Grid>
+
+          {formData.needsSports && (
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Укажите вид спорта"
+                value={formData.sportsType}
+                onChange={handleChange('sportsType')}
+                required={formData.needsSports}
+                disabled={isSubmitting}
+              />
+            </Grid>
+          )}
         </Grid>
 
-        <Button variant="contained" size="large" fullWidth sx={{ mt: 3 }} disabled={loading} onClick={handleSubmitClick}>
-          {loading ? 'Отправка...' : 'Отправить заявку'}
-        </Button>
-      </Paper>
-    </LocalizationProvider>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            size="large"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Отправка...' : (isPartOfPackage ? 'Далее' : 'Оформить полис')}
+          </Button>
+        </Box>
+      </form>
+    </Paper>
   );
 };
 
-const TravelForm = () => {
-  const auth = useAuth();
-  
-  const handleSubmitFromWrapper = async (dataFromWrapper) => {
-    let url;
-    if (!auth.user && dataFromWrapper.email) { 
-      url = '/api/insurance/unauthorized/travel';
-    } else { 
-      url = '/api/insurance/applications/travel';
-    }
-    console.log(`[TravelForm] Submitting to URL: ${url} with payload:`, JSON.stringify(dataFromWrapper));
-    return api.post(url, dataFromWrapper); 
-  };
-
-  return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <InsuranceFormWrapper onSubmit={handleSubmitFromWrapper}>
-        <TravelFormContent />
-      </InsuranceFormWrapper>
-    </Container>
-  );
+TravelForm.propTypes = {
+  onSubmit: PropTypes.func,
+  initialData: PropTypes.object,
+  isPartOfPackage: PropTypes.bool
 };
 
 export default TravelForm; 

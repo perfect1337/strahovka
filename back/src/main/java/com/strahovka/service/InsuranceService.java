@@ -465,13 +465,13 @@ public class InsuranceService {
         return insuranceCategoryRepository.findByNameAndType(displayNameRussian, technicalTypeEnglish)
             .orElseGet(() -> {
                 // If not found, create new category
-                InsuranceCategory newCategory = new InsuranceCategory();
-                newCategory.setName(displayNameRussian);
-                newCategory.setDescription(defaultDescription);
-                newCategory.setBasePrice(BigDecimal.ZERO);
-                newCategory.setType(technicalTypeEnglish);
-                return insuranceCategoryRepository.save(newCategory);
-            });
+            InsuranceCategory newCategory = new InsuranceCategory();
+            newCategory.setName(displayNameRussian);
+            newCategory.setDescription(defaultDescription);
+            newCategory.setBasePrice(BigDecimal.ZERO);
+            newCategory.setType(technicalTypeEnglish);
+            return insuranceCategoryRepository.save(newCategory);
+        });
     }
     
     private InsurancePolicy setupPolicyFromApplication(BaseApplication application, User user, String policyName, String policyDescriptionPrefix, InsuranceCategory category) {
@@ -518,10 +518,13 @@ public class InsuranceService {
         String categoryDisplayNameRussian, String categoryTechnicalTypeEnglish, String categoryDesc,
         java.util.function.Function<T, String> policyNameExtractor) {
 
-        T application = applicationRepository.findById(applicationId)
-                .filter(appClass::isInstance)
-                .map(appClass::cast)
-                .orElseThrow(() -> new EntityNotFoundException(appClass.getSimpleName() + " application not found with id: " + applicationId));
+        BaseApplication baseApplication = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new EntityNotFoundException("Application not found with id: " + applicationId));
+
+        if (!appClass.isInstance(baseApplication)) {
+            throw new EntityNotFoundException(appClass.getSimpleName() + " application found with id: " + applicationId + ", but it is of an unexpected type: " + baseApplication.getClass().getSimpleName());
+        }
+        T application = appClass.cast(baseApplication);
 
         User user = findUser(usernameOrEmail);
 
@@ -760,7 +763,17 @@ public class InsuranceService {
 
         policy.setStatus(PolicyStatus.CANCELLED);
         policy.setActive(false);
+        policy.setCancellationReason(reason);
+        policy.setCancelledAt(LocalDateTime.now());
+        policy.setRefundAmount(refundAmount);
         insuranceRepository.save(policy);
+
+        List<BaseApplication> relatedApplications = applicationRepository.findByPolicyId(policyId);
+        for (BaseApplication app : relatedApplications) {
+            app.setStatus("CANCELLED");
+            applicationRepository.save(app);
+            log.info("Updated status of related application ID {} to CANCELLED due to policy {} cancellation.", app.getId(), policyId);
+        }
 
         if (user.getPolicyCount() != null && user.getPolicyCount() > 0) {
              user.setPolicyCount(user.getPolicyCount() - 1);
@@ -874,6 +887,8 @@ public class InsuranceService {
             BaseApplication newApplication = null;
             String actualApplicationTypeForLink = null; // To store "KASKO", "OSAGO" for the link table
 
+            log.info("Processing package item. Label: '{}', Type from item: '{}', Data keys: {}", item.getLabel(), item.getType(), item.getData() != null ? item.getData().keySet() : "null");
+
             if (itemTypeLabel.contains("КАСКО")) {
                 KaskoApplicationRequest kaskoRequest = objectMapper.convertValue(item.getData(), KaskoApplicationRequest.class);
                 KaskoApplication kaskoApp = new KaskoApplication();
@@ -935,6 +950,83 @@ public class InsuranceService {
                 }
                 newApplication = applicationRepository.save(osagoApp);
                 actualApplicationTypeForLink = "OSAGO"; // Matches @DiscriminatorValue
+
+            } else if (itemTypeLabel.contains("ЗДОРОВЬЕ") || itemTypeLabel.toUpperCase().contains("HEALTH")) {
+                log.info("Attempting to process as HealthApplication. Data: {}", item.getData());
+                HealthApplication healthApp = objectMapper.convertValue(item.getData(), HealthApplication.class);
+                healthApp.setUser(packageUser);
+                healthApp.setApplicationDate(LocalDateTime.now());
+                healthApp.setStatus("PENDING_PACKAGE");
+
+                // coverageType and coverageAmount are expected from item.getData().
+                // These are crucial for displayName generation and other logic.
+
+                if (healthApp.getCalculatedAmount() == null) {
+                    // Using default from createHealthApplication as an example
+                    healthApp.setCalculatedAmount(new BigDecimal("5000.00"));
+                }
+                if (healthApp.getStartDate() == null) {
+                    healthApp.setStartDate(LocalDate.now());
+                }
+                if (healthApp.getEndDate() == null && healthApp.getStartDate() != null) {
+                    healthApp.setEndDate(healthApp.getStartDate().plusYears(1));
+                }
+                newApplication = applicationRepository.save(healthApp);
+                actualApplicationTypeForLink = "HEALTH";
+                if (newApplication != null) log.info("HealthApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("HealthApplication not created from data for item label '{}'.", item.getLabel());
+
+            } else if (itemTypeLabel.contains("ПУТЕШЕСТВИЯ") || itemTypeLabel.toUpperCase().contains("TRAVEL")) {
+                log.info("Attempting to process as TravelApplication. Data: {}", item.getData());
+                TravelApplication travelApp = objectMapper.convertValue(item.getData(), TravelApplication.class);
+                travelApp.setUser(packageUser);
+                travelApp.setApplicationDate(LocalDateTime.now());
+                travelApp.setStatus("PENDING_PACKAGE");
+
+                // destinationCountry, purposeOfTrip are expected from item.getData().
+
+                if (travelApp.getCalculatedAmount() == null) {
+                    travelApp.setCalculatedAmount(new BigDecimal("2500.00")); // Default
+                }
+                // Dates should be sourced from travelApp's specific fields if they exist from item.getData()
+                if (travelApp.getTravelStartDate() == null) {
+                    travelApp.setTravelStartDate(LocalDate.now().plusDays(7));
+                }
+                if (travelApp.getTravelEndDate() == null && travelApp.getTravelStartDate() != null) {
+                    travelApp.setTravelEndDate(travelApp.getTravelStartDate().plusDays(14));
+                }
+                // Ensure BaseApplication's startDate/endDate are also set from travel dates
+                travelApp.setStartDate(travelApp.getTravelStartDate());
+                travelApp.setEndDate(travelApp.getTravelEndDate());
+
+                newApplication = applicationRepository.save(travelApp);
+                actualApplicationTypeForLink = "TRAVEL";
+                if (newApplication != null) log.info("TravelApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("TravelApplication not created from data for item label '{}'.", item.getLabel());
+
+            } else if (itemTypeLabel.contains("НЕДВИЖИМОСТЬ") || itemTypeLabel.toUpperCase().contains("PROPERTY")) {
+                log.info("Attempting to process as PropertyApplication. Data: {}", item.getData());
+                PropertyApplication propertyApp = objectMapper.convertValue(item.getData(), PropertyApplication.class);
+                propertyApp.setUser(packageUser);
+                propertyApp.setApplicationDate(LocalDateTime.now());
+                propertyApp.setStatus("PENDING_PACKAGE");
+
+                // propertyType, propertyValue are expected from item.getData().
+
+                if (propertyApp.getCalculatedAmount() == null) {
+                    if (propertyApp.getPropertyValue() != null && propertyApp.getPropertyValue().compareTo(BigDecimal.ZERO) > 0) {
+                        propertyApp.setCalculatedAmount(propertyApp.getPropertyValue().multiply(new BigDecimal("0.005")).setScale(2, RoundingMode.HALF_UP));
+                    } else {
+                        propertyApp.setCalculatedAmount(new BigDecimal("3000.00")); // Default
+                    }
+                }
+                if (propertyApp.getStartDate() == null) {
+                    propertyApp.setStartDate(LocalDate.now());
+                }
+                if (propertyApp.getEndDate() == null && propertyApp.getStartDate() != null) {
+                    propertyApp.setEndDate(propertyApp.getStartDate().plusYears(1));
+                }
+                newApplication = applicationRepository.save(propertyApp);
+                actualApplicationTypeForLink = "PROPERTY";
+                if (newApplication != null) log.info("PropertyApplication created/saved successfully with ID: {}", newApplication.getId()); else log.warn("PropertyApplication not created from data for item label '{}'.", item.getLabel());
             }
             // Add other application types (HEALTH, TRAVEL, PROPERTY) here if needed
 
@@ -955,7 +1047,9 @@ public class InsuranceService {
 
                 insurancePackage.getApplicationLinks().add(link);
             } else {
-                System.err.println("Unrecognized application item type/label or missing application type for link: " + item.getType() + "/" + itemTypeLabel);
+                // System.err.println("Unrecognized application item type/label or missing application type for link: " + item.getType() + "/" + itemTypeLabel);
+                log.error("Unrecognized application item type/label or newApplication is null. Item Label: '{}', Item Type: '{}', Processed itemTypeLabel: '{}', actualApplicationTypeForLink: '{}'",
+                    item.getLabel(), item.getType(), itemTypeLabel, actualApplicationTypeForLink);
             }
         }
         
@@ -1013,12 +1107,58 @@ public class InsuranceService {
                         log.info("Including application in package: AppID={}, DeterminedType={}, User={}, PackageID={}", 
                                  app.getId(), actualAppType, user.getEmail(), pkg.getId());
                         
-                        String displayName = actualAppType; // Default display name before refinement
+                        String displayName = actualAppType != null ? actualAppType : "Тип не определен"; // Default if actualAppType is null
+
                         if (app instanceof KaskoApplication) {
-                            displayName = "КАСКО: " + ((KaskoApplication) app).getCarMake() + " " + ((KaskoApplication) app).getCarModel();
+                            KaskoApplication kaskoApp = (KaskoApplication) app;
+                            String carMake = kaskoApp.getCarMake();
+                            String carModel = kaskoApp.getCarModel();
+                            if (carMake != null && !carMake.isEmpty() && carModel != null && !carModel.isEmpty()) {
+                                displayName = "КАСКО: " + carMake + " " + carModel;
+                            } else {
+                                displayName = "КАСКО: (детали не указаны)";
+                            }
                         } else if (app instanceof OsagoApplication) {
-                            displayName = "ОСАГО: " + ((OsagoApplication) app).getCarMake() + " " + ((OsagoApplication) app).getCarModel();
-                        } // Add more types as needed
+                            OsagoApplication osagoApp = (OsagoApplication) app;
+                            String carMake = osagoApp.getCarMake();
+                            String carModel = osagoApp.getCarModel();
+                            if (carMake != null && !carMake.isEmpty() && carModel != null && !carModel.isEmpty()) {
+                                displayName = "ОСАГО: " + carMake + " " + carModel;
+                            } else {
+                                displayName = "ОСАГО: (детали не указаны)";
+                            }
+                        } else if (app instanceof HealthApplication) {
+                            HealthApplication healthApp = (HealthApplication) app;
+                            String coverageType = healthApp.getCoverageType();
+                            BigDecimal coverageAmount = healthApp.getCoverageAmount();
+                            String amountStr = (coverageAmount != null) ? coverageAmount.toPlainString() : "N/A";
+                            if (coverageType != null && !coverageType.isEmpty()) {
+                                displayName = "Здоровье: " + coverageType + " (до " + amountStr + "\u20BD)";
+                            } else if (coverageAmount != null) {
+                                displayName = "Здоровье: (тип не указан, сумма до " + amountStr + "\u20BD)";
+                            } else {
+                                displayName = "Здоровье: (детали не указаны)";
+                            }
+                        } else if (app instanceof TravelApplication) {
+                            TravelApplication travelApp = (TravelApplication) app;
+                            String destination = travelApp.getDestinationCountry();
+                            String purpose = travelApp.getPurposeOfTrip();
+                            if (destination != null && !destination.isEmpty() && purpose != null && !purpose.isEmpty()) {
+                                displayName = "Путешествия: " + destination + " (" + purpose + ")";
+                            } else if (destination != null && !destination.isEmpty()) {
+                                displayName = "Путешествия: " + destination + " (цель не указана)";
+                            } else {
+                                displayName = "Путешествия: (детали не указаны)";
+                            }
+                        } else if (app instanceof PropertyApplication) {
+                            PropertyApplication propertyApp = (PropertyApplication) app;
+                            String propertyType = propertyApp.getPropertyType();
+                            if (propertyType != null && !propertyType.isEmpty()) {
+                                displayName = "Имущество: " + propertyType;
+                            } else {
+                                displayName = "Имущество: (тип не указан)";
+                            }
+                        }
                         
                         return ApplicationDetailDTO.builder()
                             .id(app.getId())

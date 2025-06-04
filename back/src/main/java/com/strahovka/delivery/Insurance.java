@@ -442,6 +442,12 @@ public class Insurance {
 
         @Column(name = "family_doctor_needed")
         private Boolean familyDoctorNeeded;
+
+        @Column(name = "coverage_type")
+        private String coverageType;
+
+        @Column(name = "coverage_amount", precision = 10, scale = 2)
+        private BigDecimal coverageAmount;
     }
 
     @Data

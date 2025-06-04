@@ -7,9 +7,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
-public interface ApplicationRepository extends JpaRepository<BaseApplication, Long> {
+public interface            ApplicationRepository extends JpaRepository<BaseApplication, Long> {
+    Optional<BaseApplication> findById(Long id);
+
     @Query("SELECT a FROM Insurance$KaskoApplication a WHERE a.user.email = :email")
     List<KaskoApplication> findKaskoApplicationsByUsername(@Param("email") String email);
 
@@ -24,6 +27,8 @@ public interface ApplicationRepository extends JpaRepository<BaseApplication, Lo
 
     @Query("SELECT a FROM Insurance$TravelApplication a WHERE a.user.email = :email")
     List<TravelApplication> findTravelApplicationsByUsername(@Param("email") String email);
+
+    List<BaseApplication> findByPolicyId(Long policyId);
 
     void deleteApplicationById(Long id);
 } 
