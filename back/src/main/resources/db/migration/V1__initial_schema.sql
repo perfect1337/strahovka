@@ -217,6 +217,8 @@ CREATE TABLE claim_messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_claim_messages_user_id ON claim_messages(user_id);
+
 CREATE TABLE claim_comments (
     id BIGSERIAL PRIMARY KEY,
     claim_id BIGINT REFERENCES insurance_claims(id),
@@ -224,3 +226,5 @@ CREATE TABLE claim_comments (
     comment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ); 
+
+CREATE INDEX idx_claim_comments_user_id ON claim_comments(user_id); 

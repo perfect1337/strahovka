@@ -6,7 +6,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -17,13 +17,17 @@ spring:
         implicit_naming_strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
         generate_statistics: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
-    generate-ddl: true
+    generate-ddl: false
   flyway:
     enabled: true
-    out-of-order: true
+    clean-disabled: false
+    clean-on-validation-error: true
     baseline-on-migrate: true
     validate-on-migrate: false
+    repair-on-migrate: true
+    out-of-order: true
     locations: classpath:db/migration
+    validate-migration-naming: false
   sql:
     init:
       mode: never

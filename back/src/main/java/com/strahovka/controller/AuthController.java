@@ -39,8 +39,6 @@ public class AuthController {
     public ResponseEntity<com.strahovka.delivery.User> validateToken(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof com.strahovka.delivery.User) {
             com.strahovka.delivery.User currentUser = (com.strahovka.delivery.User) authentication.getPrincipal();
-            // Optionally, re-fetch user from DB if fresh data is critical
-            // For now, returning the principal from token.
             return ResponseEntity.ok(currentUser);
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

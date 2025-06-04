@@ -91,16 +91,25 @@ public class Claims {
         @JsonBackReference
         private InsuranceClaim claim;
 
+        @Column(name = "file_name")
         private String fileName;
+
+        @Column(name = "file_type")
         private String fileType;
+
+        @Column(name = "file_path")
         private String filePath;
+
+        @Column(name = "uploaded_at")
         private LocalDateTime uploadedAt;
 
         @Column(name = "file_size", nullable = false)
         private Long fileSize;
 
-        @Column(name = "uploaded_by", nullable = false)
-        private String uploadedBy;
+        @ManyToOne
+        @JoinColumn(name = "uploaded_by")
+        @JsonIgnoreProperties({"claims", "policies", "password", "refreshToken", "accessToken"})
+        private User uploadedBy;
 
         @PrePersist
         protected void onCreate() {
@@ -166,27 +175,15 @@ public class Claims {
         @JsonIgnoreProperties({"claims", "policies", "password", "refreshToken", "accessToken"})
         private User user;
 
-        private String comment;
+        @Column(name = "comment_text", nullable = false)
+        private String commentText;
+
+        @Column(name = "created_at")
         private LocalDateTime createdAt;
-
-        @Column(name = "created_by", nullable = false)
-        private String createdBy;
-
-        @Column(name = "updated_at")
-        private LocalDateTime updatedAt;
-
-        @Column(name = "updated_by")
-        private String updatedBy;
 
         @PrePersist
         protected void onCreate() {
             createdAt = LocalDateTime.now();
-            updatedAt = LocalDateTime.now();
-        }
-
-        @PreUpdate
-        protected void onUpdate() {
-            updatedAt = LocalDateTime.now();
         }
     }
 } 

@@ -4,5 +4,8 @@ public enum PackageStatus {
     PENDING,
     PARTIALLY_COMPLETED,
     COMPLETED,
-    CANCELLED
+    CANCELLED,
+    ACTIVE,
+    INACTIVE,
+    DELETED
 } 

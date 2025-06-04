@@ -104,7 +104,7 @@ const RealEstateForm = ({ onSubmit, initialData = {}, isPartOfPackage = false })
       setError('Пожалуйста, заполните все обязательные поля.');
       return;
     }
-    
+
     const cleanedPassport = formData.passport.trim().replace(/\s/g, '');
     if (cleanedPassport && !/^\d+$/.test(cleanedPassport)) { 
         setError('Неверный формат паспортных данных РФ. Ожидаются только цифры, если поле заполнено.');
@@ -142,7 +142,7 @@ const RealEstateForm = ({ onSubmit, initialData = {}, isPartOfPackage = false })
     if (isNaN(propertyValue) || propertyValue <= 0) {
       setError('Пожалуйста, укажите корректную сумму покрытия (стоимость имущества).');
       return;
-    }
+      }
 
     if (onSubmit) {
       if (typeof onSubmit !== 'function') {
@@ -272,11 +272,11 @@ const RealEstateForm = ({ onSubmit, initialData = {}, isPartOfPackage = false })
             <DatePicker label="Дата рождения" value={formData.birthDate ? new Date(formData.birthDate) : null} onChange={handleDateChange('birthDate')} slotProps={{ textField: { fullWidth: true, required: true, disabled: isSubmitting } }} />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField 
-              fullWidth 
+            <TextField
+              fullWidth
               label="Серия и номер паспорта РФ" 
-              value={formData.passport} 
-              onChange={handleChange('passport')} 
+              value={formData.passport}
+              onChange={handleChange('passport')}
               helperText="10 цифр. Для этого типа заявки не отправляется на сервер, но может быть нужен для пакета."
               disabled={isSubmitting} 
               required={false}
@@ -288,7 +288,7 @@ const RealEstateForm = ({ onSubmit, initialData = {}, isPartOfPackage = false })
           <Grid item xs={12} md={6}>
             <TextField fullWidth label="Телефон" value={formData.phone} onChange={handleChange('phone')} required disabled={isSubmitting || (!!user && !!user.phone && !initialData.phone)} />
           </Grid>
-          
+
           <Grid item xs={12} md={6}> 
             <FormControl fullWidth required disabled={isSubmitting}>
               <InputLabel>Тип недвижимости</InputLabel>
@@ -332,7 +332,7 @@ const RealEstateForm = ({ onSubmit, initialData = {}, isPartOfPackage = false })
           <Grid item xs={12} md={6}>
             <TextField fullWidth label="Номер документа о собственности" value={formData.ownershipDocumentNumber} onChange={handleChange('ownershipDocumentNumber')} required disabled={isSubmitting} />
           </Grid>
-          
+
           <Grid item xs={12}>
             <FormGroup row>
               <FormControlLabel control={<Checkbox checked={formData.hasSecuritySystem} onChange={handleChange('hasSecuritySystem')} disabled={isSubmitting} />} label="Охранная система" />
@@ -342,9 +342,9 @@ const RealEstateForm = ({ onSubmit, initialData = {}, isPartOfPackage = false })
           </Grid>
 
           {formData.hasMortgage && (
-            <Grid item xs={12}>
+          <Grid item xs={12}>
               <TextField fullWidth label="Банк, выдавший ипотеку" value={formData.mortgageBank} onChange={handleChange('mortgageBank')} required={formData.hasMortgage} disabled={isSubmitting} />
-            </Grid>
+          </Grid>
           )}
 
           <Grid item xs={12} md={6}>

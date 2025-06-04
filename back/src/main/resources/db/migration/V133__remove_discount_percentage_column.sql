@@ -1,1 +1,0 @@
-ALTER TABLE insurance_packages DROP COLUMN IF EXISTS discount_percentage; 

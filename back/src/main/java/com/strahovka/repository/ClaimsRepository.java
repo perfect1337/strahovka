@@ -49,8 +49,9 @@ public interface ClaimsRepository extends JpaRepository<InsuranceClaim, Long> {
     ClaimMessage findMessageById(@Param("id") Long id);
 
     @Modifying
-    @Query("INSERT INTO Claims$ClaimMessage (claim, user, message, sentAt) " +
-           "VALUES (:#{#message.claim}, :#{#message.user}, :#{#message.message}, :#{#message.sentAt})")
+    @Query("INSERT INTO Claims$ClaimMessage (claim, user, message, sentAt, isRead, readAt) " +
+           "VALUES (:#{#message.claim}, :#{#message.user}, :#{#message.message}, :#{#message.sentAt}, " +
+           ":#{#message.isRead}, :#{#message.readAt})")
     void saveMessage(@Param("message") ClaimMessage message);
 
     @Modifying
@@ -68,9 +69,8 @@ public interface ClaimsRepository extends JpaRepository<InsuranceClaim, Long> {
     ClaimComment findCommentById(@Param("id") Long id);
 
     @Modifying
-    @Query("INSERT INTO Claims$ClaimComment (claim, comment, createdAt, createdBy, updatedAt, updatedBy) " +
-           "VALUES (:#{#comment.claim}, :#{#comment.comment}, :#{#comment.createdAt}, " +
-           ":#{#comment.createdBy}, :#{#comment.updatedAt}, :#{#comment.updatedBy})")
+    @Query("INSERT INTO Claims$ClaimComment (claim, user, commentText, createdAt) " +
+           "VALUES (:#{#comment.claim}, :#{#comment.user}, :#{#comment.commentText}, :#{#comment.createdAt})")
     ClaimComment saveComment(@Param("comment") ClaimComment comment);
 
     @Modifying

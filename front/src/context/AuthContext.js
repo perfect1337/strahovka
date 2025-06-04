@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
       // Configure request with token
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const response = await api.get('/api/auth/validate');
-      
+
       const userData = response.data;
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -136,7 +136,7 @@ export const AuthProvider = ({ children }) => {
       delete api.defaults.headers.common['Authorization'];
       
       if (token) {
-        await api.post('/api/auth/signout'); 
+      await api.post('/api/auth/signout'); 
         console.log("User logged out successfully (backend notified).");
       } else {
         console.log("User logged out (no active session to notify backend).");

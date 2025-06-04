@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.strahovka.delivery.Insurance.InsurancePackage;
 
 @Data
 @Builder
@@ -31,7 +32,7 @@ public class PackageApplicationLink {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "package_id", referencedColumnName = "id", insertable = false, updatable = false)
     @JsonBackReference
-    private Insurance.InsurancePackage insurancePackage;
+    private InsurancePackage insurancePackage;
 
     // Removing this field to prevent Hibernate from creating/expecting specific FKs to sub-application tables.
     // The application_id and application_type fields above are used with the DB trigger for validation.

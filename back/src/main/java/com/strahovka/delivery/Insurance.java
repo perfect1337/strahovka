@@ -194,26 +194,30 @@ public class Insurance {
         }
     }
 
-    @Data
     @Entity
     @Table(name = "base_applications")
     @Inheritance(strategy = InheritanceType.JOINED)
     @DiscriminatorColumn(name = "application_type")
-    public static abstract class BaseApplication {
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class BaseApplication {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Long id;
 
-        @ManyToOne(fetch = FetchType.EAGER)
-        @JoinColumn(name = "user_id", nullable = false)
+        @ManyToOne
+        @JoinColumn(name = "user_id")
         private User user;
 
-        @OneToOne(cascade = CascadeType.ALL)
-        @JoinColumn(name = "policy_id")
-        private InsurancePolicy policy;
+        @Column(name = "application_date")
+        private LocalDateTime applicationDate;
 
-        @Column(name = "application_date", nullable = false)
-        private LocalDateTime applicationDate = LocalDateTime.now();
+        @Column(name = "status", nullable = false)
+        private String status = "PENDING";
+
+        @Column(name = "calculated_amount")
+        private BigDecimal calculatedAmount;
 
         @Column(name = "processed_at")
         private LocalDateTime processedAt;
@@ -221,27 +225,37 @@ public class Insurance {
         @Column(name = "processed_by")
         private String processedBy;
 
-        @Column(name = "calculated_amount", precision = 10, scale = 2)
-        private BigDecimal calculatedAmount;
-
-        @Column(name = "notes", length = 1000)
+        @Column(name = "notes")
         private String notes;
 
-        @Column(name = "status", nullable = false)
-        private String status;
+        @ManyToOne
+        @JoinColumn(name = "policy_id")
+        private InsurancePolicy policy;
 
         @Column(name = "start_date")
         private LocalDate startDate;
 
         @Column(name = "end_date")
         private LocalDate endDate;
+
+        @Transient
+        private String applicationType;
+
+        public void setApplicationType(String applicationType) {
+            this.applicationType = applicationType;
+        }
+
+        public String getApplicationType() {
+            return this.applicationType;
+        }
     }
 
-    @Data
-    @EqualsAndHashCode(callSuper = true)
     @Entity
     @Table(name = "kasko_applications")
     @DiscriminatorValue("KASKO")
+    @Getter
+    @Setter
+    @NoArgsConstructor
     public static class KaskoApplication extends BaseApplication {
         @NotBlank(message = "Car make is required")
         @Column(name = "car_make", nullable = false)
@@ -294,11 +308,12 @@ public class Insurance {
         private Integer duration;
     }
 
-    @Data
-    @EqualsAndHashCode(callSuper = true)
     @Entity
     @Table(name = "osago_applications")
     @DiscriminatorValue("OSAGO")
+    @Getter
+    @Setter
+    @NoArgsConstructor
     public static class OsagoApplication extends BaseApplication {
         @Column(name = "car_make", nullable = false)
         private String carMake;
@@ -343,11 +358,12 @@ public class Insurance {
         private Integer duration;
     }
 
-    @Data
-    @EqualsAndHashCode(callSuper = true)
     @Entity
     @Table(name = "property_applications")
     @DiscriminatorValue("PROPERTY")
+    @Getter
+    @Setter
+    @NoArgsConstructor
     public static class PropertyApplication extends BaseApplication {
         @Column(name = "property_type", nullable = false)
         private String propertyType;
@@ -395,11 +411,12 @@ public class Insurance {
         private String mortgageBank;
     }
 
-    @Data
-    @EqualsAndHashCode(callSuper = true)
     @Entity
     @Table(name = "health_applications")
     @DiscriminatorValue("HEALTH")
+    @Getter
+    @Setter
+    @NoArgsConstructor
     public static class HealthApplication extends BaseApplication {
         @Column(name = "birth_date", nullable = false)
         private LocalDate birthDate;
@@ -450,11 +467,12 @@ public class Insurance {
         private BigDecimal coverageAmount;
     }
 
-    @Data
-    @EqualsAndHashCode(callSuper = true)
     @Entity
     @Table(name = "travel_applications")
     @DiscriminatorValue("TRAVEL")
+    @Getter
+    @Setter
+    @NoArgsConstructor
     public static class TravelApplication extends BaseApplication {
         @Column(name = "passport_number", nullable = false)
         private String passportNumber;

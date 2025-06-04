@@ -44,6 +44,8 @@ import com.strahovka.delivery.PackageApplicationLink;
 import com.strahovka.repository.PackageApplicationLinkRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import com.strahovka.enums.ApplicationStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -391,72 +393,184 @@ public class InsuranceService {
     }
 
     @Transactional
-    public KaskoApplication createKaskoApplication(KaskoApplication kaskoApplication, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
-        kaskoApplication.setUser(user);
-        kaskoApplication.setApplicationDate(LocalDateTime.now());
-        kaskoApplication.setStatus("PENDING");
-        LocalDate startDate = kaskoApplication.getStartDate() == null ? LocalDate.now() : kaskoApplication.getStartDate();
-        kaskoApplication.setStartDate(startDate);
-        if (kaskoApplication.getDuration() == null) kaskoApplication.setDuration(12);
-            kaskoApplication.setEndDate(startDate.plusMonths(kaskoApplication.getDuration()));
-        kaskoApplication.setCalculatedAmount(calculateKaskoPrice(kaskoApplication));
-        return applicationRepository.save(kaskoApplication);
+    public Insurance.KaskoApplication createKaskoApplication(Insurance.KaskoApplication application, String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        application.setUser(user);
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        application.setCalculatedAmount(calculateKaskoPrice(application));
+        return applicationRepository.save(application);
     }
 
     @Transactional
-    public OsagoApplication createOsagoApplication(OsagoApplication osagoApplication, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
-        osagoApplication.setUser(user);
-        osagoApplication.setApplicationDate(LocalDateTime.now());
-        osagoApplication.setStatus("PENDING");
-        LocalDate startDate = osagoApplication.getStartDate() == null ? LocalDate.now() : osagoApplication.getStartDate();
-        osagoApplication.setStartDate(startDate);
-        if (osagoApplication.getDuration() == null) osagoApplication.setDuration(12);
-        osagoApplication.setEndDate(startDate.plusMonths(osagoApplication.getDuration()));
-        osagoApplication.setCalculatedAmount(calculateOsagoPrice(osagoApplication));
-        return applicationRepository.save(osagoApplication);
+    public Insurance.OsagoApplication createOsagoApplication(Insurance.OsagoApplication application, String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        application.setUser(user);
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        
+        // Проверяем и устанавливаем обязательные поля
+        if (application.getDriverLicenseNumber() == null || application.getDriverLicenseNumber().trim().isEmpty()) {
+            throw new IllegalArgumentException("Номер водительского удостоверения является обязательным полем");
+        }
+        
+        application.setCalculatedAmount(calculateOsagoPrice(application));
+        return applicationRepository.save(application);
     }
 
-    @Transactional
-    public TravelApplication createTravelApplication(TravelApplication app, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
-        app.setUser(user);
-        app.setApplicationDate(LocalDateTime.now());
-        app.setStatus("PENDING");
-        if (app.getCalculatedAmount() == null) app.setCalculatedAmount(new BigDecimal("2500.00"));
-        if (app.getTravelStartDate() == null) app.setTravelStartDate(LocalDate.now().plusDays(7));
-        if (app.getTravelEndDate() == null && app.getTravelStartDate() != null) app.setTravelEndDate(app.getTravelStartDate().plusDays(14));
-        app.setStartDate(app.getTravelStartDate());
-        app.setEndDate(app.getTravelEndDate());
-        return applicationRepository.save(app);
-    }
-
-    @Transactional
-    public HealthApplication createHealthApplication(HealthApplication app, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
-        app.setUser(user);
-        app.setApplicationDate(LocalDateTime.now());
-        app.setStatus("PENDING");
-        if (app.getCalculatedAmount() == null) app.setCalculatedAmount(new BigDecimal("5000.00"));
-        if (app.getStartDate() == null) app.setStartDate(LocalDate.now());
-        if (app.getEndDate() == null && app.getStartDate() != null) app.setEndDate(app.getStartDate().plusYears(1));
-        return applicationRepository.save(app);
-    }
-
-    @Transactional
-    public PropertyApplication createPropertyApplication(PropertyApplication app, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
-        app.setUser(user);
-        app.setApplicationDate(LocalDateTime.now());
-        app.setStatus("PENDING");
-        if (app.getCalculatedAmount() == null) {
-            if (app.getPropertyValue() != null) app.setCalculatedAmount(app.getPropertyValue().multiply(new BigDecimal("0.005")).setScale(2, RoundingMode.HALF_UP));
-            else app.setCalculatedAmount(new BigDecimal("3000.00"));
+    private BigDecimal calculatePropertyPrice(PropertyApplication app) {
+        if (app == null || app.getPropertyValue() == null) return BigDecimal.ZERO;
+        
+        // Базовая ставка 0.5% от стоимости имущества
+        BigDecimal baseRate = app.getPropertyValue().multiply(new BigDecimal("0.005"));
+        BigDecimal calculatedPrice = baseRate;
+        
+        // Коэффициенты в зависимости от возраста здания
+        if (app.getYearBuilt() != null) {
+            int buildingAge = LocalDate.now().getYear() - app.getYearBuilt();
+            if (buildingAge > 50) {
+                calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.3")); // +30%
+            } else if (buildingAge > 25) {
+                calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
             }
-        if (app.getStartDate() == null) app.setStartDate(LocalDate.now());
-        if (app.getEndDate() == null && app.getStartDate() != null) app.setEndDate(app.getStartDate().plusYears(1));
-        return applicationRepository.save(app);
+        }
+        
+        // Коэффициенты в зависимости от наличия систем безопасности
+        if (!Boolean.TRUE.equals(app.getHasSecuritySystem())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10% если нет охранной системы
+        }
+        if (!Boolean.TRUE.equals(app.getHasFireAlarm())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15% если нет пожарной сигнализации
+        }
+        
+        // Дополнительные опции покрытия
+        if (Boolean.TRUE.equals(app.getCoverNaturalDisasters())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.2")); // +20%
+        }
+        if (Boolean.TRUE.equals(app.getCoverTheft())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
+        }
+        if (Boolean.TRUE.equals(app.getCoverThirdPartyLiability())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10%
+        }
+        
+        // Если есть ипотека, небольшая скидка
+        if (Boolean.TRUE.equals(app.getHasMortgage())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("0.95")); // -5%
+        }
+        
+        return calculatedPrice.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public Insurance.PropertyApplication createPropertyApplication(Insurance.PropertyApplication application, String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        application.setUser(user);
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        application.setCalculatedAmount(calculatePropertyPrice(application));
+        return applicationRepository.save(application);
+    }
+
+    private BigDecimal calculateHealthPrice(HealthApplication app) {
+        if (app == null) return BigDecimal.ZERO;
+        
+        // Базовая ставка в год
+        BigDecimal baseYearlyRate = new BigDecimal("5000.00");
+        
+        // Если указана сумма покрытия, используем её как основу для расчета (0.1 или 10% от суммы покрытия)
+        if (app.getCoverageAmount() != null && app.getCoverageAmount().compareTo(BigDecimal.ZERO) > 0) {
+            baseYearlyRate = app.getCoverageAmount().multiply(new BigDecimal("0.1"));
+        }
+        
+        BigDecimal calculatedPrice = baseYearlyRate;
+        
+        // Коэффициенты в зависимости от опций и состояния здоровья
+        if (Boolean.TRUE.equals(app.getHasChronicDiseases())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.3")); // +30%
+        }
+        if (Boolean.TRUE.equals(app.getHasDisabilities())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.25")); // +25%
+        }
+        if (Boolean.TRUE.equals(app.getSmokingStatus())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
+        }
+        
+        // Дополнительные опции покрытия
+        if (Boolean.TRUE.equals(app.getCoverDental())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.2")); // +20%
+        }
+        if (Boolean.TRUE.equals(app.getCoverVision())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10%
+        }
+        if (Boolean.TRUE.equals(app.getCoverMaternity())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.35")); // +35%
+        }
+        if (Boolean.TRUE.equals(app.getFamilyDoctorNeeded())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
+        }
+        
+        return calculatedPrice.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public Insurance.HealthApplication createHealthApplication(Insurance.HealthApplication application, String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        application.setUser(user);
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        application.setCalculatedAmount(calculateHealthPrice(application));
+        return applicationRepository.save(application);
+    }
+
+    private BigDecimal calculateTravelPrice(TravelApplication app) {
+        if (app == null) return BigDecimal.ZERO;
+        
+        // Базовая ставка за день
+        BigDecimal baseDailyRate = new BigDecimal("300.00");
+        
+        // Расчет количества дней
+        long days = 14; // По умолчанию 14 дней
+        if (app.getTravelStartDate() != null && app.getTravelEndDate() != null) {
+            days = ChronoUnit.DAYS.between(app.getTravelStartDate(), app.getTravelEndDate());
+            if (days < 1) days = 1;
+        }
+        
+        BigDecimal calculatedPrice = baseDailyRate.multiply(BigDecimal.valueOf(days));
+        
+        // Коэффициенты в зависимости от опций
+        if (Boolean.TRUE.equals(app.getCoverMedicalExpenses())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.3")); // +30%
+        }
+        if (Boolean.TRUE.equals(app.getCoverAccidents())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.2")); // +20%
+        }
+        if (Boolean.TRUE.equals(app.getCoverLuggage())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10%
+        }
+        if (Boolean.TRUE.equals(app.getCoverTripCancellation())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
+        }
+        if (Boolean.TRUE.equals(app.getCoverSportsActivities())) {
+            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.25")); // +25%
+        }
+        
+        return calculatedPrice.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public Insurance.TravelApplication createTravelApplication(Insurance.TravelApplication application, String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        application.setUser(user);
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        application.setCalculatedAmount(calculateTravelPrice(application));
+        return applicationRepository.save(application);
     }
 
     // Payment Processing Logic (Refactored)
@@ -594,28 +708,33 @@ public class InsuranceService {
 
     // Retrieval methods for different application types
     @Transactional(readOnly = true)
-    public List<KaskoApplication> getUserKaskoApplications(String usernameOrEmail) {
-        return insuranceRepository.findKaskoApplicationsByUsername(usernameOrEmail);
+    public List<KaskoApplication> getKaskoApplications(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return applicationRepository.findKaskoApplicationsByUsername(user.getEmail());
     }
 
     @Transactional(readOnly = true)
-    public List<OsagoApplication> getUserOsagoApplications(String usernameOrEmail) {
-        return insuranceRepository.findOsagoApplicationsByUsername(usernameOrEmail);
+    public List<OsagoApplication> getOsagoApplications(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return applicationRepository.findOsagoApplicationsByUsername(user.getEmail());
     }
 
     @Transactional(readOnly = true)
-    public List<PropertyApplication> getUserPropertyApplications(String usernameOrEmail) {
-        return insuranceRepository.findPropertyApplicationsByUsername(usernameOrEmail);
+    public List<PropertyApplication> getPropertyApplications(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return applicationRepository.findPropertyApplicationsByUsername(user.getEmail());
     }
 
     @Transactional(readOnly = true)
-    public List<HealthApplication> getUserHealthApplications(String usernameOrEmail) {
-        return insuranceRepository.findHealthApplicationsByUsername(usernameOrEmail);
+    public List<HealthApplication> getHealthApplications(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return applicationRepository.findHealthApplicationsByUsername(user.getEmail());
     }
 
     @Transactional(readOnly = true)
-    public List<TravelApplication> getUserTravelApplications(String usernameOrEmail) {
-        return insuranceRepository.findTravelApplicationsByUsername(usernameOrEmail);
+    public List<TravelApplication> getTravelApplications(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return applicationRepository.findTravelApplicationsByUsername(user.getEmail());
     }
 
     @Transactional
