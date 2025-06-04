@@ -112,7 +112,9 @@ public class InsuranceService {
                 return insuranceCategoryRepository.save(newCategory);
             });
         
-        InsuranceGuide savedGuide = insuranceRepository.saveGuide(guide);
+        // Save the guide using JPA's standard save method
+        InsuranceGuide savedGuide = entityManager.merge(guide);
+        entityManager.flush();
 
         InsurancePolicy policy = new InsurancePolicy();
         policy.setName("Guide: " + savedGuide.getTitle());

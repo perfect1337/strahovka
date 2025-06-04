@@ -41,14 +41,6 @@ public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long
     @Query("DELETE FROM Insurance$InsuranceGuide g WHERE g.id = :id")
     void deleteGuideById(@Param("id") Long id);
 
-    @Modifying
-    @Transactional
-    @Query(value = "INSERT INTO insurance_guides (title, description, insurance_type, important_notes, required_documents, coverage_details, calculation_rules, active, display_order, created_at, updated_at) " +
-           "VALUES (:#{#guide.title}, :#{#guide.description}, :#{#guide.insuranceType}, :#{#guide.importantNotes}, " +
-           ":#{#guide.requiredDocuments}, :#{#guide.coverageDetails}, :#{#guide.calculationRules}, :#{#guide.active}, " +
-           ":#{#guide.displayOrder}, :#{#guide.createdAt}, :#{#guide.updatedAt}) RETURNING *", nativeQuery = true)
-    InsuranceGuide saveGuide(@Param("guide") InsuranceGuide guide);
-
     // Application operations
     @Query("SELECT a FROM Insurance$KaskoApplication a WHERE a.user.email = :email")
     List<KaskoApplication> findKaskoApplicationsByUsername(@Param("email") String email);

@@ -34,9 +34,4 @@ public class PackageApplicationLink {
     @JsonBackReference
     private InsurancePackage insurancePackage;
 
-    // Removing this field to prevent Hibernate from creating/expecting specific FKs to sub-application tables.
-    // The application_id and application_type fields above are used with the DB trigger for validation.
-    // @ManyToOne(fetch = FetchType.LAZY)
-    // @JoinColumn(name = "application_id", referencedColumnName = "id", insertable = false, updatable = false)
-    // private Insurance.BaseApplication application; // Общий тип
 } 

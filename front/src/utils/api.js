@@ -22,12 +22,31 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
+// List of public endpoints that don't require authentication
+const publicEndpoints = [
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/refresh',
+    '/api/auth/validate',
+    '/api/insurance/guides',
+    '/api/insurance/packages/public',
+    '/api/insurance/unauthorized'
+];
+
 // Add request interceptor to add token to all requests
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        // Check if the current request URL matches any public endpoint
+        const isPublicEndpoint = publicEndpoints.some(endpoint => 
+            config.url.includes(endpoint)
+        );
+
+        // Only add Authorization header for non-public endpoints
+        if (!isPublicEndpoint) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
         
         // Only set Content-Type if not already set (for multipart form data)
@@ -49,18 +68,12 @@ api.interceptors.response.use(
         const originalRequest = error.config;
         
         if (error.response?.status === 401 && !originalRequest._retry) {
-            const publicEndpoints = [
-                '/api/auth/login',
-                '/api/auth/register',
-                '/api/auth/refresh',
-                '/api/auth/validate'
-            ];
-            
-            // Only handle token refresh for protected endpoints
+            // Check if the current request URL matches any public endpoint
             const isPublicEndpoint = publicEndpoints.some(endpoint => 
                 originalRequest.url.includes(endpoint)
             );
             
+            // Only handle token refresh for protected endpoints
             if (!isPublicEndpoint) {
                 if (isRefreshing) {
                     try {

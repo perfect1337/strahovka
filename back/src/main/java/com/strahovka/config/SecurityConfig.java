@@ -29,6 +29,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/insurance/unauthorized/**").permitAll()
                 .requestMatchers("/api/insurance/packages/public/**").permitAll()
+                .requestMatchers("/api/insurance/guides/**").permitAll()
                 .requestMatchers("/api/insurance/packages/admin").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
