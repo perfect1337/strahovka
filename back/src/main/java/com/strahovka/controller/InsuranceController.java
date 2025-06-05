@@ -84,14 +84,8 @@ public class InsuranceController {
         return ResponseEntity.ok(insuranceService.getGuideById(id));
     }
 
-    // Policy endpoints
     @GetMapping("/policies")
     public ResponseEntity<List<InsurancePolicy>> getUserPolicies(@AuthenticationPrincipal UserDetails userDetails) {
-        log.debug("getUserPolicies called. UserDetails: {}", userDetails);
-        if (userDetails == null) {
-            log.error("UserDetails is NULL in getUserPolicies");
-            return ResponseEntity.status(500).build();
-        }
         return ResponseEntity.ok(insuranceService.getUserPolicies(userDetails.getUsername()));
     }
 
@@ -122,12 +116,10 @@ public class InsuranceController {
             Authentication authentication) {
         log.info("cancelPolicy called for policy ID: {}, by user: {}", policyId, authentication.getName());
         if (authentication == null || authentication.getName() == null) {
-            log.error("Authentication is NULL or user is not authenticated in cancelPolicy");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
         try {
             String reason = payload.getOrDefault("reason", "Отмена по запросу клиента");
-            // Предполагается, что insuranceService.cancelPolicy вернет Map или объект с полями message и refundAmount
             Map<String, Object> result = insuranceService.cancelPolicy(policyId, authentication.getName(), reason);
             return ResponseEntity.ok(result);
         } catch (EntityNotFoundException e) {
@@ -288,7 +280,6 @@ public class InsuranceController {
         }
     }
 
-    // Application endpoints
     @PostMapping("/applications/kasko")
     public ResponseEntity<KaskoApplication> createKaskoApplication(
             @RequestBody KaskoApplication application,
@@ -505,7 +496,6 @@ public class InsuranceController {
         return ResponseEntity.ok().build();
     }
 
-    // Category endpoints
     @GetMapping("/categories")
     public ResponseEntity<List<InsuranceCategory>> getAllCategories() {
         return ResponseEntity.ok(insuranceService.getAllCategories());
@@ -529,7 +519,6 @@ public class InsuranceController {
         return ResponseEntity.ok().build();
     }
 
-    // Claims endpoints
     @GetMapping("/claims/user")
     public ResponseEntity<List<InsuranceClaim>> getUserClaims(
             @RequestParam(defaultValue = "0") int page,
@@ -568,15 +557,12 @@ public class InsuranceController {
         InsuranceClaim claim = new InsuranceClaim();
         claim.setDescription(description);
         
-        // Find and set the policy
         InsurancePolicy policy = insuranceService.findPolicyById(policyId)
             .orElseThrow(() -> new EntityNotFoundException("Policy not found: " + policyId));
         claim.setPolicy(policy);
 
-        // Create and save the claim
         InsuranceClaim savedClaim = insuranceService.createClaim(claim, auth.getName());
 
-        // Handle file uploads if any
         if (documents != null && !documents.isEmpty()) {
             for (MultipartFile document : documents) {
                 try {
@@ -588,7 +574,6 @@ public class InsuranceController {
                     attachment.setUploadedBy(userRepository.findByEmail(auth.getName())
                             .orElseThrow(() -> new EntityNotFoundException("User not found: " + auth.getName())));
                     
-                    // Save file to disk and store path
                     String filePath = saveFile(document);
                     attachment.setFilePath(filePath);
                     
@@ -615,7 +600,7 @@ public class InsuranceController {
         return path.toString();
     }
 
-    // Claim Messages endpoints
+
     @GetMapping("/claims/{claimId}/messages")
     public ResponseEntity<List<Claims.ClaimMessage>> getClaimMessages(@PathVariable Long claimId, Authentication auth) {
         log.debug("getClaimMessages called. ClaimId: {}, Authentication: {}", claimId, auth);

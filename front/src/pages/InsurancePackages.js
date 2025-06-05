@@ -224,9 +224,6 @@ const InsurancePackages = ({ adminView = false }) => {
               <Typography variant="body2" color="textSecondary" paragraph>
                 {pkg.description}
               </Typography>
-              <Typography variant="h6" color="primary" gutterBottom>
-                {pkg.basePrice ? pkg.basePrice.toLocaleString('ru-RU') : '0'} ₽
-              </Typography>
               {pkg.discount > 0 && (
                 <Typography variant="body2" color="error">
                   Скидка: {pkg.discount}%

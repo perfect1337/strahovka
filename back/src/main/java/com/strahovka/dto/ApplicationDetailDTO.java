@@ -14,11 +14,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ApplicationDetailDTO {
     private Long id;
-    private String applicationType; // KASKO, OSAGO и т.д.
+    private String applicationType;
     private String status;
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal calculatedAmount;
-    private String displayName; // Например, "ОСАГО Полис для Toyota Camry" или "КАСКО"
-    // Можно добавить и другие поля при необходимости, например, номер полиса, если он уже есть
+    private String displayName;
 } 

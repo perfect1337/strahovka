@@ -10,15 +10,14 @@ import java.time.LocalDate;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class OsagoApplicationRequest extends BaseApplicationRequest {
-    // User fields (from form data)
+
     private String email;
-    private String password; // Optional, can be derived by service
+    private String password;
     private String firstName;
     private String lastName;
-    private String middleName; // Optional
+    private String middleName;
     private String phone;
 
-    // Osago specific fields
     @NotBlank(message = "Car make is required")
     private String carMake;
 
@@ -40,7 +39,7 @@ public class OsagoApplicationRequest extends BaseApplicationRequest {
     @NotBlank(message = "Registration certificate is required")
     private String registrationCertificate;
     
-    // Optional driver details if not unlimited
+
     private String driverLicenseNumber;
     private Integer driverExperienceYears;
 

@@ -24,5 +24,5 @@ public class UserPackageDetailDTO {
     private LocalDateTime createdAt;
     private PackageStatus status;
     private List<ApplicationDetailDTO> applicationsInPackage;
-    private List<String> categoryNames; // Просто список названий категорий для отображения
+    private List<String> categoryNames;
 } 

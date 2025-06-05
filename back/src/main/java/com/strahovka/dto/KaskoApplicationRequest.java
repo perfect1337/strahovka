@@ -10,15 +10,14 @@ import java.time.LocalDate;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class KaskoApplicationRequest extends BaseApplicationRequest {
-    // User fields (from form data)
+
     private String email;
-    private String password; // Optional, can be derived
+    private String password;
     private String firstName;
     private String lastName;
     private String middleName;
     private String phone;
 
-    // Kasko specific fields
     @NotBlank(message = "Car make is required")
     @Size(max = 100, message = "Car make must not exceed 100 characters")
     private String carMake;

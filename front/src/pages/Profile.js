@@ -161,8 +161,7 @@ const getPackageStatusDisplay = (status) => {
     case 'PENDING_PACKAGE': return 'Формируется';
     case 'PENDING_PAYMENT': return 'Ожидает оплаты';
     case 'PENDING': return 'В обработке';
-    case 'PAID': return 'Оплачен';
-    case 'ACTIVE': return 'Активен';
+    case 'PAID': case 'ACTIVE': return '';
     case 'CANCELLED': return 'Отменён';
     default: return status || 'Неизвестный статус';
   }
@@ -201,7 +200,7 @@ const getStatusText = (status) => {
     case 'PENDING_PAYMENT': return 'Ожидает оплаты';
     case 'PENDING_PACKAGE': return 'Формируется';
     case 'PENDING': return 'В обработке';
-    case 'ACTIVE': case 'APPROVED': case 'PAID': return 'Активен';
+    case 'ACTIVE': case 'APPROVED': case 'PAID': return 'Активно';
     case 'INACTIVE': return 'Остановлен';
     case 'COMPLETED': return 'Завершен';
     case 'CANCELLED': return 'Отменен';
@@ -346,11 +345,13 @@ const PackageItem = ({ pkg, onPayment, onCancel, autoExpand, onContinue }) => {
             )}
           </Grid>
           <Grid item xs={12} sm={4} sx={{ textAlign: 'right' }}>
-            <Chip
-              label={getPackageStatusDisplay(pkg.status)}
-              color={getPackageStatusColor(pkg.status)}
-              sx={{ mb: 1 }}
-            />
+            {getPackageStatusDisplay(pkg.status) && (
+              <Chip
+                label={getPackageStatusDisplay(pkg.status)}
+                color={getPackageStatusColor(pkg.status)}
+                sx={{ mb: 1 }}
+              />
+            )}
           </Grid>
           
           <Grid item xs={12}>
@@ -419,13 +420,6 @@ const PackageItem = ({ pkg, onPayment, onCancel, autoExpand, onContinue }) => {
                             <Typography variant="body2" component="span">
                               Стоимость: {getApplicationAmount(app)} ₽
                             </Typography>
-                            {app.status && (
-                              <Chip
-                                size="small"
-                                label={getStatusText(app.status)}
-                                color={getStatusColor(app.status)}
-                              />
-                            )}
                           </Stack>
                         }
                       />
