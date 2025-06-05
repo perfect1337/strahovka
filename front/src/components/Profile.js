@@ -4,6 +4,8 @@ import { Container, Typography, Card, CardContent, Box } from '@mui/material';
 const UserLevelCard = ({ level, policyCount }) => {
   const getLevelInfo = () => {
     switch (level) {
+      case 'PLATINUM':
+        return { color: '#E5E4E2', cashback: 20, name: 'Платиновый' };
       case 'GOLD':
         return { color: '#FFD700', cashback: 15, name: 'Золотой' };
       case 'SILVER':

@@ -47,6 +47,7 @@ const UserLevelInfo = ({ level, policyCount }) => {
     { name: 'BRONZE', displayName: 'Бронзовый', color: '#CD7F32', minPolicies: 1, discount: 5, icon: '🥉' },
     { name: 'SILVER', displayName: 'Серебряный', color: '#C0C0C0', minPolicies: 3, discount: 10, icon: '🥈' },
     { name: 'GOLD', displayName: 'Золотой', color: '#FFD700', minPolicies: 5, discount: 15, icon: '🥇' },
+    { name: 'PLATINUM', displayName: 'Платиновый', color: '#E5E4E2', minPolicies: 10, discount: 20, icon: '💎' }
   ];
 
   const currentLevelIndex = levels.findIndex(l => l.name === level) || 0;

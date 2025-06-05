@@ -57,7 +57,7 @@ public class OsagoApplicationRequest extends BaseApplicationRequest {
 
     @NotNull(message = "Duration in months is required")
     @Min(value = 1)
-    private Integer duration; // Renamed from durationMonths for consistency
+    private Integer duration;
     
     private LocalDate startDate;
 

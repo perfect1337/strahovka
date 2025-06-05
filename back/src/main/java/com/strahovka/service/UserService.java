@@ -38,23 +38,19 @@ public class UserService {
             throw new RuntimeException("Пользователь с таким email уже существует");
         }
 
-        // Set default role if not set
+
         if (user.getRole() == null) {
         user.setRole(Role.USER);
         }
-        
-        // Hash the password
+
         String rawPassword = user.getPassword();
         user.setPassword(passwordEncoder.encode(rawPassword));
 
-        // Save user first to get ID
         user = userRepository.save(user);
 
-        // Generate tokens
         String accessToken = generateAccessToken(user);
         String refreshToken = generateRefreshToken(user);
-        
-        // Update and save user with tokens
+
         user.setAccessToken(accessToken);
         user.setRefreshToken(refreshToken);
 

@@ -413,25 +413,21 @@ public class InsuranceController {
     }
 
     @PostMapping("/kasko/{applicationId}/pay")
-    public ResponseEntity<?> processKaskoPayment(
-            @PathVariable Long applicationId, 
-            @AuthenticationPrincipal UserDetails userDetails) {
-        
+    public ResponseEntity<?> processKaskoPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("processKaskoPayment called for application ID: {}. Authenticated user email: {}", applicationId, userEmailForService);
-        
+        log.info("processKaskoPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
         try {
             InsurancePolicy policy = insuranceService.processKaskoPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
         } catch (EntityNotFoundException e) {
-            log.error("Error processing Kasko payment - application not found: {}", e.getMessage());
+            log.error("Error processing Kasko payment - application not found or not owned by user: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {
-            log.error("Error processing Kasko payment - bad request: {}", e.getMessage());
+            log.error("Error processing Kasko payment - illegal state: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Unexpected error processing Kasko payment for application {}: {}", applicationId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "An unexpected error occurred."));
+            log.error("Error in processKaskoPayment for app {}: {}", applicationId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
     }
 

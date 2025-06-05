@@ -11,5 +11,4 @@ public interface InsuranceCategoryRepository extends JpaRepository<InsuranceCate
     Optional<InsuranceCategory> findByName(String name);
     Optional<InsuranceCategory> findByType(String type);
     Optional<InsuranceCategory> findByNameAndType(String name, String type);
-    // JpaRepository provides findById(Long id), findAllById(Iterable<Long> ids), save(), deleteById() etc.
 } 

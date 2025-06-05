@@ -12,5 +12,5 @@ import java.util.List;
 public interface PackageApplicationLinkRepository extends JpaRepository<PackageApplicationLink, PackageApplicationId> {
     List<PackageApplicationLink> findByPackageId(Long packageId);
     Optional<PackageApplicationLink> findByApplicationIdAndApplicationType(Long applicationId, String applicationType);
-    List<PackageApplicationLink> findByInsurancePackage_User_Email(String email); // Для поиска всех связей пакетов пользователя
+    List<PackageApplicationLink> findByInsurancePackage_User_Email(String email);
 } 

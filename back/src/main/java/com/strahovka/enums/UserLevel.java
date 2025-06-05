@@ -7,7 +7,8 @@ public enum UserLevel {
     WOODEN(0, 0, 2),
     BRONZE(1, 1, 5),
     SILVER(2, 3, 10),
-    GOLD(3, 5, 15);
+    GOLD(3, 5, 15),
+    PLATINUM(4, 10, 20);
 
     private final int level;
     private final int requiredPolicies;
@@ -20,6 +21,7 @@ public enum UserLevel {
     }
 
     public static UserLevel getLevelByPolicyCount(int policyCount) {
+        if (policyCount >= PLATINUM.requiredPolicies) return PLATINUM;
         if (policyCount >= GOLD.requiredPolicies) return GOLD;
         if (policyCount >= SILVER.requiredPolicies) return SILVER;
         if (policyCount >= BRONZE.requiredPolicies) return BRONZE;

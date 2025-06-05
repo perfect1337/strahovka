@@ -29,8 +29,6 @@ public interface InsurancePackageRepository extends JpaRepository<InsurancePacka
     @Query("SELECT DISTINCT p FROM InsurancePackageEntity p LEFT JOIN FETCH p.categories WHERE p.id = :id")
     java.util.Optional<InsurancePackage> findById(@Param("id") Long id);
 
-    // This custom update might be useful for partial updates not touching relationships.
-    // However, for general updates, fetching the entity, modifying, and then calling save() is preferred.
     @Modifying
     @Query("UPDATE InsurancePackageEntity p SET " +
            "p.name = :#{#package.name}, " +

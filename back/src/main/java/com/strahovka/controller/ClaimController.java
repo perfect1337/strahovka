@@ -141,7 +141,6 @@ public class ClaimController {
         claim.setProcessedBy(auth.getName());
         claim.setProcessedAt(LocalDateTime.now());
 
-        // Add response as a message
         ClaimMessage message = new ClaimMessage();
         message.setClaim(claim);
         message.setUser(userRepository.findByEmail(auth.getName()).orElseThrow());
