@@ -46,8 +46,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 public class InsuranceController {
     private final InsuranceService insuranceService;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
     private final AuthService authService;
 
     private String extractEmailFromPayload(Map<String, Object> payload) {
@@ -114,7 +112,6 @@ public class InsuranceController {
             @PathVariable Long policyId,
             @RequestBody Map<String, String> payload,
             Authentication authentication) {
-        log.info("cancelPolicy called for policy ID: {}, by user: {}", policyId, authentication.getName());
         if (authentication == null || authentication.getName() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
         }
@@ -122,19 +119,11 @@ public class InsuranceController {
             String reason = payload.getOrDefault("reason", "Отмена по запросу клиента");
             Map<String, Object> result = insuranceService.cancelPolicy(policyId, authentication.getName(), reason);
             return ResponseEntity.ok(result);
-        } catch (EntityNotFoundException e) {
-            log.error("Error cancelling policy - policy not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("Error cancelling policy - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         } catch (Exception e) {
-            log.error("Unexpected error cancelling policy: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred while cancelling the policy.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("exception serv");
         }
     }
 
-    // Package endpoints
     @GetMapping("/packages")
     public ResponseEntity<List<InsurancePackage>> getUserPackages(@AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(insuranceService.getUserPackages(userDetails.getUsername()));
@@ -202,15 +191,8 @@ public class InsuranceController {
         String authenticatedUserEmail = (userDetails != null) ? userDetails.getUsername() : null;
         try {
             InsurancePackage processedPackage = insuranceService.processPackageApplication(packageId, packageApplyRequest.getApplications(), authenticatedUserEmail);
-            return ResponseEntity.ok(processedPackage); // Можно вернуть более специфичный DTO ответа
-        } catch (EntityNotFoundException e) {
-            log.warn("Not found during package application for packageId {}: {}", packageId, e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            log.warn("Bad request during package application for packageId {}: {}", packageId, e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+            return ResponseEntity.ok(processedPackage);
         } catch (Exception e) {
-            log.error("Error processing package application for packageId {}: {}", packageId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Внутренняя ошибка сервера при обработке пакета."));
         }
     }
@@ -226,9 +208,7 @@ public class InsuranceController {
         try {
             insuranceService.processPackagePayment(packageId, userDetails.getUsername());
             return ResponseEntity.ok().body(Map.of("message", "Package payment processed successfully. Policies are being generated."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
+        }  catch (Exception e) {
             log.error("Error processing package payment for package ID: {}", packageId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "An unexpected error occurred while processing package payment."));
         }
@@ -245,10 +225,7 @@ public class InsuranceController {
         try {
             insuranceService.processPackagePayment(packageId, userDetails.getUsername());
             return ResponseEntity.ok().body(Map.of("message", "Пакет успешно финализирован. Страховые полисы созданы."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Ошибка при финализации пакета ID: {}", packageId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Произошла непредвиденная ошибка при финализации пакета."));
         }
@@ -269,12 +246,7 @@ public class InsuranceController {
                 "packageId", cancelledPackage.getId(),
                 "status", cancelledPackage.getStatus()
             ));
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error cancelling package ID: {}", packageId, e);
+        }  catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "An unexpected error occurred while cancelling the package."));
         }
@@ -286,10 +258,7 @@ public class InsuranceController {
             @AuthenticationPrincipal UserDetails userDetails) {
         
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("createKaskoApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
-
         if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
-            log.error("Email is missing in KaskoApplication payload for an unauthenticated user.");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); 
         }
         KaskoApplication createdApplication = insuranceService.createKaskoApplication(application, userEmailForService);
@@ -302,13 +271,9 @@ public class InsuranceController {
             @AuthenticationPrincipal UserDetails userDetails) {
 
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("createOsagoApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
-
         if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
-            log.error("Email is missing in OsagoApplication payload for an unauthenticated user.");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
-        
         Insurance.OsagoApplication createdApplication = insuranceService.createOsagoApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
@@ -319,13 +284,9 @@ public class InsuranceController {
             @AuthenticationPrincipal UserDetails userDetails) {
         
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("createTravelApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
-
         if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
-            log.error("Email is missing in TravelApplication payload for an unauthenticated user.");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
-
         Insurance.TravelApplication createdApplication = insuranceService.createTravelApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
@@ -336,10 +297,8 @@ public class InsuranceController {
             @AuthenticationPrincipal UserDetails userDetails) {
         
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("createHealthApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
 
         if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
-            log.error("Email is missing in HealthApplication payload for an unauthenticated user.");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         
@@ -353,10 +312,8 @@ public class InsuranceController {
             @AuthenticationPrincipal UserDetails userDetails) {
         
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("createPropertyApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
 
         if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
-            log.error("Email is missing in PropertyApplication payload for an unauthenticated user.");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
@@ -371,10 +328,6 @@ public class InsuranceController {
         try {
             InsurancePolicy policy = insuranceService.processHealthPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error in processHealthPayment for app {}: {}", applicationId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
@@ -388,11 +341,7 @@ public class InsuranceController {
         try {
             InsurancePolicy policy = insuranceService.processOsagoPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
+        }  catch (Exception e) {
             log.error("Error in processOsagoPayment for app {}: {}", applicationId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
@@ -401,17 +350,10 @@ public class InsuranceController {
     @PostMapping("/kasko/{applicationId}/pay")
     public ResponseEntity<?> processKaskoPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("processKaskoPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
         try {
             InsurancePolicy policy = insuranceService.processKaskoPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            log.error("Error processing Kasko payment - application not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            log.error("Error processing Kasko payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
+        }  catch (Exception e) {
             log.error("Error in processKaskoPayment for app {}: {}", applicationId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
@@ -420,18 +362,10 @@ public class InsuranceController {
     @PostMapping("/travel/{applicationId}/pay")
     public ResponseEntity<?> processTravelPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("processTravelPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
         try {
             InsurancePolicy policy = insuranceService.processTravelPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            log.error("Error processing Travel payment - application not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            log.error("Error processing Travel payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error in processTravelPayment for app {}: {}", applicationId, e.getMessage(), e);
+        }  catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
     }
@@ -439,53 +373,40 @@ public class InsuranceController {
     @PostMapping("/property/{applicationId}/pay")
     public ResponseEntity<?> processPropertyPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
-        log.info("processPropertyPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
         try {
             InsurancePolicy policy = insuranceService.processPropertyPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            log.error("Error processing Property payment - application not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            log.error("Error processing Property payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Error in processPropertyPayment for app {}: {}", applicationId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
     }
 
     @GetMapping("/applications/kasko")
     public ResponseEntity<List<KaskoApplication>> getKaskoApplications(Authentication authentication) {
-        log.info("getKaskoApplications called. Authentication: {}", authentication);
         List<KaskoApplication> applications = insuranceService.getKaskoApplications(authentication);
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/applications/osago")
     public ResponseEntity<List<OsagoApplication>> getOsagoApplications(Authentication authentication) {
-        log.info("getOsagoApplications called. Authentication: {}", authentication);
         List<OsagoApplication> applications = insuranceService.getOsagoApplications(authentication);
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/applications/property")
     public ResponseEntity<List<PropertyApplication>> getPropertyApplications(Authentication authentication) {
-        log.info("getPropertyApplications called. Authentication: {}", authentication);
         List<PropertyApplication> applications = insuranceService.getPropertyApplications(authentication);
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/applications/health")
     public ResponseEntity<List<HealthApplication>> getHealthApplications(Authentication authentication) {
-        log.info("getHealthApplications called. Authentication: {}", authentication);
         List<HealthApplication> applications = insuranceService.getHealthApplications(authentication);
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/applications/travel")
     public ResponseEntity<List<TravelApplication>> getTravelApplications(Authentication authentication) {
-        log.info("getTravelApplications called. Authentication: {}", authentication);
         List<TravelApplication> applications = insuranceService.getTravelApplications(authentication);
         return ResponseEntity.ok(applications);
     }
@@ -526,7 +447,6 @@ public class InsuranceController {
             Authentication auth) {
         log.debug("getUserClaims called. Authentication: {}, Page: {}, Size: {}", auth, page, size);
         if (auth == null) {
-            log.error("Authentication is NULL in getUserClaims");
             return ResponseEntity.status(500).build();
         }
         return ResponseEntity.ok(insuranceService.getUserClaims(auth.getName(), page, size));
@@ -534,9 +454,7 @@ public class InsuranceController {
 
     @PostMapping("/claims")
     public ResponseEntity<InsuranceClaim> createClaim(@RequestBody InsuranceClaim claim, Authentication auth) {
-        log.info("createClaim called. Authentication: {}", auth);
         if (auth == null) {
-            log.error("Authentication is NULL in createClaim");
             return ResponseEntity.status(500).build();
         }
         return ResponseEntity.ok(insuranceService.createClaim(claim, auth.getName()));
@@ -548,9 +466,7 @@ public class InsuranceController {
             @RequestParam("description") String description,
             @RequestParam(value = "documents", required = false) List<MultipartFile> documents,
             Authentication auth) {
-        log.info("createClaimWithFiles called. Authentication: {}, PolicyId: {}", auth, policyId);
         if (auth == null) {
-            log.error("Authentication is NULL in createClaimWithFiles");
             return ResponseEntity.status(500).build();
         }
 
@@ -603,9 +519,7 @@ public class InsuranceController {
 
     @GetMapping("/claims/{claimId}/messages")
     public ResponseEntity<List<Claims.ClaimMessage>> getClaimMessages(@PathVariable Long claimId, Authentication auth) {
-        log.debug("getClaimMessages called. ClaimId: {}, Authentication: {}", claimId, auth);
         if (auth == null) {
-            log.error("Authentication is NULL in getClaimMessages");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(insuranceService.getClaimMessages(claimId, auth.getName()));
@@ -616,9 +530,7 @@ public class InsuranceController {
             @PathVariable Long claimId,
             @RequestBody Map<String, String> payload,
             Authentication auth) {
-        log.debug("addClaimMessage called. ClaimId: {}, Authentication: {}", claimId, auth);
         if (auth == null) {
-            log.error("Authentication is NULL in addClaimMessage");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         String message = payload.get("message");
@@ -630,9 +542,7 @@ public class InsuranceController {
 
     @PostMapping("/claims/{claimId}/cancel")
     public ResponseEntity<InsuranceClaim> cancelClaim(@PathVariable Long claimId, Authentication auth) {
-        log.debug("cancelClaim called. ClaimId: {}, Authentication: {}", claimId, auth);
         if (auth == null) {
-            log.error("Authentication is NULL in cancelClaim");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(insuranceService.cancelClaim(claimId, auth.getName()));

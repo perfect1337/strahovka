@@ -22,7 +22,6 @@ import java.util.Map;
 public class AdminController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private static final Logger log = LoggerFactory.getLogger(AdminController.class);
 
     @GetMapping("/users")
     public ResponseEntity<List<User>> getAllUsers() {
@@ -37,27 +36,21 @@ public class AdminController {
     @PostMapping("/moderators")
     @Transactional
     public ResponseEntity<?> createModerator(@RequestBody User user) {
-        log.info("Attempting to create moderator with email: {}", (user != null ? user.getEmail() : "null user object"));
         try {
             if (user == null || user.getEmail() == null || user.getPassword() == null ||
                 user.getFirstName() == null || user.getLastName() == null) {
-                log.warn("Create moderator request failed: Required fields are missing. User object: {}, Email: {}, Password provided: {}, FirstName: {}, LastName: {}",
-                         user, (user != null ? user.getEmail() : "N/A"), (user != null && user.getPassword() != null), (user != null ? user.getFirstName() : "N/A"), (user != null ? user.getLastName() : "N/A"));
                 return ResponseEntity.badRequest()
                         .body(Map.of("message", "Required fields are missing"));
             }
-            log.info("Raw password from request for email {}: '{}'", user.getEmail(), user.getPassword());
 
 
             // Check if email already exists
             if (userRepository.existsByEmail(user.getEmail())) {
-                log.warn("Create moderator request failed: Email {} already registered.", user.getEmail());
                 return ResponseEntity.badRequest()
                         .body(Map.of("message", "Email already registered"));
             }
 
             String encodedPassword = passwordEncoder.encode(user.getPassword());
-            log.info("Encoded password for email {}: '{}'", user.getEmail(), encodedPassword);
 
             User newUser = User.builder()
                 .email(user.getEmail())
@@ -69,13 +62,8 @@ public class AdminController {
                 .policyCount(0)
                 .build();
 
-            log.info("NewUser object to be saved for email {}: ID='{}', Email='{}', FirstName='{}', LastName='{}', EncodedPassword='{}', Role='{}'",
-                     newUser.getEmail(), newUser.getId(), newUser.getEmail(), newUser.getFirstName(), newUser.getLastName(), newUser.getPassword(), newUser.getRole());
 
             User savedUser = userRepository.saveAndFlush(newUser);
-            log.info("SavedUser object after saveAndFlush for email {}: ID='{}', Email='{}', FirstName='{}', LastName='{}', EncodedPasswordFromSaved='{}', Role='{}'",
-                     savedUser.getEmail(), savedUser.getId(), savedUser.getEmail(), savedUser.getFirstName(), savedUser.getLastName(), savedUser.getPassword(), savedUser.getRole());
-
             User responseUser = User.builder()
                 .id(savedUser.getId())
                 .email(savedUser.getEmail())
@@ -88,13 +76,11 @@ public class AdminController {
                 .policyCount(savedUser.getPolicyCount())
                 .build();
 
-            log.info("Just before returning from createModerator (email: {}), password on managed savedUser is: '{}'", savedUser.getEmail(), savedUser.getPassword());
-            
+
             return ResponseEntity.ok(responseUser);
             
         } catch (Exception e) {
             String userEmailForLog = (user != null && user.getEmail() != null) ? user.getEmail() : "unknown";
-            log.error("Exception during createModerator for email {}: ", userEmailForLog, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                         "message", "Error creating moderator: " + e.getMessage(),
