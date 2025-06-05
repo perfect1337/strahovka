@@ -1,7 +1,6 @@
 package com.strahovka.dto;
 
-import com.strahovka.delivery.Insurance.KaskoApplication;
-import com.strahovka.delivery.User; // Assuming User class for common fields
+import com.strahovka.entity.Insurance.KaskoApplication;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -68,20 +67,20 @@ public class KaskoApplicationRequest extends BaseApplicationRequest {
 
     public KaskoApplication toKaskoApplication() {
         KaskoApplication application = new KaskoApplication();
-        application.setEmail(getEmail());
-        application.setStartDate(getStartDate());
-        application.setCarMake(carMake);
-        application.setCarModel(carModel);
-        application.setCarYear(carYear);
-        application.setVinNumber(vinNumber);
-        application.setLicensePlate(licensePlate);
-        application.setCarValue(carValue);
-        application.setDriverLicenseNumber(driverLicenseNumber);
-        application.setDriverExperienceYears(driverExperienceYears);
-        application.setHasAntiTheftSystem(hasAntiTheftSystem);
-        application.setGarageParking(garageParking);
-        application.setPreviousInsuranceNumber(previousInsuranceNumber);
-        application.setDuration(getDuration());
+        application.setCarMake(this.carMake);
+        application.setCarModel(this.carModel);
+        application.setCarYear(this.carYear);
+        application.setVinNumber(this.vinNumber);
+        application.setLicensePlate(this.licensePlate);
+        application.setCarValue(this.carValue);
+        application.setDriverLicenseNumber(this.driverLicenseNumber);
+        application.setDriverExperienceYears(this.driverExperienceYears);
+        application.setHasAntiTheftSystem(this.hasAntiTheftSystem);
+        application.setGarageParking(this.garageParking);
+        application.setPreviousInsuranceNumber(this.previousInsuranceNumber);
+        application.setDuration(this.duration);
+        application.setStartDate(this.startDate);
+        application.setEmail(this.email);
         return application;
     }
 } 

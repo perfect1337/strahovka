@@ -1,13 +1,10 @@
 package com.strahovka.service;
 
-import com.strahovka.delivery.Claims.*;
-import com.strahovka.delivery.InsurancePolicy;
-import com.strahovka.delivery.User;
+import com.strahovka.entity.Claims.*;
 import com.strahovka.enums.ClaimStatus;
 import com.strahovka.repository.ClaimsRepository;
 import com.strahovka.repository.UserRepository;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,17 +24,6 @@ public class ClaimService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    private User findUser(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
-    }
-
-    // Main claim operations
-    @Transactional(readOnly = true)
-    public List<InsuranceClaim> getClaimsByPolicy(InsurancePolicy policy) {
-        return claimsRepository.findByPolicy(policy);
-    }
-
     @Transactional(readOnly = true)
     public List<InsuranceClaim> getClaimsByStatus(ClaimStatus status) {
         return claimsRepository.findByStatus(status);
@@ -53,7 +39,6 @@ public class ClaimService {
         return claimsRepository.findAll(pageable);
     }
 
-    // Claim attachments
     @Transactional(readOnly = true)
     public List<ClaimAttachment> getAttachmentsByClaim(Long claimId) {
         return claimsRepository.findAttachmentsByClaim(claimId);
@@ -99,7 +84,6 @@ public class ClaimService {
         claimsRepository.deleteMessage(id);
     }
 
-    // Claim comments
     @Transactional(readOnly = true)
     public List<ClaimComment> getCommentsByClaim(Long claimId) {
         return claimsRepository.findCommentsByClaim(claimId);

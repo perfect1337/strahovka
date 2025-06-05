@@ -1,12 +1,12 @@
 package com.strahovka.service;
 
-import com.strahovka.delivery.Claims;
-import com.strahovka.delivery.Claims.InsuranceClaim;
-import com.strahovka.delivery.Claims.ClaimAttachment;
-import com.strahovka.delivery.Insurance;
-import com.strahovka.delivery.Insurance.*;
-import com.strahovka.delivery.InsurancePolicy;
-import com.strahovka.delivery.User;
+import com.strahovka.entity.Claims;
+import com.strahovka.entity.Claims.InsuranceClaim;
+import com.strahovka.entity.Claims.ClaimAttachment;
+import com.strahovka.entity.Insurance;
+import com.strahovka.entity.Insurance.*;
+import com.strahovka.entity.InsurancePolicy;
+import com.strahovka.entity.User;
 import com.strahovka.dto.ApplicationDetailDTO;
 import com.strahovka.dto.UserPackageDetailDTO;
 import com.strahovka.enums.Role;
@@ -41,13 +41,11 @@ import com.strahovka.dto.KaskoApplicationRequest;
 import com.strahovka.dto.OsagoApplicationRequest;
 import com.strahovka.dto.PackageApplicationItem;
 import java.util.ArrayList;
-import com.strahovka.delivery.PackageApplicationLink;
+import com.strahovka.entity.PackageApplicationLink;
 import com.strahovka.repository.PackageApplicationLinkRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
-import com.strahovka.enums.ApplicationStatus;
-import com.strahovka.service.AuthService;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
@@ -467,7 +465,7 @@ public class InsuranceService {
     }
 
     @Transactional
-    public Insurance.KaskoApplication createKaskoApplication(Insurance.KaskoApplication application, String userEmailFromAuth) {
+    public KaskoApplication createKaskoApplication(KaskoApplication application, String userEmailFromAuth) {
         User user = determineUserForApplication(application, userEmailFromAuth);
         application.setUser(user);
         application.setEmail(user.getEmail());

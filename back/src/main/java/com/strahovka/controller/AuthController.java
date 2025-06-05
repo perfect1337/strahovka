@@ -36,9 +36,9 @@ public class AuthController {
     }
 
     @GetMapping("/validate")
-    public ResponseEntity<com.strahovka.delivery.User> validateToken(Authentication authentication) {
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof com.strahovka.delivery.User) {
-            com.strahovka.delivery.User currentUser = (com.strahovka.delivery.User) authentication.getPrincipal();
+    public ResponseEntity<com.strahovka.entity.User> validateToken(Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof com.strahovka.entity.User) {
+            com.strahovka.entity.User currentUser = (com.strahovka.entity.User) authentication.getPrincipal();
             return ResponseEntity.ok(currentUser);
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

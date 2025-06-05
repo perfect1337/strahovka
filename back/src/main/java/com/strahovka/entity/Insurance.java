@@ -1,4 +1,4 @@
-package com.strahovka.delivery;
+package com.strahovka.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
@@ -7,14 +7,13 @@ import com.strahovka.enums.PackageStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
-import org.hibernate.annotations.Where;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.ArrayList;
 
 public class Insurance {
@@ -213,9 +212,9 @@ public class Insurance {
     @Entity
     @Table(name = "kasko_applications")
     @DiscriminatorValue("KASKO")
-    @Getter
-    @Setter
+    @Data
     @NoArgsConstructor
+    @EqualsAndHashCode(callSuper = true)
     public static class KaskoApplication extends BaseApplication {
         @NotBlank(message = "Car make is required")
         @Column(name = "car_make", nullable = false)
@@ -264,7 +263,7 @@ public class Insurance {
         @Column(name = "previous_insurance_number")
         private String previousInsuranceNumber;
 
-        @Column(name = "duration", nullable = false)
+        @Column(name = "duration")
         private Integer duration;
     }
 

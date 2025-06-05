@@ -1,6 +1,6 @@
 package com.strahovka.service;
 
-import com.strahovka.delivery.User;
+import com.strahovka.entity.User;
 import com.strahovka.enums.Role;
 import com.strahovka.repository.UserRepository;
 import lombok.RequiredArgsConstructor;

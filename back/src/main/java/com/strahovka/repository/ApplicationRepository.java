@@ -1,6 +1,6 @@
 package com.strahovka.repository;
 
-import com.strahovka.delivery.Insurance.*;
+import com.strahovka.entity.Insurance.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface            ApplicationRepository extends JpaRepository<BaseApplication, Long> {
+public interface  ApplicationRepository extends JpaRepository<BaseApplication, Long> {
     Optional<BaseApplication> findById(Long id);
 
     @Query("SELECT a FROM Insurance$KaskoApplication a WHERE a.user.email = :email")

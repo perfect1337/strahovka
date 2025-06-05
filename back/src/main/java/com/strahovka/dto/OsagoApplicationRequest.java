@@ -1,6 +1,6 @@
 package com.strahovka.dto;
 
-import com.strahovka.delivery.Insurance.OsagoApplication;
+import com.strahovka.entity.Insurance.OsagoApplication;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

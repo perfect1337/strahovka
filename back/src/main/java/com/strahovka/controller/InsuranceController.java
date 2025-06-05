@@ -1,16 +1,14 @@
 package com.strahovka.controller;
 
-import com.strahovka.delivery.Claims;
-import com.strahovka.delivery.Insurance;
-import com.strahovka.delivery.Insurance.*;
-import com.strahovka.delivery.InsurancePolicy;
-import com.strahovka.delivery.Claims.InsuranceClaim;
-import com.strahovka.delivery.Claims.ClaimAttachment;
-import com.strahovka.delivery.User;
+import com.strahovka.entity.Claims;
+import com.strahovka.entity.Insurance;
+import com.strahovka.entity.Insurance.*;
+import com.strahovka.entity.InsurancePolicy;
+import com.strahovka.entity.Claims.InsuranceClaim;
+import com.strahovka.entity.Claims.ClaimAttachment;
 import com.strahovka.dto.KaskoApplicationRequest;
 import com.strahovka.dto.LoginResponse;
 import com.strahovka.dto.OsagoApplicationRequest;
-import com.strahovka.enums.Role;
 import com.strahovka.service.InsuranceService;
 import com.strahovka.repository.UserRepository;
 import com.strahovka.service.JwtService;
@@ -30,15 +28,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import java.time.LocalDate;
 import java.util.stream.Collectors;
 import com.strahovka.dto.UserPackageDetailDTO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -295,8 +290,8 @@ public class InsuranceController {
 
     // Application endpoints
     @PostMapping("/applications/kasko")
-    public ResponseEntity<Insurance.KaskoApplication> createKaskoApplication(
-            @RequestBody Insurance.KaskoApplication application,
+    public ResponseEntity<KaskoApplication> createKaskoApplication(
+            @RequestBody KaskoApplication application,
             @AuthenticationPrincipal UserDetails userDetails) {
         
         String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
@@ -306,7 +301,7 @@ public class InsuranceController {
             log.error("Email is missing in KaskoApplication payload for an unauthenticated user.");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); 
         }
-        Insurance.KaskoApplication createdApplication = insuranceService.createKaskoApplication(application, userEmailForService);
+        KaskoApplication createdApplication = insuranceService.createKaskoApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
 

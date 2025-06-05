@@ -1,6 +1,6 @@
 package com.strahovka.dto;
 
-import com.strahovka.delivery.Insurance.InsuranceCategory;
+import com.strahovka.entity.Insurance.InsuranceCategory;
 import lombok.Data;
 
 import java.math.BigDecimal;

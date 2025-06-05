@@ -1,16 +1,13 @@
 package com.strahovka.repository;
 
-import com.strahovka.delivery.PackageApplicationLink;
-import com.strahovka.delivery.PackageApplicationId;
+import com.strahovka.entity.PackageApplicationLink;
+import com.strahovka.entity.PackageApplicationId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
-import java.util.List;
 
 @Repository
 public interface PackageApplicationLinkRepository extends JpaRepository<PackageApplicationLink, PackageApplicationId> {
-    List<PackageApplicationLink> findByPackageId(Long packageId);
     Optional<PackageApplicationLink> findByApplicationIdAndApplicationType(Long applicationId, String applicationType);
-    List<PackageApplicationLink> findByInsurancePackage_User_Email(String email);
 } 

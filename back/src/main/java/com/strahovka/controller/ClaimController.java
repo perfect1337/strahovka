@@ -1,6 +1,6 @@
 package com.strahovka.controller;
 
-import com.strahovka.delivery.Claims.*;
+import com.strahovka.entity.Claims.*;
 import com.strahovka.service.ClaimService;
 import com.strahovka.repository.UserRepository;
 import com.strahovka.enums.ClaimStatus;
@@ -24,7 +24,6 @@ public class ClaimController {
     private final ClaimService claimService;
     private final UserRepository userRepository;
 
-    // Main claim operations
     @GetMapping
     public ResponseEntity<Page<InsuranceClaim>> getAllClaims(
             @RequestParam(required = false) ClaimStatus status,
@@ -47,7 +46,6 @@ public class ClaimController {
         return ResponseEntity.ok(claimService.getClaimsByStatus(status, pageable));
     }
 
-    // Claim attachments
     @GetMapping("/{claimId}/attachments")
     public ResponseEntity<List<ClaimAttachment>> getAttachmentsByClaim(@PathVariable Long claimId) {
         return ResponseEntity.ok(claimService.getAttachmentsByClaim(claimId));
@@ -69,7 +67,6 @@ public class ClaimController {
         return ResponseEntity.ok().build();
     }
 
-    // Claim messages
     @GetMapping("/{claimId}/messages")
     public ResponseEntity<List<ClaimMessage>> getMessagesByClaim(@PathVariable Long claimId) {
         return ResponseEntity.ok(claimService.getMessagesByClaim(claimId));
@@ -91,7 +88,7 @@ public class ClaimController {
         return ResponseEntity.ok().build();
     }
 
-    // Claim comments
+
     @GetMapping("/{claimId}/comments")
     public ResponseEntity<List<ClaimComment>> getCommentsByClaim(@PathVariable Long claimId) {
         return ResponseEntity.ok(claimService.getCommentsByClaim(claimId));

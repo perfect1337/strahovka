@@ -1,4 +1,4 @@
-package com.strahovka.delivery;
+package com.strahovka.entity;
 
 import com.strahovka.enums.Role;
 import com.strahovka.enums.UserLevel;

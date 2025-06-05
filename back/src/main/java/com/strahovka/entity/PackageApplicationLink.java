@@ -1,4 +1,4 @@
-package com.strahovka.delivery;
+package com.strahovka.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.strahovka.delivery.Insurance.InsurancePackage;
+import com.strahovka.entity.Insurance.InsurancePackage;
 
 @Data
 @Builder
@@ -27,7 +27,7 @@ public class PackageApplicationLink {
 
     @Id
     @Column(name = "application_type", length = 20)
-    private String applicationType; // "KASKO", "OSAGO", etc.
+    private String applicationType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "package_id", referencedColumnName = "id", insertable = false, updatable = false)

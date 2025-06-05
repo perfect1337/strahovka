@@ -1,4 +1,4 @@
-package com.strahovka.delivery;
+package com.strahovka.entity;
 
 import java.io.Serializable;
 import lombok.Data;
@@ -11,7 +11,7 @@ import lombok.EqualsAndHashCode;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class PackageApplicationId implements Serializable {
-    private static final long serialVersionUID = 1L; // Good practice for Serializable
+    private static final long serialVersionUID = 1L;
 
     private Long packageId;
     private Long applicationId;

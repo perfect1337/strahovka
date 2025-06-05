@@ -1,6 +1,6 @@
 package com.strahovka.service;
 
-import com.strahovka.delivery.User;
+import com.strahovka.entity.User;
 import com.strahovka.enums.Role;
 import com.strahovka.dto.LoginRequest;
 import com.strahovka.dto.LoginResponse;
@@ -127,17 +127,6 @@ public class AuthService {
                 .build();
     }
 
-    public User validateToken(String token) {
-        String userEmail = jwtService.extractUsername(token);
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!jwtService.isTokenValid(token, user)) {
-            throw new RuntimeException("Token is invalid or expired");
-        }
-
-        return user;
-    }
 
     @Transactional
     public User createOrGetUserByEmail(String email) {
@@ -145,8 +134,8 @@ public class AuthService {
             .orElseGet(() -> {
                 User newUser = User.builder()
                     .email(email)
-                    .password(passwordEncoder.encode(email)) // Using email as password
-                    .firstName(email.split("@")[0]) // Using part before @ as firstName
+                    .password(passwordEncoder.encode(email))
+                    .firstName(email.split("@")[0])
                     .lastName("") // Empty lastName
                     .role(Role.USER)
                     .build();
