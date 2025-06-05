@@ -160,13 +160,11 @@ const AdminPanel = () => {
         >
           <Tab label="Модераторы" />
           <Tab label="Страховые пакеты" />
-          <Tab label="Заявки" />
         </Tabs>
       </Paper>
 
       {tabValue === 0 && renderModeratorsTab()}
       {tabValue === 1 && <InsurancePackages adminView />}
-      {tabValue === 2 && <iframe src="/admin/claims" style={{ width: '100%', height: 'calc(100vh - 200px)', border: 'none' }} />}
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Добавить модератора</DialogTitle>

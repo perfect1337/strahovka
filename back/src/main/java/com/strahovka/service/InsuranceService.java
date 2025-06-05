@@ -14,6 +14,7 @@ import com.strahovka.enums.PackageStatus;
 import com.strahovka.enums.PackageType;
 import com.strahovka.enums.PolicyStatus;
 import com.strahovka.enums.ClaimStatus;
+import com.strahovka.enums.UserLevel;
 import com.strahovka.repository.*;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.EntityNotFoundException;
@@ -46,6 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import com.strahovka.enums.ApplicationStatus;
+import com.strahovka.service.AuthService;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 @RequiredArgsConstructor
@@ -62,6 +65,7 @@ public class InsuranceService {
     private final PackageApplicationLinkRepository packageApplicationLinkRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
+    private final AuthService authService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -69,6 +73,59 @@ public class InsuranceService {
     private User findUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
+    }
+
+    private User findOrCreateUserForApplication(String email) {
+        log.info("Finding or creating user for email: {}", email);
+        User user = authService.createOrGetUserByEmail(email);
+        log.info("User {} found/created for email: {}", user.getId(), email);
+        return user;
+    }
+
+    private User findUserStrict(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
+    }
+
+    private User determineUserForApplication(BaseApplication application, String emailFromAuth) {
+        User applicationUser;
+        String emailForLookup = application.getEmail();
+
+        if (emailFromAuth != null) {
+            log.info("Authenticated user: {}. Email in application DTO: {}", emailFromAuth, emailForLookup);
+            User authenticatedUser = findUserStrict(emailFromAuth);
+
+            if (emailForLookup != null && !emailForLookup.trim().isEmpty() && !emailForLookup.equalsIgnoreCase(emailFromAuth)) {
+                log.warn("Authenticated user {} is creating an application with a different email in payload: {}. Using payload email for user context.", emailFromAuth, emailForLookup);
+                applicationUser = findOrCreateUserForApplication(emailForLookup);
+            } else {
+                applicationUser = authenticatedUser;
+                if (emailForLookup == null || emailForLookup.trim().isEmpty()) {
+                    application.setEmail(authenticatedUser.getEmail()); 
+                }
+            }
+        } else {
+            if (emailForLookup == null || emailForLookup.trim().isEmpty()) {
+                log.error("Email is required in the application payload for an unauthenticated user. Application ID (if any): {}", application.getId());
+                throw new IllegalArgumentException("Email is required in the application payload for an unauthenticated user.");
+            }
+            log.info("Unauthenticated flow. Using email from payload: {} to find/create user.", emailForLookup);
+            applicationUser = findOrCreateUserForApplication(emailForLookup);
+        }
+        
+        if (applicationUser.getFirstName() == null || 
+            applicationUser.getFirstName().isEmpty() || 
+            (applicationUser.getEmail() != null && applicationUser.getFirstName().equals(applicationUser.getEmail().split("@")[0]))) {
+            
+            if (applicationUser.getEmail() != null) { 
+                applicationUser.setFirstName(applicationUser.getEmail().split("@")[0]);
+            }
+            
+            userRepository.save(applicationUser);
+            log.info("Updated user {} profile with firstName: {}. Ensure lastName is handled if available from DTOs.", 
+                     applicationUser.getId(), applicationUser.getFirstName());
+        }
+        return applicationUser;
     }
 
     // Guide operations
@@ -112,7 +169,6 @@ public class InsuranceService {
                 return insuranceCategoryRepository.save(newCategory);
             });
         
-        // Save the guide using JPA's standard save method
         InsuranceGuide savedGuide = entityManager.merge(guide);
         entityManager.flush();
 
@@ -284,8 +340,19 @@ public class InsuranceService {
     }
 
     // Policy operations
+    @Transactional
+    public void recalculateUserPolicyCount(String username) {
+        User user = findUser(username);
+        long activeCount = insuranceRepository.countByUserAndStatusAndActive(user, PolicyStatus.ACTIVE, true);
+        user.setPolicyCount((int) activeCount);
+        user.setLevel(UserLevel.getLevelByPolicyCount(user.getPolicyCount()));
+        userRepository.save(user);
+        log.info("Recalculated policy count for user {}: {} active policies, new level: {}", username, activeCount, user.getLevel());
+    }
+
     @Transactional(readOnly = true)
     public List<InsurancePolicy> getUserPolicies(String usernameOrEmail) {
+        recalculateUserPolicyCount(usernameOrEmail);
         return insuranceRepository.findPoliciesByUsername(usernameOrEmail);
     }
 
@@ -310,7 +377,12 @@ public class InsuranceService {
         } else {
             throw new IllegalArgumentException("Policy category must be specified by ID or Name.");
         }
-        return insuranceRepository.save(policy);
+        
+        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
+        
+        recalculateUserPolicyCount(usernameOrEmail);
+        
+        return savedPolicy;
     }
 
     @Transactional
@@ -395,10 +467,10 @@ public class InsuranceService {
     }
 
     @Transactional
-    public Insurance.KaskoApplication createKaskoApplication(Insurance.KaskoApplication application, String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    public Insurance.KaskoApplication createKaskoApplication(Insurance.KaskoApplication application, String userEmailFromAuth) {
+        User user = determineUserForApplication(application, userEmailFromAuth);
         application.setUser(user);
+        application.setEmail(user.getEmail());
         application.setStatus("PENDING");
         application.setApplicationDate(LocalDateTime.now());
         application.setCalculatedAmount(calculateKaskoPrice(application));
@@ -406,181 +478,86 @@ public class InsuranceService {
     }
 
     @Transactional
-    public Insurance.OsagoApplication createOsagoApplication(Insurance.OsagoApplication application, String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    public Insurance.OsagoApplication createOsagoApplication(Insurance.OsagoApplication application, String userEmailFromAuth) {
+        User user = determineUserForApplication(application, userEmailFromAuth);
         application.setUser(user);
+        application.setEmail(user.getEmail());
         application.setStatus("PENDING");
         application.setApplicationDate(LocalDateTime.now());
-        
-        // Проверяем и устанавливаем обязательные поля
         if (application.getDriverLicenseNumber() == null || application.getDriverLicenseNumber().trim().isEmpty()) {
             throw new IllegalArgumentException("Номер водительского удостоверения является обязательным полем");
         }
-        
         application.setCalculatedAmount(calculateOsagoPrice(application));
         return applicationRepository.save(application);
     }
 
-    private BigDecimal calculatePropertyPrice(PropertyApplication app) {
-        if (app == null || app.getPropertyValue() == null) return BigDecimal.ZERO;
-        
-        // Базовая ставка 0.5% от стоимости имущества
-        BigDecimal baseRate = app.getPropertyValue().multiply(new BigDecimal("0.005"));
-        BigDecimal calculatedPrice = baseRate;
-        
-        // Коэффициенты в зависимости от возраста здания
-        if (app.getYearBuilt() != null) {
-            int buildingAge = LocalDate.now().getYear() - app.getYearBuilt();
-            if (buildingAge > 50) {
-                calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.3")); // +30%
-            } else if (buildingAge > 25) {
-                calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
+    @Transactional
+    public Insurance.TravelApplication createTravelApplication(Insurance.TravelApplication application, String userEmailFromAuth) {
+        User user = determineUserForApplication(application, userEmailFromAuth);
+        application.setUser(user);
+        application.setEmail(user.getEmail());
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        if (application.getCalculatedAmount() == null) {
+             application.setCalculatedAmount(new BigDecimal("2500.00"));
+        }
+        if (application.getTravelStartDate() == null) {
+            application.setTravelStartDate(LocalDate.now().plusDays(7));
+        }
+        if (application.getTravelEndDate() == null && application.getTravelStartDate() != null) {
+            application.setTravelEndDate(application.getTravelStartDate().plusDays(14));
+        }
+        application.setStartDate(application.getTravelStartDate());
+        application.setEndDate(application.getTravelEndDate());
+        return applicationRepository.save(application);
+    }
+
+    @Transactional
+    public Insurance.HealthApplication createHealthApplication(Insurance.HealthApplication application, String userEmailFromAuth) {
+        User user = determineUserForApplication(application, userEmailFromAuth);
+        application.setUser(user);
+        application.setEmail(user.getEmail());
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        if (application.getCalculatedAmount() == null) {
+            application.setCalculatedAmount(new BigDecimal("5000.00"));
+        }
+        if (application.getStartDate() == null) {
+            application.setStartDate(LocalDate.now());
+        }
+        if (application.getEndDate() == null && application.getStartDate() != null) {
+            application.setEndDate(application.getStartDate().plusYears(1));
+        }
+        return applicationRepository.save(application);
+    }
+
+    @Transactional
+    public Insurance.PropertyApplication createPropertyApplication(Insurance.PropertyApplication application, String userEmailFromAuth) {
+        User user = determineUserForApplication(application, userEmailFromAuth);
+        application.setUser(user);
+        application.setEmail(user.getEmail());
+        application.setStatus("PENDING");
+        application.setApplicationDate(LocalDateTime.now());
+        if (application.getCalculatedAmount() == null) {
+            if (application.getPropertyValue() != null && application.getPropertyValue().compareTo(BigDecimal.ZERO) > 0) {
+                application.setCalculatedAmount(application.getPropertyValue().multiply(new BigDecimal("0.005")).setScale(2, RoundingMode.HALF_UP));
+            } else {
+                application.setCalculatedAmount(new BigDecimal("3000.00"));
             }
         }
-        
-        // Коэффициенты в зависимости от наличия систем безопасности
-        if (!Boolean.TRUE.equals(app.getHasSecuritySystem())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10% если нет охранной системы
+        if (application.getStartDate() == null) {
+            application.setStartDate(LocalDate.now());
         }
-        if (!Boolean.TRUE.equals(app.getHasFireAlarm())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15% если нет пожарной сигнализации
+        if (application.getEndDate() == null && application.getStartDate() != null) {
+            application.setEndDate(application.getStartDate().plusYears(1));
         }
-        
-        // Дополнительные опции покрытия
-        if (Boolean.TRUE.equals(app.getCoverNaturalDisasters())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.2")); // +20%
-        }
-        if (Boolean.TRUE.equals(app.getCoverTheft())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
-        }
-        if (Boolean.TRUE.equals(app.getCoverThirdPartyLiability())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10%
-        }
-        
-        // Если есть ипотека, небольшая скидка
-        if (Boolean.TRUE.equals(app.getHasMortgage())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("0.95")); // -5%
-        }
-        
-        return calculatedPrice.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    @Transactional
-    public Insurance.PropertyApplication createPropertyApplication(Insurance.PropertyApplication application, String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
-        application.setUser(user);
-        application.setStatus("PENDING");
-        application.setApplicationDate(LocalDateTime.now());
-        application.setCalculatedAmount(calculatePropertyPrice(application));
         return applicationRepository.save(application);
     }
 
-    private BigDecimal calculateHealthPrice(HealthApplication app) {
-        if (app == null) return BigDecimal.ZERO;
-        
-        // Базовая ставка в год
-        BigDecimal baseYearlyRate = new BigDecimal("5000.00");
-        
-        // Если указана сумма покрытия, используем её как основу для расчета (0.1 или 10% от суммы покрытия)
-        if (app.getCoverageAmount() != null && app.getCoverageAmount().compareTo(BigDecimal.ZERO) > 0) {
-            baseYearlyRate = app.getCoverageAmount().multiply(new BigDecimal("0.1"));
-        }
-        
-        BigDecimal calculatedPrice = baseYearlyRate;
-        
-        // Коэффициенты в зависимости от опций и состояния здоровья
-        if (Boolean.TRUE.equals(app.getHasChronicDiseases())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.3")); // +30%
-        }
-        if (Boolean.TRUE.equals(app.getHasDisabilities())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.25")); // +25%
-        }
-        if (Boolean.TRUE.equals(app.getSmokingStatus())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
-        }
-        
-        // Дополнительные опции покрытия
-        if (Boolean.TRUE.equals(app.getCoverDental())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.2")); // +20%
-        }
-        if (Boolean.TRUE.equals(app.getCoverVision())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10%
-        }
-        if (Boolean.TRUE.equals(app.getCoverMaternity())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.35")); // +35%
-        }
-        if (Boolean.TRUE.equals(app.getFamilyDoctorNeeded())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
-        }
-        
-        return calculatedPrice.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    @Transactional
-    public Insurance.HealthApplication createHealthApplication(Insurance.HealthApplication application, String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
-        application.setUser(user);
-        application.setStatus("PENDING");
-        application.setApplicationDate(LocalDateTime.now());
-        application.setCalculatedAmount(calculateHealthPrice(application));
-        return applicationRepository.save(application);
-    }
-
-    private BigDecimal calculateTravelPrice(TravelApplication app) {
-        if (app == null) return BigDecimal.ZERO;
-        
-        // Базовая ставка за день
-        BigDecimal baseDailyRate = new BigDecimal("300.00");
-        
-        // Расчет количества дней
-        long days = 14; // По умолчанию 14 дней
-        if (app.getTravelStartDate() != null && app.getTravelEndDate() != null) {
-            days = ChronoUnit.DAYS.between(app.getTravelStartDate(), app.getTravelEndDate());
-            if (days < 1) days = 1;
-        }
-        
-        BigDecimal calculatedPrice = baseDailyRate.multiply(BigDecimal.valueOf(days));
-        
-        // Коэффициенты в зависимости от опций
-        if (Boolean.TRUE.equals(app.getCoverMedicalExpenses())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.3")); // +30%
-        }
-        if (Boolean.TRUE.equals(app.getCoverAccidents())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.2")); // +20%
-        }
-        if (Boolean.TRUE.equals(app.getCoverLuggage())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.1")); // +10%
-        }
-        if (Boolean.TRUE.equals(app.getCoverTripCancellation())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.15")); // +15%
-        }
-        if (Boolean.TRUE.equals(app.getCoverSportsActivities())) {
-            calculatedPrice = calculatedPrice.multiply(new BigDecimal("1.25")); // +25%
-        }
-        
-        return calculatedPrice.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    @Transactional
-    public Insurance.TravelApplication createTravelApplication(Insurance.TravelApplication application, String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
-        application.setUser(user);
-        application.setStatus("PENDING");
-        application.setApplicationDate(LocalDateTime.now());
-        application.setCalculatedAmount(calculateTravelPrice(application));
-        return applicationRepository.save(application);
-    }
-
-    // Payment Processing Logic (Refactored)
+    // Payment Processing Logic
     private InsuranceCategory getOrCreateCategory(String displayNameRussian, String technicalTypeEnglish, String defaultDescription) {
-        // First try to find by both name and type to get exact match
         return insuranceCategoryRepository.findByNameAndType(displayNameRussian, technicalTypeEnglish)
             .orElseGet(() -> {
-                // If not found, create new category
             InsuranceCategory newCategory = new InsuranceCategory();
             newCategory.setName(displayNameRussian);
             newCategory.setDescription(defaultDescription);
@@ -614,7 +591,6 @@ public class InsuranceService {
         policy.setEndDate(endDate);
         policy.setStatus(PolicyStatus.ACTIVE);
 
-        // Check if this application is part of a package
         String appTypeDiscriminator = getApplicationTypeFromDiscriminator(application);
         if (appTypeDiscriminator != null && application.getId() != null) {
             packageApplicationLinkRepository.findByApplicationIdAndApplicationType(application.getId(), appTypeDiscriminator)
@@ -625,13 +601,19 @@ public class InsuranceService {
                     });
                 });
         }
-
-        return policy;
+        
+        InsurancePolicy savedPolicy = insuranceRepository.save(policy);
+        recalculateUserPolicyCount(user.getEmail());
+        return savedPolicy;
     }
     
     private <T extends BaseApplication> InsurancePolicy processGenericPayment(
-        Long applicationId, String usernameOrEmail, Class<T> appClass,
-        String categoryDisplayNameRussian, String categoryTechnicalTypeEnglish, String categoryDesc,
+        Long applicationId,
+        String emailForUserContext, 
+        Class<T> appClass,
+        String categoryDisplayNameRussian,
+        String categoryTechnicalTypeEnglish,
+        String categoryDesc,
         java.util.function.Function<T, String> policyNameExtractor) {
 
         BaseApplication baseApplication = applicationRepository.findById(applicationId)
@@ -642,69 +624,105 @@ public class InsuranceService {
         }
         T application = appClass.cast(baseApplication);
 
-        User user = findUser(usernameOrEmail);
-
-        InsuranceCategory category = getOrCreateCategory(categoryDisplayNameRussian, categoryTechnicalTypeEnglish, categoryDesc);
-
-        String policyName = policyNameExtractor.apply(application);
-        String policyDescription = "Полис автоматически создан из заявки #" + applicationId;
-
-        InsurancePolicy policy = setupPolicyFromApplication(application, user, policyName, policyDescription, category);
-
-        // Update and save the application's status
-        application.setStatus("PAID"); // Mark the original application as PAID
-        applicationRepository.save(application); // Save the updated application
-        log.info("Application ID {} (type: {}) status updated to PAID after policy creation.", application.getId(), categoryTechnicalTypeEnglish);
-
-        // Note: The policy itself is saved by the calling transactional method (e.g., processKaskoPayment)
-        // entityManager.flush(); // Consider if flush is needed here or if handled by the outer transaction
-
-        return policy;
-    }
-
-    @Transactional
-    public InsurancePolicy processKaskoPayment(Long applicationId, String usernameOrEmail) {
-        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, KaskoApplication.class,
-            "КАСКО", "AUTO", "Добровольное страхование автомобиля",
-            app -> "КАСКО Полис для " + app.getCarMake() + " " + app.getCarModel());
-        insuranceRepository.save(policy); // Save the newly created policy
-        return policy;
-    }
-
-    @Transactional
-    public InsurancePolicy processTravelPayment(Long applicationId, String usernameOrEmail) {
-        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, TravelApplication.class,
-            "Путешествия", "TRAVEL", "Страхование для путешественников",
-            app -> "Полис Путешественника для " + app.getDestinationCountry());
-        insuranceRepository.save(policy); // Save the newly created policy
-        return policy;
+        User user = findOrCreateUserForApplication(emailForUserContext);
+        
+        if (application.getUser() == null || !application.getUser().getId().equals(user.getId())) {
+            log.info("Updating user association for application {}: User ID {}", application.getId(), user.getId());
+            application.setUser(user);
+        }
+        if (!user.getEmail().equalsIgnoreCase(application.getEmail())) {
+             log.warn("User email {} for application {} differs from application's current email {}. Aligning application email.", 
+                      user.getEmail(), application.getId(), application.getEmail());
+             application.setEmail(user.getEmail());
         }
 
+        InsuranceCategory category = getOrCreateCategory(categoryDisplayNameRussian, categoryTechnicalTypeEnglish, categoryDesc);
+        String policyName = policyNameExtractor.apply(application);
+        String policyDescription = "Полис автоматически создан из заявки #" + applicationId;
+        InsurancePolicy policy = setupPolicyFromApplication(application, user, policyName, policyDescription, category);
+
+        application.setStatus("PAID");
+        applicationRepository.save(application);
+        log.info("Application ID {} (type: {}) status updated to PAID after policy creation for user {}.", application.getId(), categoryTechnicalTypeEnglish, user.getEmail());
+
+        return policy;
+    }
+
+    private String getEmailFromApplicationForProcessing(Long applicationId, String emailFromAuthController) {
+        BaseApplication app = applicationRepository.findById(applicationId)
+            .orElseThrow(() -> new EntityNotFoundException("Application not found for email extraction: " + applicationId));
+        String emailFromAppRecord = app.getEmail();
+        
+        if (emailFromAppRecord != null && !emailFromAppRecord.trim().isEmpty()) {
+            if (emailFromAuthController != null && !emailFromAppRecord.equalsIgnoreCase(emailFromAuthController)) {
+                log.warn("Email in application record ({}) differs from authenticated user's email ({}). Prioritizing application record email for user context for application ID {}.", 
+                         emailFromAppRecord, emailFromAuthController, applicationId);
+            }
+            return emailFromAppRecord;
+        } else {
+            log.warn("Email missing in application record for ID {}. Falling back to controller-provided/authenticated user's email: {}", applicationId, emailFromAuthController);
+            if (emailFromAuthController == null || emailFromAuthController.trim().isEmpty()) {
+                throw new IllegalArgumentException("Email is critically missing for processing application ID: " + applicationId);
+            }
+            return emailFromAuthController;
+        }
+    }
+
     @Transactional
-    public InsurancePolicy processPropertyPayment(Long applicationId, String usernameOrEmail) {
-         InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, PropertyApplication.class,
+    public InsurancePolicy processKaskoPayment(Long applicationId, String usernameOrEmailFromController) {
+        String emailForUserContext = getEmailFromApplicationForProcessing(applicationId, usernameOrEmailFromController);
+        InsurancePolicy policy = processGenericPayment(applicationId, emailForUserContext, KaskoApplication.class,
+            "КАСКО", "AUTO", "Добровольное страхование автомобиля",
+            kaskoApp -> "КАСКО Полис для " + kaskoApp.getCarMake() + " " + kaskoApp.getCarModel());
+        insuranceRepository.save(policy);
+        return policy;
+    }
+
+    @Transactional
+    public InsurancePolicy processTravelPayment(Long applicationId, String usernameOrEmailFromController) {
+        String emailForUserContext = getEmailFromApplicationForProcessing(applicationId, usernameOrEmailFromController);
+        InsurancePolicy policy = processGenericPayment(applicationId, emailForUserContext, TravelApplication.class,
+            "Путешествия", "TRAVEL", "Страхование для путешественников",
+            travelApp -> "Полис Путешественника для " + travelApp.getDestinationCountry());
+        insuranceRepository.save(policy);
+        return policy;
+    }
+
+    @Transactional
+    public InsurancePolicy processPropertyPayment(Long applicationId, String usernameOrEmailFromController) {
+        String emailForUserContext = getEmailFromApplicationForProcessing(applicationId, usernameOrEmailFromController);
+        InsurancePolicy policy = processGenericPayment(applicationId, emailForUserContext, PropertyApplication.class,
             "Недвижимость", "PROPERTY", "Страхование недвижимого имущества",
-            app -> "Полис Имущества для " + app.getPropertyType());
-        insuranceRepository.save(policy); // Save the newly created policy
+            propertyApp -> "Полис Имущества для " + propertyApp.getPropertyType());
+        insuranceRepository.save(policy);
         return policy;
     }
 
     @Transactional
-    public InsurancePolicy processOsagoPayment(Long applicationId, String usernameOrEmail) {
-        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, OsagoApplication.class,
+    public InsurancePolicy processOsagoPayment(Long applicationId, String usernameOrEmailFromController) {
+        String emailForUserContext = getEmailFromApplicationForProcessing(applicationId, usernameOrEmailFromController);
+        InsurancePolicy policy = processGenericPayment(applicationId, emailForUserContext, OsagoApplication.class,
             "ОСАГО", "AUTO", "Обязательное страхование автогражданской ответственности",
-            app -> "ОСАГО Полис для " + app.getCarMake() + " " + app.getCarModel());
-        insuranceRepository.save(policy); // Save the newly created policy
+            osagoApp -> "ОСАГО Полис для " + osagoApp.getCarMake() + " " + osagoApp.getCarModel());
+        insuranceRepository.save(policy);
         return policy;
     }
 
     @Transactional
-    public InsurancePolicy processHealthPayment(Long applicationId, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail); // user is fetched here for policy name
-        InsurancePolicy policy = processGenericPayment(applicationId, usernameOrEmail, HealthApplication.class,
+    public InsurancePolicy processHealthPayment(Long applicationId, String usernameOrEmailFromController) {
+        String emailForUserContext = getEmailFromApplicationForProcessing(applicationId, usernameOrEmailFromController);
+        InsurancePolicy policy = processGenericPayment(applicationId, emailForUserContext, HealthApplication.class,
             "Здоровье", "HEALTH", "Добровольное медицинское страхование",
-            app -> "Полис Здоровья для " + user.getFirstName() + " " + user.getLastName()); // user is used here
-        insuranceRepository.save(policy); // Save the newly created policy
+             healthApp -> {
+                User policyUser = healthApp.getUser();
+                if (policyUser != null && policyUser.getFirstName() != null && !policyUser.getFirstName().isEmpty()) {
+                    return "Полис Здоровья для " + policyUser.getFirstName() + (policyUser.getLastName() != null ? " " + policyUser.getLastName() : "");
+                } else if (policyUser != null && policyUser.getEmail() != null) {
+                     return "Полис Здоровья для пользователя " + policyUser.getEmail();
+                }
+                return "Полис Здоровья";
+            });
+        insuranceRepository.save(policy);
         return policy;
     }
 
@@ -896,10 +914,7 @@ public class InsuranceService {
             log.info("Updated status of related application ID {} to CANCELLED due to policy {} cancellation.", app.getId(), policyId);
         }
 
-        if (user.getPolicyCount() != null && user.getPolicyCount() > 0) {
-             user.setPolicyCount(user.getPolicyCount() - 1);
-             userRepository.save(user);
-        }
+        recalculateUserPolicyCount(username);
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "Полис успешно отменен. Сумма возврата: " + refundAmount.toPlainString() + " ₽");
@@ -931,7 +946,7 @@ public class InsuranceService {
     public InsurancePackage processPackageApplication(
             Long packageId,
             List<PackageApplicationItem> applicationItems,
-            String authenticatedUserEmail) {
+            String authenticatedUserEmailIfAny) {
 
         InsurancePackage insurancePackage = insurancePackageRepository.findById(packageId)
                 .orElseThrow(() -> new EntityNotFoundException("InsurancePackage not found with ID: " + packageId));
@@ -940,70 +955,70 @@ public class InsuranceService {
             throw new IllegalArgumentException("Application items list cannot be empty.");
         }
 
-        // User handling logic
         PackageApplicationItem firstItem = applicationItems.get(0);
         Map<String, Object> firstItemData = firstItem.getData();
         String emailFromPayload = (String) firstItemData.get("email");
 
         if (emailFromPayload == null || emailFromPayload.trim().isEmpty()) {
-            throw new IllegalArgumentException("Email is required in application data.");
+            if (authenticatedUserEmailIfAny != null && !authenticatedUserEmailIfAny.trim().isEmpty()){
+                log.warn("Email is missing in the first package application item's data. Using authenticated user's email: {} for package processing.", authenticatedUserEmailIfAny);
+                emailFromPayload = authenticatedUserEmailIfAny;
+            } else {
+                throw new IllegalArgumentException("Email is required in the first application item's data for package processing, or user must be authenticated.");
+            }
         }
 
         User packageUser;
-        boolean isNewUser = false;
-
-        if (authenticatedUserEmail != null && !authenticatedUserEmail.equalsIgnoreCase(emailFromPayload)) {
-            // Log this case: authenticated user is applying for a package with a different email
-            // Decide on policy: for now, we'll use the email from payload for the package user
-            // and potentially create a new user if that email doesn't exist.
-            // Or, restrict that authenticatedUserEmail must match emailFromPayload if applying for self.
-            // For now, let's assume the email in the form is the target user.
-            packageUser = userRepository.findByEmail(emailFromPayload).orElse(null);
-        } else if (authenticatedUserEmail != null) {
-             packageUser = userRepository.findByEmail(authenticatedUserEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Authenticated user not found with email: " + authenticatedUserEmail));
-        } else {
-            packageUser = userRepository.findByEmail(emailFromPayload).orElse(null);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String actualAuthenticatedEmail = (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User) ?
+                                           ((User)authentication.getPrincipal()).getEmail() : null;
+        
+        if (actualAuthenticatedEmail != null) {
+            authenticatedUserEmailIfAny = actualAuthenticatedEmail;
         }
 
-        if (packageUser == null) {
-            isNewUser = true;
-            String firstName = (String) firstItemData.get("firstName");
-            String lastName = (String) firstItemData.get("lastName");
-            String phone = (String) firstItemData.get("phone");
-            String password = (String) firstItemData.getOrDefault("password", emailFromPayload); // Default password to email
-
-            if (firstName == null || lastName == null) {
-                throw new IllegalArgumentException("First name and last name are required for new user registration.");
+        if (authenticatedUserEmailIfAny != null) { 
+            if (authenticatedUserEmailIfAny.equalsIgnoreCase(emailFromPayload)) {
+                packageUser = findUserStrict(authenticatedUserEmailIfAny);
+                log.info("Authenticated user {} is processing package for themself (email match).", authenticatedUserEmailIfAny);
+            } else {
+                log.warn("Authenticated user {} is processing package with a different email in payload: {}. Using payload email for user context.", authenticatedUserEmailIfAny, emailFromPayload);
+                packageUser = findOrCreateUserForApplication(emailFromPayload);
             }
-
-            packageUser = User.builder()
-                    .email(emailFromPayload)
-                    .password(passwordEncoder.encode(password))
-                    .firstName(firstName)
-                    .lastName(lastName)
-                    .middleName((String) firstItemData.get("middleName"))
-                    .phone(phone)
-                    .role(Role.USER) // Default role
-                    .build();
-            packageUser = userRepository.save(packageUser);
+        } else { 
+            log.info("Unauthenticated or mismatched email flow for package processing. Using email from payload: {} to find/create user.", emailFromPayload);
+            packageUser = findOrCreateUserForApplication(emailFromPayload);
+        }
+        
+        if (packageUser.getFirstName() == null || packageUser.getFirstName().isEmpty() || 
+            (packageUser.getEmail() != null && packageUser.getFirstName().equals(packageUser.getEmail().split("@")[0]))) {
+            String firstNameFromPayload = (String) firstItemData.get("firstName");
+            if (firstNameFromPayload != null && !firstNameFromPayload.trim().isEmpty()) {
+                packageUser.setFirstName(firstNameFromPayload);
+            } else if (packageUser.getEmail() != null && (packageUser.getFirstName() == null || packageUser.getFirstName().isEmpty())) {
+                 packageUser.setFirstName(packageUser.getEmail().split("@")[0]);
+            }
+        }
+        String lastNameFromPayload = (String) firstItemData.get("lastName");
+        if (lastNameFromPayload != null && !lastNameFromPayload.trim().isEmpty()) {
+             if (!lastNameFromPayload.equals(packageUser.getLastName())) {
+                packageUser.setLastName(lastNameFromPayload);
+             }
+        }
+        String phoneFromPayload = (String) firstItemData.get("phone");
+        if (phoneFromPayload != null && !phoneFromPayload.trim().isEmpty()) {
+            if(!phoneFromPayload.equals(packageUser.getPhone())) {
+                packageUser.setPhone(phoneFromPayload);
+            }
+        }
+        if(packageUser.getFirstName() != null && !packageUser.getFirstName().isEmpty()) {
+            userRepository.save(packageUser);
+            log.info("Updated package user {} profile with data from payload. Name: {} {}, Phone: {}", 
+                     packageUser.getId(), packageUser.getFirstName(), packageUser.getLastName(), packageUser.getPhone());
         }
 
-        // Ensure the package is associated with this user
         insurancePackage.setUser(packageUser);
-
-        // Initialize applicationLinks list if it's null (it shouldn't be with @Builder.Default)
-        if (insurancePackage.getApplicationLinks() == null) {
-            insurancePackage.setApplicationLinks(new ArrayList<>());
-        }
-        // Clear any existing links if this process is meant to overwrite or resubmit all applications for the package
-        // Or, handle updates more granularly if needed (outside current scope of just adding)
-        // For simplicity, let's assume we are adding to potentially existing or new list:
-        // insurancePackage.getApplicationLinks().clear(); // Uncomment if replacing all applications
-
-        List<BaseApplication> createdApplications = new ArrayList<>(); // To calculate total price
-
-        // Создаем множество выбранных типов страхования из applicationItems
+        List<BaseApplication> createdApplications = new ArrayList<>();
         Set<String> selectedTypes = applicationItems.stream()
             .map(item -> {
                 String type = item.getType();
@@ -1018,11 +1033,6 @@ public class InsuranceService {
 
         log.info("Selected insurance types in package: {}", selectedTypes);
 
-        // Проверяем, что нет конфликтующих типов страхования
-        if (selectedTypes.contains("OSAGO") && selectedTypes.contains("KASKO")) {
-            log.info("Package contains both OSAGO and KASKO insurance types");
-        }
-
         for (PackageApplicationItem item : applicationItems) {
             String itemType = item.getType();
             if (itemType == null || itemType.trim().isEmpty()) {
@@ -1031,7 +1041,6 @@ public class InsuranceService {
             }
             itemType = itemType.toUpperCase();
             
-            // Пропускаем обработку, если тип не был выбран в пакете
             if (!selectedTypes.contains(itemType)) {
                 log.info("Skipping insurance type {} as it was not selected in package", itemType);
                 continue;
@@ -1041,12 +1050,14 @@ public class InsuranceService {
 
             BaseApplication newApplication = null;
             String actualApplicationTypeForLink = null;
+            
+            Map<String, Object> currentItemData = new HashMap<>(item.getData());
+            currentItemData.put("email", packageUser.getEmail());
 
             switch(itemType) {
                 case "KASKO":
-                    KaskoApplicationRequest kaskoRequest = objectMapper.convertValue(item.getData(), KaskoApplicationRequest.class);
+                    KaskoApplicationRequest kaskoRequest = objectMapper.convertValue(currentItemData, KaskoApplicationRequest.class);
                     KaskoApplication kaskoApp = new KaskoApplication();
-                    // Map fields from kaskoRequest to kaskoApp
                     kaskoApp.setCarMake(kaskoRequest.getCarMake());
                     kaskoApp.setCarModel(kaskoRequest.getCarModel());
                     kaskoApp.setCarYear(kaskoRequest.getCarYear());
@@ -1062,10 +1073,11 @@ public class InsuranceService {
                     kaskoApp.setStartDate(kaskoRequest.getStartDate() != null ? kaskoRequest.getStartDate() : LocalDate.now());
                     
                     kaskoApp.setUser(packageUser);
+                    kaskoApp.setEmail(packageUser.getEmail());
                     kaskoApp.setApplicationDate(LocalDateTime.now());
                     kaskoApp.setStatus("PENDING_PACKAGE");
                     kaskoApp.setCalculatedAmount(calculateKaskoPrice(kaskoApp));
-                    if(kaskoApp.getEndDate() == null && kaskoApp.getDuration() != null) {
+                    if(kaskoApp.getEndDate() == null && kaskoApp.getDuration() != null && kaskoApp.getStartDate() != null) {
                         kaskoApp.setEndDate(kaskoApp.getStartDate().plusMonths(kaskoApp.getDuration()));
                     }
                     newApplication = applicationRepository.save(kaskoApp);
@@ -1073,9 +1085,8 @@ public class InsuranceService {
                     break;
 
                 case "OSAGO":
-                    OsagoApplicationRequest osagoRequest = objectMapper.convertValue(item.getData(), OsagoApplicationRequest.class);
+                    OsagoApplicationRequest osagoRequest = objectMapper.convertValue(currentItemData, OsagoApplicationRequest.class);
                     OsagoApplication osagoApp = new OsagoApplication();
-                    // Map fields from osagoRequest to osagoApp
                     osagoApp.setCarMake(osagoRequest.getCarMake());
                     osagoApp.setCarModel(osagoRequest.getCarModel());
                     osagoApp.setCarYear(osagoRequest.getCarYear());
@@ -1093,24 +1104,25 @@ public class InsuranceService {
                     osagoApp.setStartDate(osagoRequest.getStartDate() != null ? osagoRequest.getStartDate() : LocalDate.now());
 
                     osagoApp.setUser(packageUser);
+                    osagoApp.setEmail(packageUser.getEmail());
                     osagoApp.setApplicationDate(LocalDateTime.now());
                     osagoApp.setStatus("PENDING_PACKAGE");
                     osagoApp.setCalculatedAmount(calculateOsagoPrice(osagoApp));
-                    if(osagoApp.getEndDate() == null && osagoApp.getDuration() != null) {
+                     if(osagoApp.getEndDate() == null && osagoApp.getDuration() != null && osagoApp.getStartDate() != null) {
                         osagoApp.setEndDate(osagoApp.getStartDate().plusMonths(osagoApp.getDuration()));
                     }
                     newApplication = applicationRepository.save(osagoApp);
                     actualApplicationTypeForLink = "OSAGO";
                     break;
-
                 case "TRAVEL":
-                    TravelApplication travelApp = objectMapper.convertValue(item.getData(), TravelApplication.class);
+                    TravelApplication travelApp = objectMapper.convertValue(currentItemData, TravelApplication.class);
                     travelApp.setUser(packageUser);
+                    travelApp.setEmail(packageUser.getEmail());
                     travelApp.setApplicationDate(LocalDateTime.now());
                     travelApp.setStatus("PENDING_PACKAGE");
 
                     if (travelApp.getCalculatedAmount() == null) {
-                        travelApp.setCalculatedAmount(new BigDecimal("2500.00")); // Default
+                        travelApp.setCalculatedAmount(new BigDecimal("2500.00"));
                     }
                     if (travelApp.getTravelStartDate() == null) {
                         travelApp.setTravelStartDate(LocalDate.now().plusDays(7));
@@ -1126,8 +1138,9 @@ public class InsuranceService {
                     break;
 
                 case "HEALTH":
-                    HealthApplication healthApp = objectMapper.convertValue(item.getData(), HealthApplication.class);
+                    HealthApplication healthApp = objectMapper.convertValue(currentItemData, HealthApplication.class);
                     healthApp.setUser(packageUser);
+                    healthApp.setEmail(packageUser.getEmail());
                     healthApp.setApplicationDate(LocalDateTime.now());
                     healthApp.setStatus("PENDING_PACKAGE");
 
@@ -1145,8 +1158,9 @@ public class InsuranceService {
                     break;
 
                 case "PROPERTY":
-                    PropertyApplication propertyApp = objectMapper.convertValue(item.getData(), PropertyApplication.class);
+                    PropertyApplication propertyApp = objectMapper.convertValue(currentItemData, PropertyApplication.class);
                     propertyApp.setUser(packageUser);
+                    propertyApp.setEmail(packageUser.getEmail());
                     propertyApp.setApplicationDate(LocalDateTime.now());
                     propertyApp.setStatus("PENDING_PACKAGE");
 
@@ -1166,7 +1180,6 @@ public class InsuranceService {
                     newApplication = applicationRepository.save(propertyApp);
                     actualApplicationTypeForLink = "PROPERTY";
                     break;
-
                 default:
                     log.warn("Unsupported insurance type: {}", itemType);
                     continue;
@@ -1174,19 +1187,16 @@ public class InsuranceService {
 
             if (newApplication != null && actualApplicationTypeForLink != null) {
                 createdApplications.add(newApplication);
-
                 PackageApplicationLink link = PackageApplicationLink.builder()
                     .insurancePackage(insurancePackage)
                     .applicationId(newApplication.getId())
                     .applicationType(actualApplicationTypeForLink)
                     .build();
                 link.setPackageId(insurancePackage.getId());
-
                 insurancePackage.getApplicationLinks().add(link);
             }
         }
         
-        // Recalculate package total amount based on created applications
         BigDecimal totalPackageAmount = BigDecimal.ZERO;
         for(BaseApplication app : createdApplications) {
             if (app.getCalculatedAmount() != null) {
@@ -1194,15 +1204,13 @@ public class InsuranceService {
             }
         }
         insurancePackage.setOriginalTotalAmount(totalPackageAmount);
-        // Apply package discount
-        BigDecimal discountAmount = totalPackageAmount.multiply(BigDecimal.valueOf(insurancePackage.getDiscount()).divide(BigDecimal.valueOf(100)));
+        BigDecimal discountAmount = totalPackageAmount.multiply(BigDecimal.valueOf(insurancePackage.getDiscount()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
         insurancePackage.setFinalAmount(totalPackageAmount.subtract(discountAmount).setScale(2, RoundingMode.HALF_UP));
 
         insurancePackage.setStatus(PackageStatus.PENDING);
-        return insurancePackageRepository.save(insurancePackage); // This will cascade save the new PackageApplicationLink entities
+        return insurancePackageRepository.save(insurancePackage);
     }
 
-    // Helper to get DiscriminatorValue from BaseApplication instance
     private String getApplicationTypeFromDiscriminator(BaseApplication application) {
         DiscriminatorValue discriminatorValue = application.getClass().getAnnotation(DiscriminatorValue.class);
         return discriminatorValue != null ? discriminatorValue.value() : null;
@@ -1217,30 +1225,27 @@ public class InsuranceService {
             List<ApplicationDetailDTO> applicationDetails = pkg.getApplicationLinks().stream()
                 .map(link -> applicationRepository.findById(link.getApplicationId())
                     .map(app -> {
-                        // Check if the application belongs to the package's user
                         if (!app.getUser().getId().equals(user.getId())) {
                             log.warn("Data integrity issue: Package ID {} (user {}) contains link to Application ID {} (user {}) which belongs to a different user ({}). Skipping application.",
                                      pkg.getId(), user.getEmail(), app.getId(), app.getUser().getEmail(), app.getUser().getId());
-                            return null; // This application will be filtered out later
+                            return null;
                         }
 
                         String actualAppType = getApplicationTypeFromDiscriminator(app);
 
-                        // Optional: Check consistency between link's type and actual app type
                         if (actualAppType == null || !link.getApplicationType().equals(actualAppType)) {
                             log.warn("Data integrity issue: Package ID {} for Application ID {} has link type '{}' but actual application type is '{}'. Using actual type: {}.",
                                      pkg.getId(), app.getId(), link.getApplicationType(), actualAppType, actualAppType);
                             if (actualAppType == null) {
                                 log.error("Critical data issue: Could not determine actual application type for Application ID {}. Linked type was {}. Skipping.", app.getId(), link.getApplicationType());
-                                return null; // Skip this problematic application
+                                return null;
                             }
                         }
 
-                        // Log details of the application that is about to be included
                         log.info("Including application in package: AppID={}, DeterminedType={}, User={}, PackageID={}", 
                                  app.getId(), actualAppType, user.getEmail(), pkg.getId());
                         
-                        String displayName = actualAppType != null ? actualAppType : "Тип не определен"; // Default if actualAppType is null
+                        String displayName = actualAppType != null ? actualAppType : "Тип не определен";
 
                         if (app instanceof KaskoApplication) {
                             KaskoApplication kaskoApp = (KaskoApplication) app;
@@ -1296,7 +1301,7 @@ public class InsuranceService {
                         
                         return ApplicationDetailDTO.builder()
                             .id(app.getId())
-                            .applicationType(actualAppType) // Use the actual determined type
+                            .applicationType(actualAppType)
                             .status(app.getStatus())
                             .startDate(app.getStartDate())
                             .endDate(app.getEndDate())
@@ -1304,7 +1309,7 @@ public class InsuranceService {
                             .displayName(displayName)
                             .build();
                     })
-                    .orElseGet(() -> { // Handle if application not found by ID from link
+                    .orElseGet(() -> {
                         log.warn("Data integrity issue: Package ID {} contains link to non-existent Application ID {}. Type in link was {}.", 
                                  pkg.getId(), link.getApplicationId(), link.getApplicationType());
                         return null;
@@ -1333,8 +1338,8 @@ public class InsuranceService {
     }
 
     @Transactional
-    public void processPackagePayment(Long packageId, String usernameOrEmail) {
-        User user = findUser(usernameOrEmail);
+    public void processPackagePayment(Long packageId, String usernameOrEmailFromController) {
+        User user = findUser(usernameOrEmailFromController);
         InsurancePackage insurancePackage = insurancePackageRepository.findById(packageId)
                 .orElseThrow(() -> new IllegalArgumentException("Package not found with ID: " + packageId));
 
@@ -1346,7 +1351,7 @@ public class InsuranceService {
             throw new IllegalArgumentException("Package is not in a state that allows payment. Current status: " + insurancePackage.getStatus());
         }
 
-        log.info("Processing payment for package ID: {}, User: {}", packageId, usernameOrEmail);
+        log.info("Processing payment for package ID: {}, User: {}", packageId, usernameOrEmailFromController);
 
         List<BaseApplication> applicationsToProcess = insurancePackage.getApplicationLinks().stream()
             .map(link -> applicationRepository.findById(link.getApplicationId())
@@ -1361,7 +1366,7 @@ public class InsuranceService {
             if (!app.getUser().getId().equals(user.getId())) {
                 log.warn("Skipping application ID {} in package {} as it belongs to a different user ({}). This indicates a data integrity issue.", 
                          app.getId(), packageId, app.getUser().getEmail());
-                continue; // Skip this application
+                continue;
             }
 
             String currentAppStatus = app.getStatus();
@@ -1373,12 +1378,11 @@ public class InsuranceService {
             log.info("Processing application ID {} (type: {}) in package {}. Current status: {}", 
                      app.getId(), getApplicationTypeFromDiscriminator(app), packageId, app.getStatus());
 
-            app.setStatus("PAID"); // Set status to String "PAID"
+            app.setStatus("PAID");
             applicationRepository.save(app);
             log.info("Application ID {} status updated to PAID.", app.getId());
 
             try {
-                // Logic to create policy using setupPolicyFromApplication
                 String policyName;
                 String policyDescriptionPrefix;
                 InsuranceCategory category;
@@ -1410,21 +1414,19 @@ public class InsuranceService {
                     category = getOrCreateCategory("Недвижимость", "PROPERTY", "Страхование недвижимого имущества");
                 } else {
                     log.warn("Unsupported application type '{}' for policy creation in package {}. Skipping policy creation for app ID {}.", appType, packageId, app.getId());
-                    continue; // Skip policy creation for this unsupported type
+                    continue;
                 }
 
                 InsurancePolicy createdPolicy = setupPolicyFromApplication(app, user, policyName, policyDescriptionPrefix, category);
-                insuranceRepository.save(createdPolicy); // Save the newly created policy
+                insuranceRepository.save(createdPolicy);
                 log.info("Policy ID {} created for application ID {} in package {}.", createdPolicy.getId(), app.getId(), packageId);
 
             } catch (Exception e) {
                 log.error("Error creating policy for application ID {} in package {}: {}", app.getId(), packageId, e.getMessage(), e);
-                // Decide on error handling: continue, or re-throw to fail package payment?
-                // For now, logging and continuing to allow other policies in the package to be created.
             }
         }
 
-        insurancePackage.setStatus(PackageStatus.COMPLETED); // Corrected: Set status to COMPLETED after payment
+        insurancePackage.setStatus(PackageStatus.COMPLETED);
         insurancePackageRepository.save(insurancePackage);
         log.info("Package ID {} status updated to PAID (now COMPLETED). Payment processing complete.", packageId);
     }
@@ -1435,12 +1437,10 @@ public class InsuranceService {
         InsurancePackage insurancePackage = insurancePackageRepository.findById(packageId)
                 .orElseThrow(() -> new EntityNotFoundException("Package not found with id: " + packageId));
 
-        // Verify ownership
         if (!insurancePackage.getUser().getId().equals(user.getId())) {
             throw new IllegalStateException("User is not authorized to cancel this package");
         }
 
-        // Check if package can be cancelled
         if (insurancePackage.getStatus() == PackageStatus.CANCELLED) {
             throw new IllegalStateException("Package is already cancelled");
         }
@@ -1448,7 +1448,6 @@ public class InsuranceService {
             throw new IllegalStateException("Cannot cancel a completed package. Please cancel individual policies instead.");
         }
 
-        // Cancel all pending applications in the package
         if (insurancePackage.getApplicationLinks() != null) {
             for (PackageApplicationLink link : insurancePackage.getApplicationLinks()) {
                 BaseApplication application = applicationRepository.findById(link.getApplicationId())
@@ -1462,7 +1461,6 @@ public class InsuranceService {
             }
         }
 
-        // Update package status
         insurancePackage.setStatus(PackageStatus.CANCELLED);
         return insurancePackageRepository.save(insurancePackage);
     }

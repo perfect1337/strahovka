@@ -138,4 +138,45 @@ public class AuthService {
 
         return user;
     }
+
+    @Transactional
+    public User createOrGetUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+            .orElseGet(() -> {
+                User newUser = User.builder()
+                    .email(email)
+                    .password(passwordEncoder.encode(email)) // Using email as password
+                    .firstName(email.split("@")[0]) // Using part before @ as firstName
+                    .lastName("") // Empty lastName
+                    .role(Role.USER)
+                    .build();
+                return userRepository.save(newUser);
+            });
+    }
+
+    @Transactional
+    public LoginResponse registerAndLogin(String email) {
+        User user = createOrGetUserByEmail(email);
+        
+        String token = jwtService.generateToken(email);
+        String refreshToken = jwtService.generateRefreshToken(email);
+
+        user.setAccessToken(token);
+        user.setRefreshToken(refreshToken);
+        userRepository.save(user);
+
+        return LoginResponse.builder()
+                .accessToken(token)
+                .refreshToken(refreshToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .level(user.getLevel())
+                .policyCount(user.getPolicyCount())
+                .build();
+    }
 } 

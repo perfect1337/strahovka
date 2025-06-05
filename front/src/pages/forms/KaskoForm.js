@@ -13,13 +13,11 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
 
     const handleFinish = async (valuesFromForm) => {
         try {
-            // Проверяем валидность формы
             await form.validateFields();
             
             console.log('[KaskoFormContent] handleFinish triggered. isPartOfPackage:', isPartOfPackage, 'Values:', valuesFromForm);
             setLoading(true);
 
-            // Трансформация и сбор данных для КАСКО
             const kaskoData = {
                 carMake: valuesFromForm.carMake?.trim(),
                 carModel: valuesFromForm.carModel?.trim(),
@@ -35,13 +33,20 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
                 duration: valuesFromForm.insuranceDuration
             };
 
-            // Если форма является частью пакета, используем onSubmit из props
-            if (isPartOfPackage) {
-                await onSubmit(kaskoData);
+            if (!isAuthenticated && valuesFromForm.email) {
+                kaskoData.email = valuesFromForm.email.trim();
+            } else if (!isAuthenticated && !valuesFromForm.email) {
+                message.error('Email является обязательным для неавторизованных пользователей.');
+                setLoading(false);
                 return;
             }
 
-            // Стандартная логика для отдельной формы КАСКО
+            if (isPartOfPackage) {
+                await onSubmit(kaskoData);
+                setLoading(false);
+                return;
+            }
+
             const response = await api.post('/api/insurance/applications/kasko', kaskoData);
             
             if (response.data) {
@@ -50,7 +55,11 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
             }
         } catch (error) {
             console.error('Error in handleFinish:', error);
-            message.error(error.response?.data?.message || 'Ошибка при отправке формы');
+            if (error.errorFields && error.errorFields.some(field => field.name.includes('email'))) {
+                 message.error('Пожалуйста, укажите ваш Email.');
+            } else {
+                message.error(error.response?.data?.message || 'Ошибка при отправке формы КАСКО');
+            }
         } finally {
             setLoading(false);
         }
@@ -67,6 +76,19 @@ const KaskoFormContent = ({ isAuthenticated, onSubmit, isPartOfPackage }) => {
                 garageParking: false
             }}
         >
+            {!isAuthenticated && (
+                <Form.Item
+                    label="Email для вашей заявки"
+                    name="email"
+                    rules={[
+                        { required: true, message: 'Пожалуйста, введите ваш Email!' },
+                        { type: 'email', message: 'Пожалуйста, введите корректный Email!' }
+                    ]}
+                >
+                    <Input placeholder="your.email@example.com" />
+                </Form.Item>
+            )}
+
             <Form.Item
                 label="Марка автомобиля"
                 name="carMake"
@@ -190,11 +212,9 @@ const KaskoForm = ({ isPartOfPackage, packageId, onSubmit: parentOnSubmit }) => 
     const handleSubmit = async (data) => {
         try {
             if (isPartOfPackage && packageId) {
-                // Если форма является частью пакета, используем parentOnSubmit
                 return await parentOnSubmit(data);
             }
 
-            // Стандартная логика для отдельной формы КАСКО
             const response = await api.post('/api/insurance/applications/kasko', data);
             return response;
         } catch (error) {

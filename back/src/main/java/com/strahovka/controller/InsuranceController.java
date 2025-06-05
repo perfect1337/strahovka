@@ -7,10 +7,14 @@ import com.strahovka.delivery.InsurancePolicy;
 import com.strahovka.delivery.Claims.InsuranceClaim;
 import com.strahovka.delivery.Claims.ClaimAttachment;
 import com.strahovka.delivery.User;
+import com.strahovka.dto.KaskoApplicationRequest;
+import com.strahovka.dto.LoginResponse;
+import com.strahovka.dto.OsagoApplicationRequest;
 import com.strahovka.enums.Role;
 import com.strahovka.service.InsuranceService;
 import com.strahovka.repository.UserRepository;
 import com.strahovka.service.JwtService;
+import com.strahovka.service.AuthService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +53,7 @@ public class InsuranceController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuthService authService;
 
     private String extractEmailFromPayload(Map<String, Object> payload) {
         Object emailObj = payload.get("email");
@@ -290,91 +295,181 @@ public class InsuranceController {
 
     // Application endpoints
     @PostMapping("/applications/kasko")
-    public ResponseEntity<Insurance.KaskoApplication> createKaskoApplication(@RequestBody Insurance.KaskoApplication application, Authentication authentication) {
-        log.info("createKaskoApplication called. Authentication: {}, Payload: {}", authentication, application);
-        Insurance.KaskoApplication createdApplication = insuranceService.createKaskoApplication(application, authentication.getName());
+    public ResponseEntity<Insurance.KaskoApplication> createKaskoApplication(
+            @RequestBody Insurance.KaskoApplication application,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("createKaskoApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
+
+        if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
+            log.error("Email is missing in KaskoApplication payload for an unauthenticated user.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); 
+        }
+        Insurance.KaskoApplication createdApplication = insuranceService.createKaskoApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
 
     @PostMapping("/applications/osago")
-    public ResponseEntity<Insurance.OsagoApplication> createOsagoApplication(@RequestBody Insurance.OsagoApplication application, Authentication authentication) {
-        log.info("createOsagoApplication called. Authentication: {}, Payload: {}", authentication, application);
-        Insurance.OsagoApplication createdApplication = insuranceService.createOsagoApplication(application, authentication.getName());
+    public ResponseEntity<Insurance.OsagoApplication> createOsagoApplication(
+            @RequestBody Insurance.OsagoApplication application, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("createOsagoApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
+
+        if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
+            log.error("Email is missing in OsagoApplication payload for an unauthenticated user.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        
+        Insurance.OsagoApplication createdApplication = insuranceService.createOsagoApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
 
     @PostMapping("/applications/travel")
-    public ResponseEntity<Insurance.TravelApplication> createTravelApplication(@RequestBody Insurance.TravelApplication application, Authentication authentication) {
-        Insurance.TravelApplication createdApplication = insuranceService.createTravelApplication(application, authentication.getName());
+    public ResponseEntity<Insurance.TravelApplication> createTravelApplication(
+            @RequestBody Insurance.TravelApplication application, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("createTravelApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
+
+        if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
+            log.error("Email is missing in TravelApplication payload for an unauthenticated user.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        Insurance.TravelApplication createdApplication = insuranceService.createTravelApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
 
     @PostMapping("/applications/health")
-    public ResponseEntity<Insurance.HealthApplication> createHealthApplication(@RequestBody Insurance.HealthApplication application, Authentication authentication) {
-        log.info("createHealthApplication called. Authentication: {}, Payload: {}", authentication, application);
-        Insurance.HealthApplication createdApplication = insuranceService.createHealthApplication(application, authentication.getName());
+    public ResponseEntity<Insurance.HealthApplication> createHealthApplication(
+            @RequestBody Insurance.HealthApplication application, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("createHealthApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
+
+        if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
+            log.error("Email is missing in HealthApplication payload for an unauthenticated user.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        
+        Insurance.HealthApplication createdApplication = insuranceService.createHealthApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
 
     @PostMapping("/applications/property")
-    public ResponseEntity<Insurance.PropertyApplication> createPropertyApplication(@RequestBody Insurance.PropertyApplication application, Authentication authentication) {
-        log.info("createPropertyApplication called. Authentication: {}, Payload: {}", authentication, application);
-        Insurance.PropertyApplication createdApplication = insuranceService.createPropertyApplication(application, authentication.getName());
+    public ResponseEntity<Insurance.PropertyApplication> createPropertyApplication(
+            @RequestBody Insurance.PropertyApplication application, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("createPropertyApplication called. Authenticated user email: {}. Application payload email: {}", userEmailForService, application.getEmail());
+
+        if (userEmailForService == null && (application.getEmail() == null || application.getEmail().trim().isEmpty())) {
+            log.error("Email is missing in PropertyApplication payload for an unauthenticated user.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        Insurance.PropertyApplication createdApplication = insuranceService.createPropertyApplication(application, userEmailForService);
         return ResponseEntity.ok(createdApplication);
     }
 
     @PostMapping("/health/{applicationId}/pay")
-    public ResponseEntity<?> processHealthPayment(@PathVariable Long applicationId, Authentication authentication) {
-        log.info("Processing Health payment for application ID: {} by user: {}", applicationId, authentication.getName());
+    public ResponseEntity<?> processHealthPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("processHealthPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
         try {
-            InsurancePolicy policy = insuranceService.processHealthPayment(applicationId, authentication.getName());
+            InsurancePolicy policy = insuranceService.processHealthPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
         } catch (EntityNotFoundException e) {
-            log.error("Error processing Health payment - application not found: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("Error processing Health payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Unexpected error processing Health payment: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred.");
+            log.error("Error in processHealthPayment for app {}: {}", applicationId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
     }
 
     @PostMapping("/osago/{applicationId}/pay")
-    public ResponseEntity<?> processOsagoPayment(@PathVariable Long applicationId, Authentication authentication) {
-        log.info("Processing OSAGO payment for application ID: {} by user: {}", applicationId, authentication.getName());
+    public ResponseEntity<?> processOsagoPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("processOsagoPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
         try {
-            InsurancePolicy policy = insuranceService.processOsagoPayment(applicationId, authentication.getName());
+            InsurancePolicy policy = insuranceService.processOsagoPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
         } catch (EntityNotFoundException e) {
-            log.error("Error processing OSAGO payment - application not found: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("Error processing OSAGO payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("Unexpected error processing OSAGO payment: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred.");
+            log.error("Error in processOsagoPayment for app {}: {}", applicationId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
     }
 
     @PostMapping("/kasko/{applicationId}/pay")
-    public ResponseEntity<?> processKaskoPayment(@PathVariable Long applicationId, Authentication authentication) {
-        log.info("processKaskoPayment called for application ID: {}, Authentication: {}", applicationId, authentication);
-        if (authentication == null || authentication.getName() == null) {
-            log.error("Authentication is NULL or user is not authenticated in processKaskoPayment");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+    public ResponseEntity<?> processKaskoPayment(
+            @PathVariable Long applicationId, 
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("processKaskoPayment called for application ID: {}. Authenticated user email: {}", applicationId, userEmailForService);
+        
         try {
-            InsurancePolicy policy = insuranceService.processKaskoPayment(applicationId, authentication.getName());
+            InsurancePolicy policy = insuranceService.processKaskoPayment(applicationId, userEmailForService);
             return ResponseEntity.ok(policy);
         } catch (EntityNotFoundException e) {
-            log.error("Error processing Kasko payment - application not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("Error processing Kasko payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            log.error("Error processing Kasko payment - application not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.error("Error processing Kasko payment - bad request: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error processing Kasko payment for application {}: {}", applicationId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "An unexpected error occurred."));
+        }
+    }
+
+    @PostMapping("/travel/{applicationId}/pay")
+    public ResponseEntity<?> processTravelPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("processTravelPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
+        try {
+            InsurancePolicy policy = insuranceService.processTravelPayment(applicationId, userEmailForService);
+            return ResponseEntity.ok(policy);
+        } catch (EntityNotFoundException e) {
+            log.error("Error processing Travel payment - application not found or not owned by user: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.error("Error processing Travel payment - illegal state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error in processTravelPayment for app {}: {}", applicationId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
+        }
+    }
+
+    @PostMapping("/property/{applicationId}/pay")
+    public ResponseEntity<?> processPropertyPayment(@PathVariable Long applicationId, @AuthenticationPrincipal UserDetails userDetails) {
+        String userEmailForService = (userDetails != null) ? userDetails.getUsername() : null;
+        log.info("processPropertyPayment called for app ID: {}. Auth email: {}", applicationId, userEmailForService);
+        try {
+            InsurancePolicy policy = insuranceService.processPropertyPayment(applicationId, userEmailForService);
+            return ResponseEntity.ok(policy);
+        } catch (EntityNotFoundException e) {
+            log.error("Error processing Property payment - application not found or not owned by user: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.error("Error processing Property payment - illegal state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error in processPropertyPayment for app {}: {}", applicationId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unexpected error."));
         }
     }
 
@@ -529,44 +624,6 @@ public class InsuranceController {
         return path.toString();
     }
 
-    @PostMapping("/travel/{applicationId}/pay")
-    public ResponseEntity<?> processTravelPayment(@PathVariable Long applicationId, Authentication authentication) {
-        log.info("processTravelPayment called for application ID: {}, Authentication: {}", applicationId, authentication);
-        if (authentication == null || authentication.getName() == null) {
-            log.error("Authentication is NULL or user is not authenticated in processTravelPayment");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        try {
-            InsurancePolicy policy = insuranceService.processTravelPayment(applicationId, authentication.getName());
-            return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            log.error("Error processing Travel payment - application not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("Error processing Travel payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
-    }
-
-    @PostMapping("/property/{applicationId}/pay")
-    public ResponseEntity<?> processPropertyPayment(@PathVariable Long applicationId, Authentication authentication) {
-        log.info("processPropertyPayment called for application ID: {}, Authentication: {}", applicationId, authentication);
-        if (authentication == null || authentication.getName() == null) {
-            log.error("Authentication is NULL or user is not authenticated in processPropertyPayment");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        try {
-            InsurancePolicy policy = insuranceService.processPropertyPayment(applicationId, authentication.getName());
-            return ResponseEntity.ok(policy);
-        } catch (EntityNotFoundException e) {
-            log.error("Error processing Property payment - application not found or not owned by user: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("Error processing Property payment - illegal state: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
-    }
-
     // Claim Messages endpoints
     @GetMapping("/claims/{claimId}/messages")
     public ResponseEntity<List<Claims.ClaimMessage>> getClaimMessages(@PathVariable Long claimId, Authentication auth) {
@@ -605,286 +662,53 @@ public class InsuranceController {
         return ResponseEntity.ok(insuranceService.cancelClaim(claimId, auth.getName()));
     }
 
-    @PostMapping("/unauthorized/kasko")
-    public ResponseEntity<?> createUnauthorizedKaskoApplication(@RequestBody Map<String, Object> payload) {
-        try {
-            // Extract user information
-            String userEmail = extractEmailFromPayload(payload);
-            String password = (String) payload.get("password");
-            String firstName = (String) payload.get("firstName");
-            String lastName = (String) payload.get("lastName");
-            String phone = (String) payload.get("phone");
-
-            // Create or get user
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseGet(() -> {
-                        User newUser = new User();
-                        newUser.setEmail(userEmail);
-                        newUser.setPassword(passwordEncoder.encode(password));
-                        newUser.setFirstName(firstName);
-                        newUser.setLastName(lastName);
-                        newUser.setPhone(phone);
-                        newUser.setRole(Role.USER);
-                        return userRepository.save(newUser);
-                    });
-
-            // Create KASKO application
-            KaskoApplication application = new KaskoApplication();
-            application.setCarMake((String) payload.get("carMake"));
-            application.setCarModel((String) payload.get("carModel"));
-            application.setCarYear((Integer) payload.get("carYear"));
-            application.setVinNumber((String) payload.get("vinNumber"));
-            application.setLicensePlate((String) payload.get("licensePlate"));
-            application.setCarValue(new BigDecimal(payload.get("carValue").toString()));
-            application.setDriverLicenseNumber((String) payload.get("driverLicenseNumber"));
-            application.setDriverExperienceYears((Integer) payload.get("driverExperienceYears"));
-            application.setHasAntiTheftSystem((Boolean) payload.get("hasAntiTheftSystem"));
-            application.setGarageParking((Boolean) payload.get("garageParking"));
-            application.setPreviousInsuranceNumber((String) payload.get("previousInsuranceNumber"));
-            application.setDuration((Integer) payload.get("duration"));
-
-            KaskoApplication createdApplication = insuranceService.createKaskoApplication(application, userEmail);
-
-            // Generate JWT token
-            String jwtToken = jwtService.generateToken(user.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("application", createdApplication);
-            response.put("token", jwtToken);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error creating unauthorized KASKO application", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to create KASKO application: " + e.getMessage()));
-        }
+    @PostMapping("/kasko/unauthorized")
+    public ResponseEntity<?> createKaskoApplicationUnauthorized(@RequestBody KaskoApplicationRequest request) {
+        LoginResponse loginResponse = authService.registerAndLogin(request.getEmail());
+        KaskoApplication application = insuranceService.createKaskoApplication(request.toKaskoApplication(), request.getEmail());
+        return ResponseEntity.ok(Map.of(
+            "application", application,
+            "auth", loginResponse
+        ));
     }
 
-    @PostMapping("/unauthorized/osago")
-    public ResponseEntity<?> createUnauthorizedOsagoApplication(@RequestBody Map<String, Object> payload) {
-        try {
-            // Extract user information
-            String userEmail = extractEmailFromPayload(payload);
-            String password = (String) payload.get("password");
-            String firstName = (String) payload.get("firstName");
-            String lastName = (String) payload.get("lastName");
-            String phone = (String) payload.get("phone");
-
-            // Create or get user
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseGet(() -> {
-                        User newUser = new User();
-                        newUser.setEmail(userEmail);
-                        newUser.setPassword(passwordEncoder.encode(password));
-                        newUser.setFirstName(firstName);
-                        newUser.setLastName(lastName);
-                        newUser.setPhone(phone);
-                        newUser.setRole(Role.USER);
-                        return userRepository.save(newUser);
-                    });
-
-            // Create OSAGO application
-            OsagoApplication application = new OsagoApplication();
-            application.setCarMake((String) payload.get("carMake"));
-            application.setCarModel((String) payload.get("carModel"));
-            application.setCarYear((Integer) payload.get("carYear"));
-            application.setVinNumber((String) payload.get("vinNumber"));
-            application.setLicensePlate((String) payload.get("licensePlate"));
-            application.setRegistrationCertificate((String) payload.get("registrationCertificate"));
-            application.setDriverLicenseNumber((String) payload.get("driverLicenseNumber"));
-            application.setDriverExperienceYears((Integer) payload.get("driverExperienceYears"));
-            application.setEnginePower((Integer) payload.get("enginePower"));
-            application.setRegionRegistration((String) payload.get("regionRegistration"));
-            application.setHasAccidentsLastYear((Boolean) payload.get("hasAccidentsLastYear"));
-            application.setPreviousPolicyNumber((String) payload.get("previousPolicyNumber"));
-            application.setIsUnlimitedDrivers((Boolean) payload.get("isUnlimitedDrivers"));
-            application.setDuration((Integer) payload.get("duration"));
-
-            OsagoApplication createdApplication = insuranceService.createOsagoApplication(application, userEmail);
-
-            // Generate JWT token
-            String jwtToken = jwtService.generateToken(user.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("application", createdApplication);
-            response.put("token", jwtToken);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error creating unauthorized OSAGO application", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to create OSAGO application: " + e.getMessage()));
-        }
+    @PostMapping("/osago/unauthorized")
+    public ResponseEntity<?> createOsagoApplicationUnauthorized(@RequestBody OsagoApplicationRequest request) {
+        LoginResponse loginResponse = authService.registerAndLogin(request.getEmail());
+        OsagoApplication application = insuranceService.createOsagoApplication(request.toOsagoApplication(), request.getEmail());
+        return ResponseEntity.ok(Map.of(
+            "application", application,
+            "auth", loginResponse
+        ));
     }
 
-    @PostMapping("/unauthorized/property")
-    public ResponseEntity<?> createUnauthorizedPropertyApplication(@RequestBody Map<String, Object> payload) {
-        try {
-            // Extract user information
-            String userEmail = extractEmailFromPayload(payload);
-            String password = (String) payload.get("password");
-            String firstName = (String) payload.get("firstName");
-            String lastName = (String) payload.get("lastName");
-            String phone = (String) payload.get("phone");
-
-            // Create or get user
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseGet(() -> {
-                        User newUser = new User();
-                        newUser.setEmail(userEmail);
-                        newUser.setPassword(passwordEncoder.encode(password));
-                        newUser.setFirstName(firstName);
-                        newUser.setLastName(lastName);
-                        newUser.setPhone(phone);
-                        newUser.setRole(Role.USER);
-                        return userRepository.save(newUser);
-                    });
-
-            // Create Property application
-            PropertyApplication application = new PropertyApplication();
-            application.setPropertyType((String) payload.get("propertyType"));
-            application.setAddress((String) payload.get("propertyAddress"));
-            application.setPropertyArea(new BigDecimal(payload.get("propertyArea").toString()));
-            application.setYearBuilt((Integer) payload.get("yearBuilt"));
-            application.setConstructionType((String) payload.get("constructionType"));
-            application.setPropertyValue(new BigDecimal(payload.get("propertyValue").toString()));
-            application.setHasSecuritySystem((Boolean) payload.get("hasSecuritySystem"));
-            application.setHasFireAlarm((Boolean) payload.get("hasFireAlarm"));
-            application.setCoverNaturalDisasters((Boolean) payload.get("coverNaturalDisasters"));
-            application.setCoverTheft((Boolean) payload.get("coverTheft"));
-            application.setCoverThirdPartyLiability((Boolean) payload.get("coverThirdPartyLiability"));
-            application.setOwnershipDocumentNumber((String) payload.get("ownershipDocumentNumber"));
-            application.setCadastralNumber((String) payload.get("cadastralNumber"));
-            application.setHasMortgage((Boolean) payload.get("hasMortage"));
-            application.setMortgageBank((String) payload.get("mortageBank"));
-
-            PropertyApplication createdApplication = insuranceService.createPropertyApplication(application, userEmail);
-
-            // Generate JWT token
-            String jwtToken = jwtService.generateToken(user.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("application", createdApplication);
-            response.put("token", jwtToken);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error creating unauthorized Property application", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to create Property application: " + e.getMessage()));
-        }
+    @PostMapping("/travel/unauthorized")
+    public ResponseEntity<?> createTravelApplicationUnauthorized(@RequestBody TravelApplication request) {
+        LoginResponse loginResponse = authService.registerAndLogin(request.getEmail());
+        TravelApplication application = insuranceService.createTravelApplication(request, request.getEmail());
+        return ResponseEntity.ok(Map.of(
+            "application", application,
+            "auth", loginResponse
+        ));
     }
 
-    @PostMapping("/unauthorized/health")
-    public ResponseEntity<?> createUnauthorizedHealthApplication(@RequestBody Map<String, Object> payload) {
-        try {
-            // Extract user information
-            String userEmail = extractEmailFromPayload(payload);
-            String password = (String) payload.get("password");
-            String firstName = (String) payload.get("firstName");
-            String lastName = (String) payload.get("lastName");
-            String phone = (String) payload.get("phone");
-
-            // Create or get user
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseGet(() -> {
-                        User newUser = new User();
-                        newUser.setEmail(userEmail);
-                        newUser.setPassword(passwordEncoder.encode(password));
-                        newUser.setFirstName(firstName);
-                        newUser.setLastName(lastName);
-                        newUser.setPhone(phone);
-                        newUser.setRole(Role.USER);
-                        return userRepository.save(newUser);
-                    });
-
-            // Create Health application
-            HealthApplication application = new HealthApplication();
-            application.setBirthDate(LocalDate.parse((String) payload.get("dateOfBirth")));
-            application.setPassportNumber((String) payload.get("passportNumber"));
-            application.setSnils((String) payload.get("snils"));
-            application.setHasChronicDiseases((Boolean) payload.get("hasChronicDiseases"));
-            application.setChronicDiseasesDetails((String) payload.get("chronicDiseases"));
-            application.setHasDisabilities((Boolean) payload.get("hasDangerousHobbies"));
-            application.setDisabilitiesDetails((String) payload.get("dangerousHobbies"));
-            application.setSmokingStatus((Boolean) payload.get("smokingStatus"));
-            application.setCoverDental((Boolean) payload.get("coverDental"));
-            application.setCoverVision((Boolean) payload.get("coverVision"));
-            application.setCoverMaternity((Boolean) payload.get("coverMaternity"));
-            application.setCoverEmergency((Boolean) payload.get("coverEmergency"));
-            application.setPreferredClinic((String) payload.get("preferredClinic"));
-            application.setFamilyDoctorNeeded((Boolean) payload.get("familyDoctorNeeded"));
-
-            HealthApplication createdApplication = insuranceService.createHealthApplication(application, userEmail);
-
-            // Generate JWT token
-            String jwtToken = jwtService.generateToken(user.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("application", createdApplication);
-            response.put("token", jwtToken);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error creating unauthorized Health application", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to create Health application: " + e.getMessage()));
-        }
+    @PostMapping("/health/unauthorized")
+    public ResponseEntity<?> createHealthApplicationUnauthorized(@RequestBody HealthApplication request) {
+        LoginResponse loginResponse = authService.registerAndLogin(request.getEmail());
+        HealthApplication application = insuranceService.createHealthApplication(request, request.getEmail());
+        return ResponseEntity.ok(Map.of(
+            "application", application,
+            "auth", loginResponse
+        ));
     }
 
-    @PostMapping("/unauthorized/travel")
-    public ResponseEntity<?> createUnauthorizedTravelApplication(@RequestBody Map<String, Object> payload) {
-        try {
-            // Extract user information
-            String userEmail = extractEmailFromPayload(payload);
-            String password = (String) payload.get("password");
-            String firstName = (String) payload.get("firstName");
-            String lastName = (String) payload.get("lastName");
-            String phone = (String) payload.get("phone");
-
-            // Create or get user
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseGet(() -> {
-                        User newUser = new User();
-                        newUser.setEmail(userEmail);
-                        newUser.setPassword(passwordEncoder.encode(password));
-                        newUser.setFirstName(firstName);
-                        newUser.setLastName(lastName);
-                        newUser.setPhone(phone);
-                        newUser.setRole(Role.USER);
-                        return userRepository.save(newUser);
-                    });
-
-            // Create Travel application
-            TravelApplication application = new TravelApplication();
-            application.setPassportNumber((String) payload.get("passportNumber"));
-            application.setPassportExpiry(LocalDate.parse((String) payload.get("passportExpiry")));
-            application.setDestinationCountry((String) payload.get("destinationCountry"));
-            application.setTravelStartDate(LocalDate.parse((String) payload.get("travelStartDate")));
-            application.setTravelEndDate(LocalDate.parse((String) payload.get("travelEndDate")));
-            application.setPurposeOfTrip((String) payload.get("purposeOfTrip"));
-            application.setHasChronicDiseases((Boolean) payload.get("hasChronicDiseases"));
-            application.setCoverMedicalExpenses((Boolean) payload.get("coverMedicalExpenses"));
-            application.setCoverAccidents((Boolean) payload.get("coverAccidents"));
-            application.setCoverLuggage((Boolean) payload.get("coverLuggage"));
-            application.setCoverTripCancellation((Boolean) payload.get("coverTripCancellation"));
-            application.setCoverSportsActivities((Boolean) payload.get("coverSportsActivities"));
-            application.setPlannedSportsActivities((String) payload.get("plannedSportsActivities"));
-
-            TravelApplication createdApplication = insuranceService.createTravelApplication(application, userEmail);
-
-            // Generate JWT token
-            String jwtToken = jwtService.generateToken(user.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("application", createdApplication);
-            response.put("token", jwtToken);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error creating unauthorized Travel application", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to create Travel application: " + e.getMessage()));
-        }
+    @PostMapping("/property/unauthorized")
+    public ResponseEntity<?> createPropertyApplicationUnauthorized(@RequestBody PropertyApplication request) {
+        LoginResponse loginResponse = authService.registerAndLogin(request.getEmail());
+        PropertyApplication application = insuranceService.createPropertyApplication(request, request.getEmail());
+        return ResponseEntity.ok(Map.of(
+            "application", application,
+            "auth", loginResponse
+        ));
     }
 } 

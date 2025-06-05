@@ -1,12 +1,15 @@
 package com.strahovka.dto;
 
-import lombok.Data;
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import com.strahovka.delivery.Insurance.OsagoApplication;
 import jakarta.validation.constraints.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.time.LocalDate;
 
 @Data
-public class OsagoApplicationRequest {
+@EqualsAndHashCode(callSuper = true)
+public class OsagoApplicationRequest extends BaseApplicationRequest {
     // User fields (from form data)
     private String email;
     private String password; // Optional, can be derived by service
@@ -23,7 +26,8 @@ public class OsagoApplicationRequest {
     private String carModel;
 
     @NotNull(message = "Car year is required")
-    @Min(value = 1900)
+    @Min(value = 1900, message = "Car year must be 1900 or later")
+    @Max(value = 2025, message = "Car year cannot be in the future")
     private Integer carYear;
 
     @NotBlank(message = "VIN number is required")
@@ -56,4 +60,25 @@ public class OsagoApplicationRequest {
     private Integer duration; // Renamed from durationMonths for consistency
     
     private LocalDate startDate;
+
+    public OsagoApplication toOsagoApplication() {
+        OsagoApplication application = new OsagoApplication();
+        application.setEmail(getEmail());
+        application.setStartDate(getStartDate());
+        application.setCarMake(carMake);
+        application.setCarModel(carModel);
+        application.setCarYear(carYear);
+        application.setVinNumber(vinNumber);
+        application.setLicensePlate(licensePlate);
+        application.setRegistrationCertificate(registrationCertificate);
+        application.setDriverLicenseNumber(driverLicenseNumber);
+        application.setDriverExperienceYears(driverExperienceYears);
+        application.setEnginePower(enginePower);
+        application.setRegionRegistration(regionRegistration);
+        application.setHasAccidentsLastYear(hasAccidentsLastYear);
+        application.setPreviousPolicyNumber(previousPolicyNumber);
+        application.setIsUnlimitedDrivers(isUnlimitedDrivers);
+        application.setDuration(getDuration());
+        return application;
+    }
 } 

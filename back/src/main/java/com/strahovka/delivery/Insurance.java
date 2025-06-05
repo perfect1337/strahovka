@@ -128,6 +128,7 @@ public class Insurance {
     }
 
     @Data
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     @Entity
@@ -194,48 +195,19 @@ public class Insurance {
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         private Long id;
 
-        @ManyToOne
+        @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "user_id")
         private User user;
 
-        @Column(name = "application_date")
+        private String email;
+        private String status;
         private LocalDateTime applicationDate;
-
-        @Column(name = "status", nullable = false)
-        private String status = "PENDING";
-
-        @Column(name = "calculated_amount")
         private BigDecimal calculatedAmount;
-
-        @Column(name = "processed_at")
-        private LocalDateTime processedAt;
-
-        @Column(name = "processed_by")
-        private String processedBy;
-
-        @Column(name = "notes")
-        private String notes;
-
-        @ManyToOne
-        @JoinColumn(name = "policy_id")
-        private InsurancePolicy policy;
-
-        @Column(name = "start_date")
         private LocalDate startDate;
-
-        @Column(name = "end_date")
         private LocalDate endDate;
 
-        @Transient
-        private String applicationType;
-
-        public void setApplicationType(String applicationType) {
-            this.applicationType = applicationType;
-        }
-
-        public String getApplicationType() {
-            return this.applicationType;
-        }
+        @Column(name = "policyId")
+        private Long policyId;
     }
 
     @Entity

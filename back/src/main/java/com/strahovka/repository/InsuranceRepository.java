@@ -17,8 +17,11 @@ import java.util.Optional;
 @Repository
 public interface InsuranceRepository extends JpaRepository<InsurancePolicy, Long> {
     // Policy operations
-    @Query("SELECT p FROM InsurancePolicy p WHERE p.user.email = :email")
-    List<InsurancePolicy> findPoliciesByUsername(@Param("email") String email);
+    @Query("SELECT p FROM InsurancePolicy p WHERE p.user.email = :username")
+    List<InsurancePolicy> findPoliciesByUsername(@Param("username") String username);
+
+    @Query("SELECT COUNT(p) FROM InsurancePolicy p WHERE p.user = :user AND p.status = :status AND p.active = :active")
+    long countByUserAndStatusAndActive(@Param("user") User user, @Param("status") PolicyStatus status, @Param("active") boolean active);
 
     @Query("SELECT p FROM InsurancePolicy p WHERE p.status = :status")
     List<InsurancePolicy> findPoliciesByStatus(@Param("status") PolicyStatus status);
