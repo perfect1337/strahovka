@@ -7,7 +7,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.strahovka")
-@EntityScan("com.strahovka.delivery")
+@EntityScan("com.strahovka.entity")
 public class StrahovkaApplication {
     public static void main(String[] args) {
         SpringApplication.run(StrahovkaApplication.class, args);
