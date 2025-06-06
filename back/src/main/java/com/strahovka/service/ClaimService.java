@@ -60,7 +60,6 @@ public class ClaimService {
         claimsRepository.deleteAttachment(id);
     }
 
-    // Claim messages
     @Transactional(readOnly = true)
     public List<ClaimMessage> getMessagesByClaim(Long claimId) {
         return claimsRepository.findMessagesByClaim(claimId);

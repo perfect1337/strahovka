@@ -1,0 +1,1 @@
+ALTER TABLE insurance_policies ADD COLUMN user_policy_number BIGINT; 
